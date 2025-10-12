@@ -1,0 +1,4 @@
+y1 = y1 ?: 0;
+alpha = 0.947;
+out0 = alpha * y1 + (1.0 - alpha) * in0;
+y1 = out;

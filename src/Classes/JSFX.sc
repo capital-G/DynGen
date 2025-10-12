@@ -1,5 +1,6 @@
 JSFX : UGen {
-	*ar {|in|
-		^this.multiNew('audio', in);
+	*ar {|numOutputs, inputs, script|
+	    // @todo add script
+		^this.multiNew('audio', numOutputs, inputs.asArray.size, inputs);
 	}
 }
