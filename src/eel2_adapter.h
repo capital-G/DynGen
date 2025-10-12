@@ -20,15 +20,8 @@ public:
 
         eel_state_ = NSEEL_VM_alloc();
 
-        // prepends in0, in1, ... and out0, out1 to the JSFX script
-        // such that those variables become available to the user
+        // should we init all the variables such as in0, in1, ...?
         std::string header;
-        // for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
-        //     header += "in" + std::to_string(inChannel) + " = in" + std::to_string(inChannel) + " ?: 0;\n";
-        // }
-        // for (int outChannel = 0; outChannel < mNumInputChannels; outChannel++) {
-        //     header += "out" + std::to_string(outChannel) + " = out" + std::to_string(outChannel) + " ?: 0;\n";
-        // }
         header += "srate = "+std::to_string(mSampleRate) + ";\n";
 
         mScript = header + script;
