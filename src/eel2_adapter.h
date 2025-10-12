@@ -29,9 +29,9 @@ public:
         code_ = NSEEL_code_compile(eel_state_, mScript.c_str(), 0);
         if (!code_) {
             std::cout << "NSEEL_code_compile failed" << std::endl;
-            // @todo fail properly?
             return;
         }
+        mCompiledSuccesfully = true;
 
         // obtain handles to input and output pointers
         for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
@@ -66,6 +66,8 @@ public:
             }
         }
     }
+
+    bool mCompiledSuccesfully = false;
 
 private:
     NSEEL_VMCTX eel_state_ = nullptr;

@@ -33,8 +33,14 @@ private:
     SndBuf* mScriptBuffer;
 
     void next(int numSamples) {
-        // skip first 3 channels since those are not signals
-        vm->process(mInBuf + 3, mOutBuf, numSamples);
+        if (!vm || !vm->mCompiledSuccesfully) {
+            for (int i=0; i<mNumOutputs; i++) {
+                Clear(numSamples, mOutBuf[i]);
+            }
+        } else {
+            // skip first 3 channels since those are not signals
+            vm->process(mInBuf + 3, mOutBuf, numSamples);
+        }
     }
 };
 
