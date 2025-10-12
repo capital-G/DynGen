@@ -1,6 +1,6 @@
 JSFX : MultiOutUGen {
-	*ar {|numOutputs, scriptBuffer, inputs|
-		^this.new1('audio', numOutputs, scriptBuffer, inputs.asArray.size, *inputs.asArray.postln);
+	*ar {|numOutputs, scriptBuffer ...inputs|
+		^this.new1('audio', numOutputs, scriptBuffer, inputs.size, *inputs);
 	}
 
 	init { |... theInputs|

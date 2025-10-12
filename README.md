@@ -1,7 +1,102 @@
 # SC_JSFX
 
-Evaluates JSFX within SuperCollider as a UGen.
+Evaluates [JSFX](https://www.reaper.fm/sdk/js/js.php) code within SuperCollider by exposing a scriptable [EEL2 VM](https://www.cockos.com/EEL2/) within a UGen.
+This is still a WIP.
+
+## Build
+
+Currently only tested for macOS.
+Should work for Linux, but probably not for Windows right now.
+
+```shell
+git clone https://github.com/capital-G/SC_JSFX.git
+
+# replace DSC_SRC_PATH w/ your local source code copy of SuperCollider
+# and adjust the CMAKE_INSTALL_PREFIX if necessary
+cmake \
+    -S . \
+    -B build \
+    -DSC_SRC_PATH=/Users/scheiba/github/supercollider \
+    -DCMAKE_INSTALL_PREFIX=./install
+cmake --build build --config Release
+cmake --install build --config Release
+```
+
+Afterwards symlink or copy the content of the `install` folder to `Platform.userExtensionDir`.
+
+## Demo
+
+Scripts are transferred to the server via Buffers - so all source code will be translated to its ascii representation.
+
+All inputs are available via the variables `in0`, `in1`, ... and the outputs need to be written to `out0`, `out1`, ...
+
+### In = Output * 0.5
+
+```supercollider
+// start the server
+s.boot;
+
+// create a buffer which stores the code
+~code = JSFX.codeBuffer("out0 = in0 * 0.5;");
+
+// spawn a synth which evaluates our script
+Ndef(\x, {JSFX.ar(numOutputs: 1, scriptBuffer: ~code.bufnum, inputs: SinOsc.ar(200.0))}).scope;
+```
+
+### One-pole filter
+
+Uses single sample feedback!
+
+```supercollider
+(
+~code = JSFX.codeBuffer("
+y1 = y1 ?: 0; // we are responsible to setup the t-1 value
+alpha = 0.95;
+out0 = alpha * y1 + (1.0 - alpha) * in0;
+y1 = out; // write the output to y1
+");
+)
+
+Ndef(\x, {JSFX.ar(1, ~code.bufnum, WhiteNoise.ar * 0.2)}).play;
+```
+
+### Modulate parameters
+
+```supercollider
+~code = JSFX.codeBuffer("out0 = in0 * in1;");
+
+Ndef(\x, {JSFX.ar(1, ~code.bufnum, SinOscFB.ar(200.0, 1.3), LFPulse.ar(5.2, width: 0.2)) * 0.2}).play;
+```
+
+### Multi-channel
+
+```supercollider
+~code = JSFX.codeBuffer("out0 = in0 * in1; out1 = in0 * in2");
+
+(
+Ndef(\y, {JSFX.ar(2, ~code.bufnum, 
+	SinOscFB.ar(200.0, 1.3), // in0
+	LFPulse.ar(5.2, width: 0.2), // in1
+	LFPulse.ar(3.2, width: 0.3) // in2
+) * 0.2}).play;
+)
+```
+
+
+## ToDo
+
+Currently not all features of JSFX are available as currently only the EEL2 VM is exposed and can be scripted.
+
+* [ ] Write Help file
+* [ ] Handle multi-channel expansion?
+* [ ] kr version?
+* [ ] Turn on compiler optimization for platforms
+* [ ] Expose sliders?
+* [ ] Use WDL GUI?
+* [ ] Have support with existing JSFX plugins?
 
 ## License
 
-GPL-3.0
+EEL2 and WDL by *Cockos* are BSD licensed.
+
+This project is GPL-3.0 licensed.
