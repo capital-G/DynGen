@@ -18,7 +18,12 @@ public:
         // @todo is this right?
         eel_state_ = NSEEL_VM_alloc();
 
-        const char* script = "out = in * 0.1;";
+        const char* script = R"(
+            y1 = y1 ?: 0;
+            alpha = 0.947;
+            out = alpha * y1 + (1.0 - alpha) * in;
+            y1 = out;
+        )";
 
         code_ = NSEEL_code_compile(eel_state_, script, 0);
         if (!code_) {
@@ -53,23 +58,3 @@ private:
     double* inVar_ = nullptr;
     double* outVar_ = nullptr;
 };
-
-
-// extern "C" {
-// typedef struct EEL2_VM EEL2_VM;
-//
-// EEL2_VM* eel2_create_vm(int sample_rate, int max_block_size);
-// void eel2_destroy_vm(EEL2_VM* vm);
-//
-// int eel2_compile_jsfx(EEL2_VM* vm, const char* source);
-// const char* eel2_get_last_error(EEL2_VM* vm);
-//
-// void eel2_process_block(
-//     EEL2_VM* vm,
-//     const float** in_buffers,
-//     float** out_buffers,
-//     int num_channels,
-//     int num_samples
-// );
-//
-// }
