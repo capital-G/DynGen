@@ -7,10 +7,10 @@
 
 class EEL2Adapter {
 public:
-  EEL2Adapter(const std::string &script, int numInputChannels,
-              int numOutputChannels, double sampleRate);
-
+  EEL2Adapter(int numInputChannels, int numOutputChannels, int sampleRate) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mSampleRate(sampleRate) {};
   ~EEL2Adapter();
+
+  void init(const std::string &script);
 
   void process(float **inBuf, float **outBuf, int numSamples) {
     for (int i = 0; i < numSamples; i++) {
@@ -28,18 +28,19 @@ public:
     }
   }
 
-  bool mCompiledSuccessfully = false;
+  std::atomic<bool> mReady{false};
 
 private:
   NSEEL_VMCTX eel_state_ = nullptr;
   NSEEL_CODEHANDLE code_ = nullptr;
 
+
   int mNumInputChannels = 0;
   int mNumOutputChannels = 0;
   double mSampleRate = 0;
 
-  double **mInputs;
-  double **mOutputs;
+  double **mInputs = nullptr;
+  double **mOutputs = nullptr;
 
   std::string mScript;
 };

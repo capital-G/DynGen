@@ -4,10 +4,7 @@
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
-EEL2Adapter::EEL2Adapter(const std::string &script, int numInputChannels,
-                         int numOutputChannels, double sampleRate)
-    : mNumInputChannels(numInputChannels),
-      mNumOutputChannels(numOutputChannels), mSampleRate(sampleRate) {
+void EEL2Adapter::init(const std::string &script) {
   static bool eel_inited = false;
   if (!eel_inited) {
     NSEEL_init();
@@ -40,7 +37,7 @@ EEL2Adapter::EEL2Adapter(const std::string &script, int numInputChannels,
     std::cout << "NSEEL_code_compile failed" << std::endl;
     return;
   }
-  mCompiledSuccessfully = true;
+  mReady.store(true);
 }
 
 EEL2Adapter::~EEL2Adapter() {
@@ -48,8 +45,6 @@ EEL2Adapter::~EEL2Adapter() {
     NSEEL_code_free(code_);
   if (eel_state_)
     NSEEL_VM_free(eel_state_);
-  if (mInputs)
-    delete[] mInputs;
-  if (mOutputs)
-    delete[] mOutputs;
+  delete[] mInputs;
+  delete[] mOutputs;
 }
