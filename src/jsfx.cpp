@@ -9,6 +9,17 @@ struct SC_JSFX_Callback {
   EEL2Adapter *adapter;
 };
 
+std::string extractScriptFromBuffer(SndBuf* scriptBuffer) {
+  std::string script;
+  script.reserve(scriptBuffer->samples);
+  for (int i = 0; i < scriptBuffer->samples; i++) {
+    char c = static_cast<char>(
+        static_cast<int>(scriptBuffer->data[i]));
+    script.push_back(c);
+  }
+  return script;
+}
+
 // this gets called deferred from the UGen init in a
 // stage2 thread which is NRT - so it is safe to allocate
 // memory and also spawn a thread to which we offload
@@ -17,15 +28,7 @@ void jsfxCallback(World *world, void *rawCallbackData) {
   auto callbackData = (SC_JSFX_Callback *)rawCallbackData;
 
   std::thread([callbackData]() {
-    // load script from buffer
-    std::string script;
-    script.reserve(callbackData->scriptBuffer->samples);
-    for (int i = 0; i < callbackData->scriptBuffer->samples; i++) {
-      char c = static_cast<char>(
-          static_cast<int>(callbackData->scriptBuffer->data[i]));
-      script.push_back(c);
-    }
-
+    auto script = extractScriptFromBuffer(callbackData->scriptBuffer);
     callbackData->adapter->init(script);
   }).detach();
 }
@@ -34,18 +37,24 @@ SC_JSFX::SC_JSFX() {
   mNumOutputs = static_cast<int>(in0(0));
   mScriptBuffer = mWorld->mSndBufs + static_cast<int>(in0(1));
   mNumInputs = static_cast<int>(in0(2));
+  bool useAudioThread = in0(3) > 0.5;
 
   vm = new EEL2Adapter(mNumInputs, mNumOutputs, static_cast<int>(sampleRate()));
 
-  auto callbackData = new SC_JSFX_Callback();
-  callbackData->scriptBuffer = mScriptBuffer;
-  callbackData->adapter = vm;
+  if (useAudioThread) {
+    auto string = extractScriptFromBuffer(mScriptBuffer);
+    vm->init(string);
+  } else {
+    auto callbackData = new SC_JSFX_Callback();
+    callbackData->scriptBuffer = mScriptBuffer;
+    callbackData->adapter = vm;
 
-  auto fakeReplyAddr = "foo\0";
-  ft->fDoAsynchronousCommand(
-      mWorld, (void *)fakeReplyAddr, "someFakeCmdName", (void *)callbackData,
-      (AsyncStageFn)jsfxCallback, (AsyncStageFn)jsfxCallback,
-      (AsyncStageFn)jsfxCallback, noOpCleanup, 0, nullptr);
+    auto fakeReplyAddr = "foo\0";
+    ft->fDoAsynchronousCommand(
+        mWorld, (void *)fakeReplyAddr, "someFakeCmdName", (void *)callbackData,
+        (AsyncStageFn)jsfxCallback, (AsyncStageFn)jsfxCallback,
+        (AsyncStageFn)jsfxCallback, noOpCleanup, 0, nullptr);
+  }
 
   set_calc_function<SC_JSFX, &SC_JSFX::next>();
   next(1);
@@ -60,7 +69,7 @@ void SC_JSFX::next(int numSamples) {
     }
   } else {
     // skip first 3 channels since those are not signals
-    vm->process(mInBuf + 3, mOutBuf, numSamples);
+    vm->process(mInBuf + 4, mOutBuf, numSamples);
   }
 }
 
@@ -68,4 +77,5 @@ PluginLoad("SC_JSFX") {
   ft = inTable;
 
   registerUnit<SC_JSFX>(inTable, "JSFX", false);
+  registerUnit<SC_JSFX>(inTable, "JSFXRT", false);
 }
