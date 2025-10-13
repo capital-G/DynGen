@@ -49,9 +49,9 @@ Ndef(\x, {JSFX.ar(
 )
 ```
 
-### One-pole filter
+### Single sample feedback
 
-Uses single sample feedback!
+#### One pole filter
 
 ```supercollider
 (
@@ -65,6 +65,44 @@ y1 = out0; // write value to history
 )
 
 Ndef(\x, {JSFX.ar(1, ~code, Saw.ar(400.0)) * 0.2}).play;
+```
+
+### Feedback SinOsc
+
+A phase modulatable `SinOscFB`
+
+```supercollider
+(
+~code = JSFX.codeBuffer("
+phase += 0;
+y1 += 0;
+twoPi = 2*$pi;
+inc += 0;
+
+inc = twoPi * in0 / srate;
+
+x = phase + (in1 * y1) + in2;
+
+phase += inc;
+// wrap phase
+phase -= (phase >= twoPi) * twoPi;
+
+out0 = sin(x);
+
+y1 = out0;
+");
+)
+
+(
+Ndef(\x, {
+	var sig = JSFX.ar(1, ~code,
+		\freq.ar(100.0), // in0 = freq
+		\fb.ar(0.6, spec: [0.0, pi]), // in1 = fb
+		SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),  // in2 = phaseMod
+	);
+	sig * 0.1;
+}).play.gui;
+)
 ```
 
 ### Modulate parameters
