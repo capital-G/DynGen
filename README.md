@@ -40,7 +40,13 @@ s.boot;
 ~code = JSFX.codeBuffer("out0 = in0 * 0.5;");
 
 // spawn a synth which evaluates our script
-Ndef(\x, {JSFX.ar(numOutputs: 1, scriptBuffer: ~code.bufnum, inputs: SinOsc.ar(200.0))}).scope;
+(
+Ndef(\x, {JSFX.ar(
+	1, // numOutputs
+	~code, // script to use
+	SinOsc.ar(200.0)), // ... the inputs to the script
+}).scope;
+)
 ```
 
 ### One-pole filter
@@ -50,14 +56,15 @@ Uses single sample feedback!
 ```supercollider
 (
 ~code = JSFX.codeBuffer("
-y1 = y1 ?: 0; // we are responsible to setup the t-1 value
+y1 += 0; // make the variable persistent across runs
 alpha = 0.95;
+// the one pole filter formula
 out0 = alpha * y1 + (1.0 - alpha) * in0;
-y1 = out; // write the output to y1
+y1 = out0; // write value to history
 ");
 )
 
-Ndef(\x, {JSFX.ar(1, ~code.bufnum, WhiteNoise.ar * 0.2)}).play;
+Ndef(\x, {JSFX.ar(1, ~code, Saw.ar(400.0)) * 0.2}).play;
 ```
 
 ### Modulate parameters
@@ -88,6 +95,7 @@ Ndef(\y, {JSFX.ar(2, ~code.bufnum,
 Currently not all features of JSFX are available as currently only the EEL2 VM is exposed and can be scripted.
 
 * [ ] Write Help file
+* [ ] Allow for live-coding of JSFX scripts
 * [ ] Handle multi-channel expansion?
 * [ ] kr version?
 * [ ] Turn on compiler optimization for platforms
