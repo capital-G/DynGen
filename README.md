@@ -140,6 +140,68 @@ Ndef(\x, {
 )
 ```
 
+#### Complex oscillator
+
+Two cross phase-modulated sine oscillators, 64 times oversampled.
+
+```supercollider
+(
+~code = JSFX.codeBuffer("
+twopi = 2*$pi;
+
+phaseA += 0;
+phaseB += 0;
+
+freqA = in0;
+freqB = in1;
+modIndexA = in2;
+modIndexB = in3;
+
+oversample = 64;
+
+osSrate = srate * oversample;
+incA = freqA / osSrate;
+incB = freqB / osSrate;
+
+sumA = 0;
+sumB = 0;
+
+// calculate subsaples
+loop(oversample,
+    phaseA += incA;
+    phaseB += incB;
+    // wrap phases between [0, 1)
+    phaseA -= floor(phaseA);
+    phaseB -= floor(phaseB);
+
+    // apply cross-phase modulation
+    phaseA = phaseA + modIndexA * sin(twopi * phaseB);
+    phaseB = phaseB + modIndexB * sin(twopi * phaseA);
+
+    // accumulate (for downsampling)
+    sumA += sin(twopi * phaseA);
+    sumB += sin(twopi * phaseB);
+);
+
+// scale down b/c of os
+out0 = sumA / oversample;
+out1 = sumB / oversample;
+");
+)
+
+(
+Ndef(\y, {
+	var sig = JSFX.ar(2, ~code, 
+		\freqA.ar(200.0),
+		\freqB.ar(pi*100),
+		\modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
+		\modB.ar(0.0, spec: [-0.1, 0.1]) * 0.05,
+	);
+	sig * 0.1;
+}).play.gui;
+)
+```
+
 ### Multi-channel
 
 ```supercollider
