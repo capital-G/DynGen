@@ -1,7 +1,7 @@
 JSFX : MultiOutUGen {
 	*ar {|numOutputs, scriptBuffer ...inputs|
 	    scriptBuffer = if(scriptBuffer.class == Buffer, {scriptBuffer.bufnum}, {scriptBuffer});
-		^this.new1('audio', numOutputs, scriptBuffer, inputs.size, *inputs);
+		^this.multiNew('audio', numOutputs, scriptBuffer, inputs.size, *inputs);
 	}
 
 	init { |... theInputs|
