@@ -9,6 +9,7 @@ static InterfaceTable *ft;
 class SC_JSFX : public SCUnit {
 public:
   SC_JSFX();
+  ~SC_JSFX();
 
 private:
   EEL2Adapter *vm;

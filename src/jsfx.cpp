@@ -18,6 +18,10 @@ SC_JSFX::SC_JSFX() {
   next(1);
 }
 
+SC_JSFX::~SC_JSFX() {
+  delete vm;
+}
+
 void SC_JSFX::next(int numSamples) {
   if (!vm || !vm->mCompiledSuccessfully) {
     for (int i = 0; i < mNumOutputs; i++) {
@@ -29,4 +33,6 @@ void SC_JSFX::next(int numSamples) {
   }
 }
 
-PluginLoad("SC_JSFX") { registerUnit<SC_JSFX>(inTable, "JSFX", false); }
+PluginLoad("SC_JSFX") {
+  registerUnit<SC_JSFX>(inTable, "JSFX", false);
+}
