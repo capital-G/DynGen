@@ -15,12 +15,22 @@ public:
             eel_inited = true;
         }
 
-        mInputs = new double*[mNumInputChannels];
-        mOutputs = new double*[mNumOutputChannels];
+        mInputs = new double*[mNumInputChannels]();
+        mOutputs = new double*[mNumOutputChannels]();
 
         eel_state_ = NSEEL_VM_alloc();
 
-        // should we init all the variables such as in0, in1, ...?
+        // obtain handles to input and output variables
+        for (int i = 0; i < mNumInputChannels; i++) {
+            std::string name = "in" + std::to_string(i);
+            mInputs[i] = NSEEL_VM_regvar(eel_state_, name.c_str());
+        }
+        for (int i = 0; i < mNumOutputChannels; i++) {
+            std::string name = "out" + std::to_string(i);
+            mOutputs[i] = NSEEL_VM_regvar(eel_state_, name.c_str());
+        }
+
+        // define variables for the script context
         std::string header;
         header += "srate = "+std::to_string(mSampleRate) + ";\n";
 
@@ -32,16 +42,6 @@ public:
             return;
         }
         mCompiledSuccesfully = true;
-
-        // obtain handles to input and output pointers
-        for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
-            std::string name = "in" + std::to_string(inChannel);
-            mInputs[inChannel] = NSEEL_VM_getvar(eel_state_, name.c_str());
-        }
-        for (int outChannel = 0; outChannel < mNumInputChannels; outChannel++) {
-            std::string name = "out" + std::to_string(outChannel);
-            mOutputs[outChannel] = NSEEL_VM_getvar(eel_state_, name.c_str());
-        }
     }
 
     ~EEL2Adapter() {
@@ -53,14 +53,14 @@ public:
 
     inline void process(float** inBuf, float** outBuf, int numSamples) {
         for (int i=0; i<numSamples; i++) {
-            // copy samples to vm
+            // copy input buffer to vm - cast to double!
             for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
                 *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][i]);
             }
 
             NSEEL_code_execute(code_);
 
-            // read output from vm
+            // read output buffer from vm
             for (int outChannel = 0; outChannel < mNumOutputChannels; outChannel++) {
                 outBuf[outChannel][i] = static_cast<float>(*mOutputs[outChannel]);
             }
