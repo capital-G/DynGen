@@ -22,7 +22,7 @@ cmake --build build --config Release
 cmake --install build --config Release
 ```
 
-Afterwards symlink or copy the content of the `install` folder to `Platform.userExtensionDir`.
+Symlink or copy the content of the `install` folder to `Platform.userExtensionDir`.
 
 ## Demo
 
@@ -49,6 +49,14 @@ Ndef(\x, {JSFX.ar(
 )
 ```
 
+### Modulate parameters
+
+```supercollider
+~code = JSFX.codeBuffer("out0 = in0 * in1;");
+
+Ndef(\x, {JSFX.ar(1, ~code.bufnum, SinOscFB.ar(200.0, 1.3), LFPulse.ar(5.2, width: 0.2)) * 0.2}).play;
+```
+
 ### Single sample feedback
 
 #### One pole filter
@@ -67,7 +75,7 @@ y1 = out0; // write value to history
 Ndef(\x, {JSFX.ar(1, ~code, Saw.ar(400.0)) * 0.2}).play;
 ```
 
-### Feedback SinOsc
+#### Feedback SinOsc
 
 A phase modulatable `SinOscFB`
 
@@ -105,12 +113,31 @@ Ndef(\x, {
 )
 ```
 
-### Modulate parameters
+#### Delay line
+
+Write sample accurate into a modulatable delay line.
 
 ```supercollider
-~code = JSFX.codeBuffer("out0 = in0 * in1;");
+(
+~code = JSFX.codeBuffer("
+buf[in1] = in0;
+out0 = buf[in2];
+");
+)
 
-Ndef(\x, {JSFX.ar(1, ~code.bufnum, SinOscFB.ar(200.0, 1.3), LFPulse.ar(5.2, width: 0.2)) * 0.2}).play;
+(
+Ndef(\x, {
+	var bufSize = SinOsc.ar(4.2).range(1000, 2000);
+	var writePos = LFSaw.ar(2.0, 0.02).range(1, bufSize);
+	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
+	var sig = JSFX.ar(1, ~code,
+		SinOsc.ar(100.0),
+		writePos.floor,
+		readPos.floor,
+	);
+	sig.dup * 0.1;
+}).play;
+)
 ```
 
 ### Multi-channel
