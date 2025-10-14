@@ -76,6 +76,8 @@ void SC_JSFX::next(int numSamples) {
 PluginLoad("SC_JSFX") {
   ft = inTable;
 
+  NSEEL_init();
+
   registerUnit<SC_JSFX>(inTable, "JSFX", false);
   registerUnit<SC_JSFX>(inTable, "JSFXRT", false);
 }

@@ -4,13 +4,8 @@
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
+// this is not RT safe
 void EEL2Adapter::init(const std::string &script) {
-  static bool eel_inited = false;
-  if (!eel_inited) {
-    NSEEL_init();
-    eel_inited = true;
-  }
-
   mInputs = new double *[mNumInputChannels]();
   mOutputs = new double *[mNumOutputChannels]();
 
