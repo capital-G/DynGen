@@ -9,7 +9,7 @@ Currently only tested for macOS.
 Should work for Linux, but probably not for Windows right now.
 
 ```shell
-git clone https://github.com/capital-G/SC_JSFX.git
+git clone --recursive https://github.com/capital-G/SC_JSFX.git
 
 # replace DSC_SRC_PATH w/ your local source code copy of SuperCollider
 # and adjust the CMAKE_INSTALL_PREFIX if necessary
