@@ -1,26 +1,23 @@
 #include "jsfx.h"
 #include <thread>
+#include <map>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+
+// @todo make this thread safe
+// @todo create something like a tokio::channel to communicate changes/updates
+typedef std::map<int, std::string> JSFXLibrary;
+JSFXLibrary gLibrary{};
 
 struct SC_JSFX_Callback {
-  SndBuf *scriptBuffer;
+  int scriptHash;
   EEL2Adapter *adapter;
 };
 
 void callbackCleanup(World *world, void *raw_callback) {
   auto callback = static_cast<SC_JSFX_Callback *>(raw_callback);
   RTFree(world, callback);
-}
-
-std::string extractScriptFromBuffer(const SndBuf* scriptBuffer) {
-  // maybe make this a cstr which we could also safely allocate in a RT context
-  std::string script;
-  script.reserve(scriptBuffer->samples);
-  for (int i = 0; i < scriptBuffer->samples; i++) {
-    char c = static_cast<char>(
-        static_cast<int>(scriptBuffer->data[i]));
-    script.push_back(c);
-  }
-  return script;
 }
 
 // this gets called deferred from the UGen init in a
@@ -31,8 +28,13 @@ bool jsfxCallback(World *world, void *rawCallbackData) {
   auto callbackData = static_cast<SC_JSFX_Callback*>(rawCallbackData);
 
   std::thread([callbackData]() {
-    auto script = extractScriptFromBuffer(callbackData->scriptBuffer);
-    callbackData->adapter->init(script);
+    if (auto libraryEntry = gLibrary.find(callbackData->scriptHash); libraryEntry != gLibrary.end()) {
+      auto code = libraryEntry->second;
+      callbackData->adapter->init(code);
+    } else {
+      Print("Could not find script with hash %i\n", callbackData->scriptHash);
+      // @todo clear unit/outputs
+    }
   }).detach();
 
   // do not continue to stage 3
@@ -40,21 +42,24 @@ bool jsfxCallback(World *world, void *rawCallbackData) {
 }
 
 SC_JSFX::SC_JSFX() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), static_cast<int>(sampleRate())) {
-  mScriptBuffer = mWorld->mSndBufs + static_cast<int>(in0(1));
+  int scriptHash = static_cast<int>(in0(1));
   bool useAudioThread = in0(3) > 0.5;
 
-  // vm = new EEL2Adapter(mNumInputs, mNumOutputs, static_cast<int>(sampleRate()));
-
   if (useAudioThread) {
-    auto string = extractScriptFromBuffer(mScriptBuffer);
-    vm.init(string);
+    if (auto libraryEntry = gLibrary.find(scriptHash); libraryEntry != gLibrary.end()) {
+      auto code = libraryEntry->second;
+      vm.init(code);
+    } else {
+      Print("Could not find script with hash %i\n", scriptHash);
+      // @todo clear unit/outputs
+    }
   } else {
     auto payload = static_cast<SC_JSFX_Callback*>(RTAlloc(mWorld, sizeof(SC_JSFX_Callback)));
 
     auto unit = this; // the macro needs a reference to unit
     ClearUnitIfMemFailed(payload);
 
-    payload->scriptBuffer = mScriptBuffer;
+    payload->scriptHash = scriptHash;
     payload->adapter = &vm;
 
     ft->fDoAsynchronousCommand(
@@ -77,6 +82,60 @@ void SC_JSFX::next(int numSamples) {
   }
 }
 
+struct NewJSFXLibraryEntry {
+  int hash;
+  char* codePath;
+};
+
+// this runs in stage 2 and enters the content of the file to
+// the library
+bool enterToJSFXLibrary(World *world, void *raw_callback) {
+  auto entry = static_cast<NewJSFXLibraryEntry*>(raw_callback);
+
+  // read file, see https://stackoverflow.com/a/19922123
+  std::ifstream codeFile;
+  codeFile.open(entry->codePath);
+  std::stringstream codeStream;
+  codeStream << codeFile.rdbuf();
+  std::string code = codeStream.str();
+
+  // @todo maybe perform a test compile to tell the user if it works?
+  gLibrary.insert(std::pair<int, std::string>(entry->hash, code));
+
+  // do not continue to stage 3
+  return false;
+}
+
+void jsfxCallbackCleanup(World *world, void *raw_callback) {
+  auto newEntry = static_cast<NewJSFXLibraryEntry*>(raw_callback);
+  RTFree(world, newEntry->codePath);
+  RTFree(world, newEntry);
+}
+
+
+// responds to an osc message on the RT thread - we therefore have to
+// copy the OSC data to a new struct which we pass to a callback
+void jsfxaddCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+  auto newLibraryEntry = static_cast<NewJSFXLibraryEntry*>(RTAlloc(inWorld, sizeof(NewJSFXLibraryEntry)));
+  newLibraryEntry->hash = args->geti();
+  if (const char* codePath = args->gets()) {
+    newLibraryEntry->codePath = static_cast<char*>(RTAlloc(inWorld, strlen(codePath) + 1));
+    if (!newLibraryEntry->codePath) {
+      Print("Failed to allocate memory for JSFXCodeLibrary");
+      return;
+    }
+    strcpy(newLibraryEntry->codePath, codePath);
+  } else {
+    Print("Invalid jsfxadd message\n");
+    return;
+  }
+  // std::cout << "Code path is " << newLibraryEntry->codePath << std::endl;
+
+  ft->fDoAsynchronousCommand(
+    inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
+    enterToJSFXLibrary, nullptr,nullptr, jsfxCallbackCleanup, 0, nullptr);
+}
+
 PluginLoad("SC_JSFX") {
   ft = inTable;
 
@@ -84,4 +143,10 @@ PluginLoad("SC_JSFX") {
 
   registerUnit<SC_JSFX>(inTable, "JSFX", false);
   registerUnit<SC_JSFX>(inTable, "JSFXRT", false);
+
+  ft->fDefinePlugInCmd(
+    "jsfxadd",
+    jsfxaddCallback,
+    nullptr
+  );
 }

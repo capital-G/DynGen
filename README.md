@@ -26,7 +26,7 @@ Symlink or copy the content of the `install` folder to `Platform.userExtensionDi
 
 ## Demo
 
-Scripts are transferred to the server via Buffers - so all source code will be translated to its ascii representation.
+Scripts are registered on the server via `JSFXDef` and behaves like `SynthDef`.
 
 All inputs are available via the variables `in0`, `in1`, ... and the outputs need to be written to `out0`, `out1`, ...
 
@@ -36,14 +36,15 @@ All inputs are available via the variables `in0`, `in1`, ... and the outputs nee
 // start the server
 s.boot;
 
-// create a buffer which stores the code
-~code = JSFX.codeBuffer("out0 = in0 * 0.5;");
+// registers the script on the server with identifier \simple
+// like on SynthDef, remember to call .add
+~simple = JSFXDef(\simple, "out0 = in0 * 0.5;").add;
 
 // spawn a synth which evaluates our script
 (
 Ndef(\x, {JSFX.ar(
 	1, // numOutputs
-	~code, // script to use
+	~simple, // script to use - can also be JSFXDef(\simple) or \simple
 	SinOsc.ar(200.0)), // ... the inputs to the script
 }).scope;
 )
@@ -52,9 +53,9 @@ Ndef(\x, {JSFX.ar(
 ### Modulate parameters
 
 ```supercollider
-~code = JSFX.codeBuffer("out0 = in0 * in1;");
+~modulate = JSFXDef(\modulate, "out0 = in0 * in1;").add;
 
-Ndef(\x, {JSFX.ar(1, ~code.bufnum, SinOscFB.ar(200.0, 1.3), LFPulse.ar(5.2, width: 0.2)) * 0.2}).play;
+Ndef(\x, {JSFX.ar(1, ~modulate, SinOscFB.ar(200.0, 1.3), LFPulse.ar(5.2, width: 0.2)) * 0.2}).play;
 ```
 
 ### Single sample feedback
@@ -63,16 +64,16 @@ Ndef(\x, {JSFX.ar(1, ~code.bufnum, SinOscFB.ar(200.0, 1.3), LFPulse.ar(5.2, widt
 
 ```supercollider
 (
-~code = JSFX.codeBuffer("
+~onePoleFilter = JSFXDef(\onePoleFilter, "
 y1 += 0; // make the variable persistent across runs
 alpha = 0.95;
 // the one pole filter formula
 out0 = alpha * y1 + (1.0 - alpha) * in0;
 y1 = out0; // write value to history
-");
+").add;
 )
 
-Ndef(\x, {JSFX.ar(1, ~code, Saw.ar(400.0)) * 0.2}).play;
+Ndef(\x, {JSFX.ar(1, ~onePoleFilter, Saw.ar(400.0)) * 0.2}).play;
 ```
 
 #### Feedback SinOsc
@@ -81,7 +82,7 @@ A phase modulatable `SinOscFB`
 
 ```supercollider
 (
-~code = JSFX.codeBuffer("
+~sinOscFB = JSFXDef(\sinOscFB, "
 phase += 0;
 y1 += 0;
 twoPi = 2*$pi;
@@ -98,12 +99,12 @@ phase -= (phase >= twoPi) * twoPi;
 out0 = sin(x);
 
 y1 = out0;
-");
+").add;
 )
 
 (
 Ndef(\x, {
-	var sig = JSFX.ar(1, ~code,
+	var sig = JSFX.ar(1, ~sinOscFB,
 		\freq.ar(100.0), // in0 = freq
 		\fb.ar(0.6, spec: [0.0, pi]), // in1 = fb
 		SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),  // in2 = phaseMod
@@ -119,10 +120,10 @@ Write sample accurate into a modulatable delay line.
 
 ```supercollider
 (
-~code = JSFX.codeBuffer("
+~delayLine = JSFXDef(\delayLine, "
 buf[in1] = in0;
 out0 = buf[in2];
-");
+").add;
 )
 
 (
@@ -130,7 +131,7 @@ Ndef(\x, {
 	var bufSize = SinOsc.ar(4.2).range(1000, 2000);
 	var writePos = LFSaw.ar(2.0, 0.02).range(1, bufSize);
 	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
-	var sig = JSFX.ar(1, ~code,
+	var sig = JSFX.ar(1, ~delayLine,
 		SinOsc.ar(100.0),
 		writePos.floor,
 		readPos.floor,
@@ -146,7 +147,7 @@ Two cross phase-modulated sine oscillators, 64 times oversampled.
 
 ```supercollider
 (
-~code = JSFX.codeBuffer("
+~complex = JSFXDef(\complex, "
 twopi = 2*$pi;
 
 phaseA += 0;
@@ -186,12 +187,12 @@ loop(oversample,
 // scale down b/c of os
 out0 = sumA / oversample;
 out1 = sumB / oversample;
-");
+").add;
 )
 
 (
 Ndef(\y, {
-	var sig = JSFX.ar(2, ~code, 
+	var sig = JSFX.ar(2, ~complex, 
 		\freqA.ar(200.0),
 		\freqB.ar(pi*100),
 		\modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
@@ -205,10 +206,10 @@ Ndef(\y, {
 ### Multi-channel
 
 ```supercollider
-~code = JSFX.codeBuffer("out0 = in0 * in1; out1 = in0 * in2");
+~multi = JSFXDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").add;
 
 (
-Ndef(\y, {JSFX.ar(2, ~code.bufnum, 
+Ndef(\y, {JSFX.ar(2, ~multi, 
 	SinOscFB.ar(200.0, 1.3), // in0
 	LFPulse.ar(5.2, width: 0.2), // in1
 	LFPulse.ar(3.2, width: 0.3) // in2
@@ -223,7 +224,6 @@ Currently not all features of JSFX are available as currently only the EEL2 VM i
 
 * [ ] Write Help file
 * [ ] Allow for live-coding of JSFX scripts
-* [ ] Handle multi-channel expansion?
 * [ ] kr version?
 * [ ] Turn on compiler optimization for platforms
 * [ ] Expose sliders?
