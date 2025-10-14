@@ -24,13 +24,16 @@ std::string extractScriptFromBuffer(SndBuf* scriptBuffer) {
 // stage2 thread which is NRT - so it is safe to allocate
 // memory and also spawn a thread to which we offload
 // all the heavy lifting of initializing the VM.
-void jsfxCallback(World *world, void *rawCallbackData) {
+bool jsfxCallback(World *world, void *rawCallbackData) {
   auto callbackData = (SC_JSFX_Callback *)rawCallbackData;
 
   std::thread([callbackData]() {
     auto script = extractScriptFromBuffer(callbackData->scriptBuffer);
     callbackData->adapter->init(script);
   }).detach();
+
+  // do not continue to stage 3
+  return false;
 }
 
 SC_JSFX::SC_JSFX() {
@@ -49,11 +52,9 @@ SC_JSFX::SC_JSFX() {
     callbackData->scriptBuffer = mScriptBuffer;
     callbackData->adapter = vm;
 
-    auto fakeReplyAddr = "foo\0";
     ft->fDoAsynchronousCommand(
-        mWorld, (void *)fakeReplyAddr, "someFakeCmdName", (void *)callbackData,
-        (AsyncStageFn)jsfxCallback, (AsyncStageFn)jsfxCallback,
-        (AsyncStageFn)jsfxCallback, noOpCleanup, 0, nullptr);
+        mWorld, nullptr, nullptr, static_cast<void*>(callbackData),
+        jsfxCallback, nullptr,nullptr, noOpCleanup, 0, nullptr);
   }
 
   set_calc_function<SC_JSFX, &SC_JSFX::next>();
