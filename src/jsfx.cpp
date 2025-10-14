@@ -36,21 +36,19 @@ bool jsfxCallback(World *world, void *rawCallbackData) {
   return false;
 }
 
-SC_JSFX::SC_JSFX() {
-  mNumOutputs = static_cast<int>(in0(0));
+SC_JSFX::SC_JSFX() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), static_cast<int>(sampleRate())) {
   mScriptBuffer = mWorld->mSndBufs + static_cast<int>(in0(1));
-  mNumInputs = static_cast<int>(in0(2));
   bool useAudioThread = in0(3) > 0.5;
 
-  vm = new EEL2Adapter(mNumInputs, mNumOutputs, static_cast<int>(sampleRate()));
+  // vm = new EEL2Adapter(mNumInputs, mNumOutputs, static_cast<int>(sampleRate()));
 
   if (useAudioThread) {
     auto string = extractScriptFromBuffer(mScriptBuffer);
-    vm->init(string);
+    vm.init(string);
   } else {
     auto payload = static_cast<SC_JSFX_Callback*>(RTAlloc(mWorld, sizeof(SC_JSFX_Callback)));
     payload->scriptBuffer = mScriptBuffer;
-    payload->adapter = vm;
+    payload->adapter = &vm;
 
     ft->fDoAsynchronousCommand(
         mWorld, nullptr, nullptr, static_cast<void*>(payload),
@@ -61,16 +59,14 @@ SC_JSFX::SC_JSFX() {
   next(1);
 }
 
-SC_JSFX::~SC_JSFX() { delete vm; }
-
 void SC_JSFX::next(int numSamples) {
-  if (!vm || !vm->mReady.load()) {
+  if (!vm.mReady.load()) {
     for (int i = 0; i < mNumOutputs; i++) {
       Clear(numSamples, mOutBuf[i]);
     }
   } else {
     // skip first 3 channels since those are not signals
-    vm->process(mInBuf + 4, mOutBuf, numSamples);
+    vm.process(mInBuf + 4, mOutBuf, numSamples);
   }
 }
 

@@ -2,19 +2,15 @@
 
 #include "eel2_adapter.h"
 #include <SC_PlugIn.hpp>
-#include <fstream>
 
 static InterfaceTable *ft;
 
 class SC_JSFX : public SCUnit {
 public:
   SC_JSFX();
-  ~SC_JSFX();
 
 private:
-  EEL2Adapter *vm;
-  int mNumInputs;
-  int mNumOutputs;
+  EEL2Adapter vm;
   SndBuf *mScriptBuffer;
 
   void next(int numSamples);
