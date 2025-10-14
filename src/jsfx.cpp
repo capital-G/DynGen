@@ -25,7 +25,7 @@ std::string extractScriptFromBuffer(SndBuf* scriptBuffer) {
 // memory and also spawn a thread to which we offload
 // all the heavy lifting of initializing the VM.
 bool jsfxCallback(World *world, void *rawCallbackData) {
-  auto callbackData = (SC_JSFX_Callback *)rawCallbackData;
+  auto callbackData = static_cast<SC_JSFX_Callback*>(rawCallbackData);
 
   std::thread([callbackData]() {
     auto script = extractScriptFromBuffer(callbackData->scriptBuffer);
@@ -48,12 +48,12 @@ SC_JSFX::SC_JSFX() {
     auto string = extractScriptFromBuffer(mScriptBuffer);
     vm->init(string);
   } else {
-    auto callbackData = new SC_JSFX_Callback();
-    callbackData->scriptBuffer = mScriptBuffer;
-    callbackData->adapter = vm;
+    auto payload = static_cast<SC_JSFX_Callback*>(RTAlloc(mWorld, sizeof(SC_JSFX_Callback)));
+    payload->scriptBuffer = mScriptBuffer;
+    payload->adapter = vm;
 
     ft->fDoAsynchronousCommand(
-        mWorld, nullptr, nullptr, static_cast<void*>(callbackData),
+        mWorld, nullptr, nullptr, static_cast<void*>(payload),
         jsfxCallback, nullptr,nullptr, noOpCleanup, 0, nullptr);
   }
 
