@@ -27,15 +27,15 @@ void callbackCleanup(World *world, void *raw_callback) {
 bool jsfxCallback(World *world, void *rawCallbackData) {
   auto callbackData = static_cast<SC_JSFX_Callback*>(rawCallbackData);
 
-  std::thread([callbackData]() {
-    if (auto libraryEntry = gLibrary.find(callbackData->scriptHash); libraryEntry != gLibrary.end()) {
-      auto code = libraryEntry->second;
-      callbackData->adapter->init(code);
-    } else {
-      Print("Could not find script with hash %i\n", callbackData->scriptHash);
-      // @todo clear unit/outputs
-    }
-  }).detach();
+  // we don't spawn a thread here and accept that we may block the NRT thread
+  // b/c otherwise s.sync deoes not work as expected
+  if (auto libraryEntry = gLibrary.find(callbackData->scriptHash); libraryEntry != gLibrary.end()) {
+    auto code = libraryEntry->second;
+    callbackData->adapter->init(code);
+  } else {
+    Print("Could not find script with hash %i\n", callbackData->scriptHash);
+    // @todo clear unit/outputs
+  }
 
   // do not continue to stage 3
   return false;
