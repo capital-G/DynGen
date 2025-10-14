@@ -1,13 +1,15 @@
 #include "jsfx.h"
 #include <thread>
 
-// no cleanup necessary for us! ;)
-void noOpCleanup(World *world, void *inUserData) {}
-
 struct SC_JSFX_Callback {
   SndBuf *scriptBuffer;
   EEL2Adapter *adapter;
 };
+
+void callbackCleanup(World *world, void *raw_callback) {
+  auto callback = static_cast<SC_JSFX_Callback *>(raw_callback);
+  RTFree(world, callback);
+}
 
 std::string extractScriptFromBuffer(SndBuf* scriptBuffer) {
   std::string script;
@@ -52,7 +54,7 @@ SC_JSFX::SC_JSFX() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), stat
 
     ft->fDoAsynchronousCommand(
         mWorld, nullptr, nullptr, static_cast<void*>(payload),
-        jsfxCallback, nullptr,nullptr, noOpCleanup, 0, nullptr);
+        jsfxCallback, nullptr,nullptr, callbackCleanup, 0, nullptr);
   }
 
   set_calc_function<SC_JSFX, &SC_JSFX::next>();
