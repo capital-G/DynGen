@@ -11,7 +11,8 @@ void callbackCleanup(World *world, void *raw_callback) {
   RTFree(world, callback);
 }
 
-std::string extractScriptFromBuffer(SndBuf* scriptBuffer) {
+std::string extractScriptFromBuffer(const SndBuf* scriptBuffer) {
+  // maybe make this a cstr which we could also safely allocate in a RT context
   std::string script;
   script.reserve(scriptBuffer->samples);
   for (int i = 0; i < scriptBuffer->samples; i++) {
@@ -49,6 +50,10 @@ SC_JSFX::SC_JSFX() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), stat
     vm.init(string);
   } else {
     auto payload = static_cast<SC_JSFX_Callback*>(RTAlloc(mWorld, sizeof(SC_JSFX_Callback)));
+
+    auto unit = this; // the macro needs a reference to unit
+    ClearUnitIfMemFailed(payload);
+
     payload->scriptBuffer = mScriptBuffer;
     payload->adapter = &vm;
 
