@@ -5,10 +5,24 @@
 #include <iostream>
 #include <sstream>
 
-// @todo make this thread safe
 // @todo create something like a tokio::channel to communicate changes/updates
+
 typedef std::map<int, std::string> JSFXLibrary;
-JSFXLibrary gLibrary{};
+// the dictionary becomes accessible through the atomic reference counting
+// of a shared_ptr - for write access we need an additional mutex which will
+// replace the underlying library
+std::shared_ptr<JSFXLibrary> gLibrary;
+std::mutex gLibraryMutex;
+
+void addJSFXScriptToLibrary(int hash, const std::string& code) {
+  // lock the library and create a copy
+  std::lock_guard<std::mutex> lock(gLibraryMutex);
+  auto newLibrary = std::make_shared<JSFXLibrary>(*gLibrary);
+  newLibrary->insert({hash, code});
+  // replace the library
+  gLibrary = newLibrary;
+}
+
 
 struct SC_JSFX_Callback {
   int scriptHash;
@@ -27,9 +41,11 @@ void callbackCleanup(World *world, void *raw_callback) {
 bool jsfxCallback(World *world, void *rawCallbackData) {
   auto callbackData = static_cast<SC_JSFX_Callback*>(rawCallbackData);
 
+  auto lib = gLibrary;
+
   // we don't spawn a thread here and accept that we may block the NRT thread
-  // b/c otherwise s.sync deoes not work as expected
-  if (auto libraryEntry = gLibrary.find(callbackData->scriptHash); libraryEntry != gLibrary.end()) {
+  // b/c otherwise s.sync does not work as expected
+  if (auto libraryEntry = lib->find(callbackData->scriptHash); libraryEntry != lib->end()) {
     auto code = libraryEntry->second;
     callbackData->adapter->init(code);
   } else {
@@ -46,7 +62,8 @@ SC_JSFX::SC_JSFX() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), stat
   bool useAudioThread = in0(3) > 0.5;
 
   if (useAudioThread) {
-    if (auto libraryEntry = gLibrary.find(scriptHash); libraryEntry != gLibrary.end()) {
+    auto lib = gLibrary;
+    if (auto libraryEntry = lib->find(scriptHash); libraryEntry != lib->end()) {
       auto code = libraryEntry->second;
       vm.init(code);
     } else {
@@ -100,7 +117,7 @@ bool enterToJSFXLibrary(World *world, void *raw_callback) {
   std::string code = codeStream.str();
 
   // @todo maybe perform a test compile to tell the user if it works?
-  gLibrary.insert(std::pair<int, std::string>(entry->hash, code));
+  addJSFXScriptToLibrary(entry->hash, code);
 
   // do not continue to stage 3
   return false;
@@ -138,6 +155,11 @@ void jsfxaddCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args,
 
 PluginLoad("SC_JSFX") {
   ft = inTable;
+
+  {
+    std::lock_guard<std::mutex> lock(gLibraryMutex);
+    gLibrary = std::make_shared<JSFXLibrary>();
+  }
 
   NSEEL_init();
 
