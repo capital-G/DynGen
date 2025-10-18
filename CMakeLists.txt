@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.0)
-project(SC_JSFX)
+project(DynGen)
 set(CMAKE_CXX_STANDARD 17)
 
 # WDL/EEL2
@@ -41,22 +41,22 @@ else()
 endif()
 
 # static?
-add_library(SC_JSFX MODULE
-        src/jsfx.h
-        src/jsfx.cpp
+add_library(DynGen MODULE
+        src/dyngen.h
+        src/dyngen.cpp
         src/eel2_adapter.h
         src/eel2_adapter.cpp
 )
 
-target_link_libraries(SC_JSFX PRIVATE eel2)
+target_link_libraries(DynGen PRIVATE eel2)
 
 #set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
 
-target_include_directories(SC_JSFX PUBLIC ${SC_SRC_PATH}/include/plugin_interface)
-target_include_directories(SC_JSFX PUBLIC ${SC_SRC_PATH}/include/common)
-target_include_directories(SC_JSFX PUBLIC ${SC_SRC_PATH}/common)
+target_include_directories(DynGen PUBLIC ${SC_SRC_PATH}/include/plugin_interface)
+target_include_directories(DynGen PUBLIC ${SC_SRC_PATH}/include/common)
+target_include_directories(DynGen PUBLIC ${SC_SRC_PATH}/common)
 
-install(TARGETS SC_JSFX LIBRARY DESTINATION ${PROJECT_NAME})
+install(TARGETS DynGen LIBRARY DESTINATION ${PROJECT_NAME})
 
 file(GLOB_RECURSE SC_FILES "${CMAKE_SOURCE_DIR}/src/Classes/*.sc")
 install(FILES ${SC_FILES} DESTINATION ${PROJECT_NAME}/Classes)

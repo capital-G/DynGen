@@ -1,4 +1,4 @@
-JSFXDef {
+DynGenDef {
 	classvar <all;
 	var <name;
 	var <code;
@@ -18,7 +18,7 @@ JSFXDef {
 			res = super.newCopyArgs(
 				name,
 				code.value.asString,
-				JSFXDef.prHashSymbol(name),
+				DynGenDef.prHashSymbol(name),
 			);
 			all[res.name] = res;
 			^res;
@@ -34,7 +34,7 @@ JSFXDef {
 		});
 
 		server = server ? Server.default;
-		server.sendMsg(\cmd, \jsfxadd, hash, tmpFilePath);
+		server.sendMsg(\cmd, \dyngenadd, hash, tmpFilePath);
 	}
 
 	*prHashSymbol {|symbol|
@@ -47,7 +47,7 @@ JSFXDef {
 
 // UGen code
 
-JSFX : MetaJSFX {
+DynGen : MetaDynGen {
 	*ar {|numOutputs, scriptBuffer ...inputs|
 		^super.ar(numOutputs, scriptBuffer, 0.0, *inputs);
 	}
@@ -58,7 +58,7 @@ JSFX : MetaJSFX {
 	}
 }
 
-JSFXRT : MetaJSFX {
+DynGenRT : MetaDynGen {
 	*ar {|numOutputs, scriptBuffer ...inputs|
 		^super.ar(numOutputs, scriptBuffer, 1.0, *inputs);
 	}
@@ -69,12 +69,12 @@ JSFXRT : MetaJSFX {
 	}
 }
 
-MetaJSFX : MultiOutUGen {
+MetaDynGen : MultiOutUGen {
 	*ar {|numOutputs, script, realTime ...inputs|
-	    script = if(script.class == JSFXDef, {
+	    script = if(script.class == DynGenDef, {
 			script.hash;
 		}, {
-			JSFXDef.prHashSymbol(script.asSymbol);
+			DynGenDef.prHashSymbol(script.asSymbol);
 		}).asFloat;
 		^this.multiNew('audio', numOutputs, script, inputs.size, realTime, *inputs);
 	}

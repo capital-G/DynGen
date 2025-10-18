@@ -1,36 +1,36 @@
-#include "jsfx.h"
-#include <thread>
-#include <map>
+#include "dyngen.h"
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <sstream>
+#include <thread>
 
 // @todo create something like a tokio::channel to communicate changes/updates
 
-typedef std::map<int, std::string> JSFXLibrary;
+typedef std::map<int, std::string> DynGenLibrary;
 // the dictionary becomes accessible through the atomic reference counting
 // of a shared_ptr - for write access we need an additional mutex which will
 // replace the underlying library
-std::shared_ptr<JSFXLibrary> gLibrary;
+std::shared_ptr<DynGenLibrary> gLibrary;
 std::mutex gLibraryMutex;
 
-void addJSFXScriptToLibrary(int hash, const std::string& code) {
+void addDynGenScriptToLibrary(int hash, const std::string& code) {
   // lock the library and create a copy
   std::lock_guard<std::mutex> lock(gLibraryMutex);
-  auto newLibrary = std::make_shared<JSFXLibrary>(*gLibrary);
+  auto newLibrary = std::make_shared<DynGenLibrary>(*gLibrary);
   newLibrary->insert({hash, code});
   // replace the library
   gLibrary = newLibrary;
 }
 
 
-struct SC_JSFX_Callback {
+struct DynGenCallback {
   int scriptHash;
   EEL2Adapter *adapter;
 };
 
 void callbackCleanup(World *world, void *raw_callback) {
-  auto callback = static_cast<SC_JSFX_Callback *>(raw_callback);
+  auto callback = static_cast<DynGenCallback *>(raw_callback);
   RTFree(world, callback);
 }
 
@@ -38,8 +38,8 @@ void callbackCleanup(World *world, void *raw_callback) {
 // stage2 thread which is NRT - so it is safe to allocate
 // memory and also spawn a thread to which we offload
 // all the heavy lifting of initializing the VM.
-bool jsfxCallback(World *world, void *rawCallbackData) {
-  auto callbackData = static_cast<SC_JSFX_Callback*>(rawCallbackData);
+bool dynGenCallback(World *world, void *rawCallbackData) {
+  auto callbackData = static_cast<DynGenCallback*>(rawCallbackData);
 
   auto lib = gLibrary;
 
@@ -57,7 +57,7 @@ bool jsfxCallback(World *world, void *rawCallbackData) {
   return false;
 }
 
-SC_JSFX::SC_JSFX() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), static_cast<int>(sampleRate())) {
+DynGen::DynGen() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), static_cast<int>(sampleRate())) {
   int scriptHash = static_cast<int>(in0(1));
   bool useAudioThread = in0(3) > 0.5;
 
@@ -71,7 +71,7 @@ SC_JSFX::SC_JSFX() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), stat
       // @todo clear unit/outputs
     }
   } else {
-    auto payload = static_cast<SC_JSFX_Callback*>(RTAlloc(mWorld, sizeof(SC_JSFX_Callback)));
+    auto payload = static_cast<DynGenCallback*>(RTAlloc(mWorld, sizeof(DynGenCallback)));
 
     auto unit = this; // the macro needs a reference to unit
     ClearUnitIfMemFailed(payload);
@@ -81,14 +81,14 @@ SC_JSFX::SC_JSFX() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), stat
 
     ft->fDoAsynchronousCommand(
         mWorld, nullptr, nullptr, static_cast<void*>(payload),
-        jsfxCallback, nullptr,nullptr, callbackCleanup, 0, nullptr);
+        dynGenCallback, nullptr,nullptr, callbackCleanup, 0, nullptr);
   }
 
-  set_calc_function<SC_JSFX, &SC_JSFX::next>();
+  set_calc_function<DynGen, &DynGen::next>();
   next(1);
 }
 
-void SC_JSFX::next(int numSamples) {
+void DynGen::next(int numSamples) {
   if (!vm.mReady.load()) {
     for (int i = 0; i < mNumOutputs; i++) {
       Clear(numSamples, mOutBuf[i]);
@@ -99,15 +99,15 @@ void SC_JSFX::next(int numSamples) {
   }
 }
 
-struct NewJSFXLibraryEntry {
+struct NewDynGenLibraryEntry {
   int hash;
   char* codePath;
 };
 
 // this runs in stage 2 and enters the content of the file to
 // the library
-bool enterToJSFXLibrary(World *world, void *raw_callback) {
-  auto entry = static_cast<NewJSFXLibraryEntry*>(raw_callback);
+bool enterToDynGenLibrary(World *world, void *raw_callback) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
 
   // read file, see https://stackoverflow.com/a/19922123
   std::ifstream codeFile;
@@ -117,14 +117,14 @@ bool enterToJSFXLibrary(World *world, void *raw_callback) {
   std::string code = codeStream.str();
 
   // @todo maybe perform a test compile to tell the user if it works?
-  addJSFXScriptToLibrary(entry->hash, code);
+  addDynGenScriptToLibrary(entry->hash, code);
 
   // do not continue to stage 3
   return false;
 }
 
-void jsfxCallbackCleanup(World *world, void *raw_callback) {
-  auto newEntry = static_cast<NewJSFXLibraryEntry*>(raw_callback);
+void dynGenCallbackCleanup(World *world, void *raw_callback) {
+  auto newEntry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
   RTFree(world, newEntry->codePath);
   RTFree(world, newEntry);
 }
@@ -132,43 +132,43 @@ void jsfxCallbackCleanup(World *world, void *raw_callback) {
 
 // responds to an osc message on the RT thread - we therefore have to
 // copy the OSC data to a new struct which we pass to a callback
-void jsfxaddCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
-  auto newLibraryEntry = static_cast<NewJSFXLibraryEntry*>(RTAlloc(inWorld, sizeof(NewJSFXLibraryEntry)));
+void dynGenAddCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+  auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
   newLibraryEntry->hash = args->geti();
   if (const char* codePath = args->gets()) {
     newLibraryEntry->codePath = static_cast<char*>(RTAlloc(inWorld, strlen(codePath) + 1));
     if (!newLibraryEntry->codePath) {
-      Print("Failed to allocate memory for JSFXCodeLibrary");
+      Print("Failed to allocate memory for DynGen code library");
       return;
     }
     strcpy(newLibraryEntry->codePath, codePath);
   } else {
-    Print("Invalid jsfxadd message\n");
+    Print("Invalid dyngenadd message\n");
     return;
   }
   // std::cout << "Code path is " << newLibraryEntry->codePath << std::endl;
 
   ft->fDoAsynchronousCommand(
     inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    enterToJSFXLibrary, nullptr,nullptr, jsfxCallbackCleanup, 0, nullptr);
+    enterToDynGenLibrary, nullptr,nullptr, dynGenCallbackCleanup, 0, nullptr);
 }
 
-PluginLoad("SC_JSFX") {
+PluginLoad("DynGen") {
   ft = inTable;
 
   {
     std::lock_guard<std::mutex> lock(gLibraryMutex);
-    gLibrary = std::make_shared<JSFXLibrary>();
+    gLibrary = std::make_shared<DynGenLibrary>();
   }
 
   NSEEL_init();
 
-  registerUnit<SC_JSFX>(inTable, "JSFX", false);
-  registerUnit<SC_JSFX>(inTable, "JSFXRT", false);
+  registerUnit<DynGen>(inTable, "DynGen", false);
+  registerUnit<DynGen>(inTable, "DynGenRT", false);
 
   ft->fDefinePlugInCmd(
-    "jsfxadd",
-    jsfxaddCallback,
+    "dyngenadd",
+    dynGenAddCallback,
     nullptr
   );
 }

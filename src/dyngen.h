@@ -5,9 +5,9 @@
 
 static InterfaceTable *ft;
 
-class SC_JSFX : public SCUnit {
+class DynGen : public SCUnit {
 public:
-  SC_JSFX();
+  DynGen();
 
 private:
   EEL2Adapter vm;
