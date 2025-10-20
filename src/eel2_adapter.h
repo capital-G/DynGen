@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <atomic>
 
 #include "eel2/ns-eel.h"
 
