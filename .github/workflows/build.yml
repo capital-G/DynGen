@@ -14,8 +14,8 @@ jobs:
             artifact-suffix: linux-x86-64
           - os: macos-latest
             artifact-suffix: macos-arm64
-          - os: macos-15-intel
-            artifact-suffix: macos-x86-64
+          # - os: macos-15-intel
+          #   artifact-suffix: macos-x86-64
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
