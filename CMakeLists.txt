@@ -19,6 +19,12 @@ set(EEL2_SOURCES
 #        ${EEL2_PATH}/eel_fft.c
 )
 
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-x64-sse.asm)
+elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-arm64ec.asm)
+endif()
+
 add_library(eel2 STATIC ${EEL2_SOURCES})
 target_include_directories(eel2 PUBLIC ${EEL2_PATH} ${WDL_PATH})
 
