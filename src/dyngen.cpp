@@ -5,87 +5,130 @@
 #include <sstream>
 #include <thread>
 
-// @todo create something like a tokio::channel to communicate changes/updates
+// a global linked list which stores the code
+// and its associated running DynGens.
+static CodeLibrary *gLibrary = nullptr;
 
-typedef std::map<int, std::string> DynGenLibrary;
-// the dictionary becomes accessible through the atomic reference counting
-// of a shared_ptr - for write access we need an additional mutex which will
-// replace the underlying library
-std::shared_ptr<DynGenLibrary> gLibrary;
-std::mutex gLibraryMutex;
+// *****************************
+// NRT callbacks for DynGen init
+// *****************************
 
-void addDynGenScriptToLibrary(int hash, const std::string& code) {
-  // lock the library and create a copy
-  std::lock_guard<std::mutex> lock(gLibraryMutex);
-  auto newLibrary = std::make_shared<DynGenLibrary>(*gLibrary);
-  newLibrary->insert({hash, code});
-  // replace the library
-  gLibrary = newLibrary;
-}
-
-
-struct DynGenCallback {
-  int scriptHash;
-  EEL2Adapter *adapter;
-};
-
-void callbackCleanup(World *world, void *raw_callback) {
-  auto callback = static_cast<DynGenCallback *>(raw_callback);
-  RTFree(world, callback);
-}
-
-// this gets called deferred from the UGen init in a
+// Gets called deferred from the UGen init in a
 // stage2 thread which is NRT - so it is safe to allocate
 // memory and also spawn a thread to which we offload
 // all the heavy lifting of initializing the VM.
-bool dynGenCallback(World *world, void *rawCallbackData) {
-  auto callbackData = static_cast<DynGenCallback*>(rawCallbackData);
+bool dynGenCompileCallback(World *world, void *rawCallbackData) {
+  auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
 
-  auto lib = gLibrary;
-
-  // we don't spawn a thread here and accept that we may block the NRT thread
-  // b/c otherwise s.sync does not work as expected
-  if (auto libraryEntry = lib->find(callbackData->scriptHash); libraryEntry != lib->end()) {
-    auto code = libraryEntry->second;
-    callbackData->adapter->init(code);
-  } else {
-    Print("Could not find script with hash %i\n", callbackData->scriptHash);
-    // @todo clear unit/outputs
+  CodeLibrary* node = gLibrary;
+  while (node && node->id != callbackData->scriptHash) {
+    node = node->next;
   }
+
+  if (!node) {
+    Print("Could not find script with hash %i\n", callbackData->scriptHash);
+    return false;
+  }
+
+  callbackData->adapter->init(node->code);
+
+  // insert the dyngen node
+  callbackData->dynGenNode->next = node->dynGenNodes;
+  node->dynGenNodes = callbackData->dynGenNode;
 
   // do not continue to stage 3
   return false;
 }
 
+void dynGenCompileCallbackCleanup(World *world, void *raw_callback) {
+  auto callback = static_cast<DynGenCallbackData *>(raw_callback);
+  RTFree(world, callback);
+}
+
+// *********
+// UGen code
+// *********
 DynGen::DynGen() : vm(static_cast<int>(in0(2)), static_cast<int>(in0(0)), static_cast<int>(sampleRate())) {
-  int scriptHash = static_cast<int>(in0(1));
+  mCodeID = static_cast<int>(in0(1));
   bool useAudioThread = in0(3) > 0.5;
 
   if (useAudioThread) {
-    auto lib = gLibrary;
-    if (auto libraryEntry = lib->find(scriptHash); libraryEntry != lib->end()) {
-      auto code = libraryEntry->second;
-      vm.init(code);
-    } else {
-      Print("Could not find script with hash %i\n", scriptHash);
-      // @todo clear unit/outputs
+    // do init of VM in RT thread - this is dangerous and should not be done,
+    // yet it get rids of one block size delay until the signal appears.
+    // Since the VM init seems to be often fast enough we allow the user
+    // to decide, yet this is not the default case.
+    auto node = gLibrary;
+    bool found = false;
+    while (node!=nullptr) {
+      if (node->id == mCodeID) {
+        found = true;
+        vm.init(node->code);
+
+        auto const unitNode = static_cast<CodeLibrary::DynGenNode*>(RTAlloc(mWorld, sizeof(CodeLibrary::DynGenNode)));
+        unitNode->dynGenUnit = this;
+        unitNode->next = node->dynGenNodes;
+        node->dynGenNodes = unitNode;
+        break;
+      }
+      node = node->next;
+    }
+    if (!found) {
+      Print("Could not find script with hash %i\n", mCodeID);
     }
   } else {
-    auto payload = static_cast<DynGenCallback*>(RTAlloc(mWorld, sizeof(DynGenCallback)));
+    // offload VM init to NRT thread
+    auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
 
     auto unit = this; // the macro needs a reference to unit
     ClearUnitIfMemFailed(payload);
 
-    payload->scriptHash = scriptHash;
+    auto codeNode = static_cast<CodeLibrary::DynGenNode*>(RTAlloc(mWorld, sizeof(CodeLibrary::DynGenNode)));
+    ClearUnitIfMemFailed(codeNode);
+    codeNode->dynGenUnit = this;
+    codeNode->next = nullptr;
+
+    payload->scriptHash = mCodeID;
     payload->adapter = &vm;
+    payload->dynGenNode = codeNode;
 
     ft->fDoAsynchronousCommand(
         mWorld, nullptr, nullptr, static_cast<void*>(payload),
-        dynGenCallback, nullptr,nullptr, callbackCleanup, 0, nullptr);
+        dynGenCompileCallback, nullptr,nullptr, dynGenCompileCallbackCleanup, 0, nullptr);
   }
 
   set_calc_function<DynGen, &DynGen::next>();
   next(1);
+}
+
+ DynGen::~DynGen() {
+  // delete ourselves from the linked list of units in the associated library.
+  auto node = gLibrary;
+  while (node != nullptr) {
+    if (node->id == mCodeID) {
+      auto unit = node->dynGenNodes;
+      CodeLibrary::DynGenNode *previousUnit = nullptr;
+
+      // @todo this can probably be written cleaner and more optimized?
+      while (unit!=nullptr) {
+        if (unit->dynGenUnit == this) {
+          if (previousUnit != nullptr) {
+            if (unit->next != nullptr) {
+              previousUnit->next = unit->next;
+            } else {
+              previousUnit->next = nullptr;
+            }
+          } else {
+            node->dynGenNodes = nullptr;
+          }
+          ft->fRTFree(mWorld, static_cast<void*>(unit));
+          break;
+        }
+        previousUnit = unit;
+        unit = unit->next;
+      }
+    };
+    node = node->next;
+  }
 }
 
 void DynGen::next(int numSamples) {
@@ -99,14 +142,22 @@ void DynGen::next(int numSamples) {
   }
 }
 
-struct NewDynGenLibraryEntry {
-  int hash;
-  char* codePath;
-};
+void DynGen::updateCode(const std::string &code) {
+  vm.mReady.store(false, std::memory_order_release);
+  // init sets the mReady variable when finished/successful
+  vm.init(code);
+}
 
-// this runs in stage 2 and enters the content of the file to
-// the library
-bool enterToDynGenLibrary(World *world, void *raw_callback) {
+
+// ************
+// Library code
+// ************
+
+// this runs in stage 2 (NRT) and enters the content of the file to
+// the library by traversing the library which is a linked list.
+// If the hash ID already exists the code gets updated and all running
+// instances should be updated.
+bool enterFileToDynGenLibrary(World *world, void *raw_callback) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
 
   // read file, see https://stackoverflow.com/a/19922123
@@ -114,25 +165,48 @@ bool enterToDynGenLibrary(World *world, void *raw_callback) {
   codeFile.open(entry->codePath);
   std::stringstream codeStream;
   codeStream << codeFile.rdbuf();
-  std::string code = codeStream.str();
+  const std::string code = codeStream.str();
 
-  // @todo maybe perform a test compile to tell the user if it works?
-  addDynGenScriptToLibrary(entry->hash, code);
+  CodeLibrary* node = gLibrary;
+  CodeLibrary* prevNode = nullptr;
+  while (node && node->id != entry->hash) {
+    prevNode = node;
+    node = node->next;
+  }
 
-  // do not continue to stage 3
+  if (!node) {
+    auto* newNode = new CodeLibrary {
+      gLibrary,
+      entry->hash,
+      nullptr,
+      code,
+    };
+    gLibrary = newNode;
+  } else {
+    node->code = code;
+    for (auto* unit = node->dynGenNodes; unit; unit = unit->next) {
+      unit->dynGenUnit->updateCode(code);
+    }
+  }
+
+  // do not continue to stage 3 by returning false
   return false;
 }
 
-void dynGenCallbackCleanup(World *world, void *raw_callback) {
-  auto newEntry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
-  RTFree(world, newEntry->codePath);
-  RTFree(world, newEntry);
+// frees the created struct. Uses RTFree since this has been managed
+// by the RT thread.
+void pluginCmdCallbackCleanup(World *world, void *raw_callback) {
+  auto callBackData = static_cast<NewDynGenLibraryEntry*>(raw_callback);
+  RTFree(world, callBackData->codePath);
+  RTFree(world, callBackData);
 }
 
 
 // responds to an osc message on the RT thread - we therefore have to
-// copy the OSC data to a new struct which we pass to a callback
-void dynGenAddCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+// copy the OSC data to a new struct which then gets passed to another
+// callback which runs in stage 2, aka non-rt. We have to
+// free the created struct afterward.
+void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
   auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
   newLibraryEntry->hash = args->geti();
   if (const char* codePath = args->gets()) {
@@ -146,20 +220,18 @@ void dynGenAddCallback(World* inWorld, void* inUserData, struct sc_msg_iter* arg
     Print("Invalid dyngenadd message\n");
     return;
   }
-  // std::cout << "Code path is " << newLibraryEntry->codePath << std::endl;
 
   ft->fDoAsynchronousCommand(
     inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    enterToDynGenLibrary, nullptr,nullptr, dynGenCallbackCleanup, 0, nullptr);
+    enterFileToDynGenLibrary, nullptr,nullptr, pluginCmdCallbackCleanup, 0, nullptr);
 }
+
+// ********************
+// Plugin bootstrapping
+// ********************
 
 PluginLoad("DynGen") {
   ft = inTable;
-
-  {
-    std::lock_guard<std::mutex> lock(gLibraryMutex);
-    gLibrary = std::make_shared<DynGenLibrary>();
-  }
 
   NSEEL_init();
 
@@ -168,7 +240,7 @@ PluginLoad("DynGen") {
 
   ft->fDefinePlugInCmd(
     "dyngenadd",
-    dynGenAddCallback,
+    pluginCmdCallback,
     nullptr
   );
 }

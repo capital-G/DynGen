@@ -37,8 +37,10 @@ void EEL2Adapter::init(const std::string &script) {
 
 EEL2Adapter::~EEL2Adapter() {
   if (code_)
+    // @todo delay this to NRT thread
     NSEEL_code_free(code_);
   if (eel_state_)
+    // @todo delay this to NRT thread
     NSEEL_VM_free(eel_state_);
   delete[] mInputs;
   delete[] mOutputs;

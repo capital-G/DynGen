@@ -34,7 +34,6 @@ private:
   NSEEL_VMCTX eel_state_ = nullptr;
   NSEEL_CODEHANDLE code_ = nullptr;
 
-
   int mNumInputChannels = 0;
   int mNumOutputChannels = 0;
   double mSampleRate = 0;
@@ -42,5 +41,6 @@ private:
   double **mInputs = nullptr;
   double **mOutputs = nullptr;
 
+  // @todo make this a RT alloc char* or free this via NRT thread
   std::string mScript;
 };
