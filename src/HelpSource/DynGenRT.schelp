@@ -1,0 +1,37 @@
+TITLE:: DynGenRT
+summary:: Evaluates dynamic code on the server sample accurate
+categories:: UGens>Dynamic
+related:: Classes/DynGenDef, Classes/DynGen
+
+DESCRIPTION::
+
+See LINK::Classes/DynGen:: for a full introduction.
+
+LINK::Classes/DynGen:: defers the initialization of the EEL2 VM into a non-realtime thread.
+This introduces a delay of at least one block size.
+If therefore sample accurate sequencing becomes necessary, it is also possible to init the EEL2 VM within the realtime-audio thread, though this can lead to audio-dropouts and is therefore not advised.
+See the example below.
+
+CLASSMETHODS::
+
+COPYMETHOD:: DynGen *ar
+
+EXAMPLES::
+
+Compare the following versions of the code
+
+CODE::
+DynGenDef(\test, "out0 = 0.5").add;
+::
+
+Non-RT version
+
+CODE::
+{DynGen.ar(1, \test)}.plot(0.1);
+::
+
+RT version
+
+CODE::
+{DynGenRT.ar(1, \test)}.plot(0.1);
+::

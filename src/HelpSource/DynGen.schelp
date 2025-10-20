@@ -1,0 +1,312 @@
+TITLE:: DynGen
+summary:: Evaluates dynamic code on the server
+categories:: UGens>Dynamic
+related:: Classes/DynGenDef, Classes/DynGenRT
+
+DESCRIPTION::
+This UGen evaluates LINK::https://www.cockos.com/EEL2/##EEL2:: (expression evaluation library/realtime compiler) code in a VM which runs on the server.
+This allows to write DSP code on the fly and perform single sample operations.
+
+The code has to be registered using LINK::Classes/DynGenDef:: and follows a similar approach to LINK::Classes/SynthDef:: by registering a resource (code) under a given name.
+This also allows to update the evaluated code on the fly.
+
+Each script can expose multiple outputs and the output for each channel can be written to via the variable CODE::out0::, CODE::out1::, ...
+When the script gets evaluated through DynGen it is also necessary to tell how many outputs of the script should be exposed.
+
+CODE::
+// the server needs to be booted b/c we need to register the code on the server through DynGenDef
+s.boot;
+
+DynGenDef(\example, "out0 = 0.5;").add;
+
+(
+Ndef(\x, {
+	DynGen.ar(
+		1, // number of outputs
+		\example, // DynGen reference to use - can be a symbol or a DynGen instance
+	).poll;
+});
+)
+::
+
+NOTE::
+The first polled value of this example yields MATH::0.0:: instead of MATH::0.5::.
+This is because the initialization of the VM and the compilation of the script is defered to a non-realtime thread in order not to cause audio dropouts in case this process takes too long.
+If you want to run these steps on the realtime audio thread and want to get rid of this delay you can use LINK::Classes/DynGenRT:: instead, but beware of potential dropouts on bigger scripts.
+::
+
+It is also possible to update the associated code while the synth is running by replacing it through the associated code::DynGenDef:: definition.
+
+CODE::
+DynGenDef(\example, "out0 = 0.1;").add;
+
+// now 0.1 should be polled
+
+Ndef(\x).clear;
+::
+
+It is also possible to process external input in a script by using the variables CODE::in0::, CODE::IN1::, ... and provide input signals at the invocation of the UGen.
+
+CODE::
+DynGenDef(\myInput, "out0 = in0 * 0.1;").add;
+
+(
+Ndef(\x, {
+	DynGen.ar(
+		1, // number of output channels of our script
+		DynGenDef(\myInput), // reference to the script to use - here by using a DynGenDef object instead of a symbol
+		SinOsc.ar(0.5), // will be made available as in0 within the script
+	).poll;
+});
+)
+
+Ndef(\x).clear;
+::
+
+It is not just possible to use the pre-defined variables within a script but also declare new ones which allows us to store past values for performing single sample based calulations.
+
+CODE::
+(
+DynGenDef(\fbSin, "
+freq = in0;
+feedback = in1;
+
+// make variables persistent across invocations
+phase += 0;
+y1 += 0;
+
+omega = phase + (feedback * y1);
+
+// phase increment of normal sin osc
+phase +=  2*$pi * freq / srate;
+
+// exercise: wrap phase between [0, 2pi)
+
+// output
+out0 = sin(omega);
+
+// store previous output for next sample
+y1 = out0;
+").add;
+)
+
+(
+Ndef(\z, {
+	DynGen.ar(
+		1,
+		\fbSin,
+		\freq.ar(200.0), // in0
+		\feedback.ar(0.0, spec: [0.0, 2.0]), // in1
+	) ! 2 * \amp.kr(0.2);
+}).play.gui;
+)
+::
+
+Additionally, each variable within EEL2 is already an array which allows us to use it as a delay line.
+
+CODE::
+(
+DynGenDef(\granular, "
+bufferSize = in1;
+grainSize = in2;
+stereoOffset = in3;
+
+grainIndex += 1;
+
+// sample random offset when grain finished
+readOffset += (grainIndex >= grainSize) * rand() * bufferSize;
+// wrap offset
+readOffset -= (readOffset >= bufferSize) * bufferSize;
+
+// wrap grainIndex
+grainIndex -= (grainIndex >= grainSize) * grainSize;
+
+writeIndex += 1;
+writeIndex -= (writeIndex >= bufferSize) * bufferSize;
+
+buffer[writeIndex] = in0;
+
+readPos = readOffset + grainIndex;
+readPos -= (readPos >= bufferSize) * bufferSize;
+
+rightReadPos = readPos - stereoOffset;
+rightReadPos -= (rightReadPos >= bufferSize) * bufferSize;
+
+out0 = buf[readPos];
+out1 = buf[rightReadPos];
+").add;
+)
+
+
+(
+Ndef(\g, {
+	var sig = SinOscFB.ar(100, 1.3) * Env.perc(0.01, 0.2).ar(gate: Impulse.ar(4.0));
+	sig = DynGen.ar(2, \granular,
+		sig, // in0 = signal
+		DC.ar(20000.0), // in1 = bufferSize
+		SinOsc.ar(1/pi).range(1000, 10000), // in2 = grainSize
+		SinOsc.ar(0.5).range(0, 100), // in3 = stereoOffset
+	);
+	sig * \amp.kr(0.2);
+}).play;
+)
+::
+
+It is also possible to use for loops to perform oversampling.
+
+
+NOTE::
+EEL2 works internally with 64 bit floats (also called doubles) instead of SuperColliders 32 bit floats - it therefore can be useful to use DynGen for really slow processes (e.g. a line which goes from 0.0 to 1.0 in 60 minutes) or where high precission is desirable (e.g. when using phase interpolations).
+Since SuperCollider only can work on 32 bit floats on the server side the precission of the floats have to be reduced when outputting them to SuperCollider.
+::
+
+CLASSMETHODS::
+
+METHOD:: ar
+argument:: numOutputs
+The number of outputs which will be output by this UGen.
+The value of each output can be defined by writing a value to the variables CODE::out0::, CODE::out1::, ...
+In case the script does not write to a variable it will output MATH::0.0::.
+argument:: scriptBuffer
+The LINK::Classes/DynGenDef:: script which should be used.
+This can either be a LINK::Classes/Symbol:: with the name of the referenced script or a DynGenDef object.
+argument::  ... inputs
+Each input will be made available within the scripts through the variables CODE::in0::, code::in1::, ...
+
+
+EXAMPLES::
+
+A phase modulatable version of LINK::Classes/SinOscFB::.
+
+CODE::
+(
+~sinOscFB = DynGenDef(\sinOscFB, "
+phase += 0;
+y1 += 0;
+twoPi = 2*$pi;
+inc += 0;
+
+inc = twoPi * in0 / srate;
+
+x = phase + (in1 * y1) + in2;
+
+phase += inc;
+// wrap phase
+phase -= (phase >= twoPi) * twoPi;
+
+out0 = sin(x);
+
+y1 = out0;
+").add;
+)
+
+(
+Ndef(\x, {
+	var sig = DynGen.ar(1, ~sinOscFB,
+		\freq.ar(100.0), // in0 = freq
+		\fb.ar(0.6, spec: [0.0, pi]), // in1 = fb
+		SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),  // in2 = phaseMod
+	);
+	sig * 0.1;
+}).play.gui;
+)
+::
+
+Delay line
+
+CODE::
+(
+~delayLine = DynGenDef(\delayLine, "
+buf[in1] = in0;
+out0 = buf[in2];
+").add;
+)
+
+(
+Ndef(\x, {
+	var bufSize = SinOsc.ar(4.2).range(1000, 2000);
+	var writePos = LFSaw.ar(2.0, 0.02).range(1, bufSize);
+	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
+	var sig = DynGen.ar(1, ~delayLine,
+		SinOsc.ar(100.0),
+		writePos.floor,
+		readPos.floor,
+	);
+	sig.dup * 0.1;
+}).play;
+)
+::
+
+Two cross phase-modulated sine oscillators, 64 times oversampled.
+
+CODE::
+(
+~complex = DynGenDef(\complex, "
+twopi = 2*$pi;
+
+phaseA += 0;
+phaseB += 0;
+
+freqA = in0;
+freqB = in1;
+modIndexA = in2;
+modIndexB = in3;
+
+oversample = 64;
+
+osSrate = srate * oversample;
+incA = freqA / osSrate;
+incB = freqB / osSrate;
+
+sumA = 0;
+sumB = 0;
+
+// calculate subsaples
+loop(oversample,
+    phaseA += incA;
+    phaseB += incB;
+    // wrap phases between [0, 1)
+    phaseA -= floor(phaseA);
+    phaseB -= floor(phaseB);
+
+    // apply cross-phase modulation
+    phaseA = phaseA + modIndexA * sin(twopi * phaseB);
+    phaseB = phaseB + modIndexB * sin(twopi * phaseA);
+
+    // accumulate (for downsampling)
+    sumA += sin(twopi * phaseA);
+    sumB += sin(twopi * phaseB);
+);
+
+// scale down b/c of os
+out0 = sumA / oversample;
+out1 = sumB / oversample;
+").add;
+)
+
+(
+Ndef(\y, {
+	var sig = DynGen.ar(2, ~complex,
+		\freqA.ar(200.0),
+		\freqB.ar(pi*100),
+		\modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
+		\modB.ar(0.0, spec: [-0.1, 0.1]) * 0.05,
+	);
+	sig * 0.1;
+}).play.gui;
+)
+::
+
+Multi-channel
+
+CODE::
+~multi = DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").add;
+
+(
+Ndef(\y, {DynGen.ar(2, ~multi,
+	SinOscFB.ar(200.0, 1.3), // in0
+	LFPulse.ar(5.2, width: 0.2), // in1
+	LFPulse.ar(3.2, width: 0.3) // in2
+) * 0.2}).play;
+)
+::

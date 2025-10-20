@@ -1,0 +1,42 @@
+TITLE:: DynGenDef
+summary:: Stores DynGen code on the server
+categories:: UGens>Dynamic
+related:: Classes/DynGen, Classes/DynGenRT, Classes/SynthDef
+
+DESCRIPTION::
+
+In order to run a LINK::Classes/DynGen:: script on the server it is necessary to first register it on the server under a given name, similar to a LINK::Classes/SynthDef::.
+
+If the code for an already existing name gets updated, all running instances of this code will also be updated.
+This allows to live-code DynGen scripts.
+
+CLASSMETHODS::
+
+PRIVATE:: prHashSymbol
+
+METHOD:: new
+argument:: name
+Name to be used as reference for the script.
+Will be transformed to a LINK::Classes/Symbol::.
+argument:: code
+Script to store on the server under the given reference.
+
+METHOD:: all
+Returns all registered DynGenDef instances.
+
+PRIVATE:: initClass
+
+
+INSTANCEMETHODS::
+
+PRIVATE:: hash
+
+METHOD:: add
+Stores the DynGenDef on a server.
+argument:: server
+The server on which the DynGenDef should be registered.
+If no server is provided, LINK::Classes/Server#*default:: will be used.
+
+PRIVATE:: name
+
+PRIVATE:: code

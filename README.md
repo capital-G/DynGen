@@ -1,7 +1,6 @@
 # DynGen
 
-Evaluates [EEL2](https://www.cockos.com/EEL2/) code on the server, which allows to dynamically write the DSP code of UGens.
-This is still a WIP.
+**Dyn**amicU**Gen** evaluates [EEL2](https://www.cockos.com/EEL2/) code on the server, which allows to dynamically write  DSP code of UGens which can be updated while its running.
 
 ## Build
 
@@ -217,20 +216,8 @@ Ndef(\y, {DynGen.ar(2, ~multi,
 )
 ```
 
-## ToDo
-
-Currently not all features of JSFX are available as currently only the EEL2 VM is exposed and can be scripted.
-
-* [ ] Write Help file
-* [ ] Allow for live-coding of JSFX scripts
-* [ ] kr version?
-* [ ] Turn on compiler optimization for platforms
-* [ ] Expose sliders?
-* [ ] Use WDL GUI?
-* [ ] Have support with existing JSFX plugins?
-
 ## License
 
-EEL2 and WDL by *Cockos* are BSD licensed.
+[EEL2](https://www.cockos.com/EEL2/) and [WDL](https://www.cockos.com/wdl/) by [*Cockos*](https://www.cockos.com/) are BSD licensed.
 
 This project is GPL-3.0 licensed.
