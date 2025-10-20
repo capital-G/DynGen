@@ -11,9 +11,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            cmake-preset: Linux
+            artifact-suffix: linux-x86-64
           - os: macos-latest
-            cmake-preset: macOS
+            artifact-suffix: macos-arm64
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
@@ -39,5 +39,5 @@ jobs:
     - name: upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dyngen-${{ github.ref_name }}-${{  matrix.cmake-preset }}
+        name: dyngen-${{  matrix.artifact-suffix }}
         path: archive.zip
