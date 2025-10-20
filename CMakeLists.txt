@@ -27,9 +27,13 @@ target_compile_definitions(eel2 PRIVATE
         _FILE_OFFSET_BITS=64
 )
 target_compile_options(eel2 PRIVATE
-        -Wall -Wno-unused-function -Wno-multichar
-        -Wno-unused-result -Wshadow -Wtype-limits
+        -Wall
+        -Wno-unused-function
+        -Wno-multichar
+        -Wno-unused-result
+        -Wshadow -Wtype-limits
         -fsigned-char
+        -fPIC
 )
 target_compile_features(eel2 PUBLIC cxx_std_17)
 
