@@ -1,0 +1,41 @@
+name: build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  plugin_matrix:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cmake-preset: Linux
+          - os: macos-latest
+            cmake-preset: macOS
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Checkout SuperCollider
+      uses: actions/checkout@v4
+      with:
+        repository: "supercollider/supercollider"
+        ref: "main"
+        path: "supercollider"
+    - name: Build Plugin
+      run: |
+        cmake \
+            -S . \
+            -B build \
+            -DSC_SRC_PATH=./supercollider \
+            -DCMAKE_INSTALL_PREFIX=./install
+        cmake --build build --config Release
+        cmake --install build --config Release
+    - name: create archive
+      run: zip -r archive.zip install/
+    - name: upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dyngen-${{ github.ref_name }}-${{  matrix.cmake-preset }}
+        path: archive.zip
