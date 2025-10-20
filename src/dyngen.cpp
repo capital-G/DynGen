@@ -4,6 +4,7 @@
 #include <map>
 #include <sstream>
 #include <thread>
+#include <atomic>
 
 // a global linked list which stores the code
 // and its associated running DynGens.

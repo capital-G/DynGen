@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.12)
 project(DynGen)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -19,6 +19,12 @@ set(EEL2_SOURCES
 #        ${EEL2_PATH}/eel_fft.c
 )
 
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-x64-sse.asm)
+elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-arm64ec.asm)
+endif()
+
 add_library(eel2 STATIC ${EEL2_SOURCES})
 target_include_directories(eel2 PUBLIC ${EEL2_PATH} ${WDL_PATH})
 
@@ -27,9 +33,13 @@ target_compile_definitions(eel2 PRIVATE
         _FILE_OFFSET_BITS=64
 )
 target_compile_options(eel2 PRIVATE
-        -Wall -Wno-unused-function -Wno-multichar
-        -Wno-unused-result -Wshadow -Wtype-limits
+        -Wall
+        -Wno-unused-function
+        -Wno-multichar
+        -Wno-unused-result
+        -Wshadow -Wtype-limits
         -fsigned-char
+        -fPIC
 )
 target_compile_features(eel2 PUBLIC cxx_std_17)
 

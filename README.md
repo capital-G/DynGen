@@ -2,10 +2,24 @@
 
 **Dyn**amicU**Gen** evaluates [EEL2](https://www.cockos.com/EEL2/) code on the server, which allows to dynamically write  DSP code of UGens which can be updated while its running.
 
-## Build
+## Installation
 
-Currently only tested for macOS.
-Should work for Linux, but probably not for Windows right now.
+Currently DynGen is only tested on macOS, though it should also works on Linux.
+Windows is currently not supported, but should be available soon as well.
+
+Builds are occasionally uploaded at <https://github.com/capital-G/DynGen/releases>.
+Download and extract the content of the archive into the `Platform.userExtensionDir` folder.
+
+### macOS De-Quarantine
+
+Since the plugin is not notarized it needs to be de-quarantined.
+Run the following command within SuperCollider, assuming you have installed DynGen like specified above
+
+```supercollider
+"xattr -rd com.apple.quarantine \"%/DynGen\"".format(Platform.userExtensionDir).unixCmd;
+```
+
+### Build
 
 ```shell
 git clone --recursive https://github.com/capital-G/DynGen.git
