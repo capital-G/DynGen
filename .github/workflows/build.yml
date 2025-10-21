@@ -30,7 +30,7 @@ jobs:
     - name: Setup linux dependencies
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
-        apt-get install --yes nasm
+        sudo apt-get install --yes nasm
     - name: Build Plugin
       run: |
         cmake \
