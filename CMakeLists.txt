@@ -35,7 +35,6 @@ if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-multi-macho.o)
     elseif(WIN32)
         list(APPEND EEL2_SOURCES
-            ${EEL2_PATH}/asm-nseel-x86-msvc.c
             ${EEL2_PATH}/asm-nseel-x64.obj
         )
     else()
