@@ -34,9 +34,7 @@ if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     elseif(APPLE)
         list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-multi-macho.o)
     elseif(WIN32)
-        list(APPEND EEL2_SOURCES
-            ${EEL2_PATH}/asm-nseel-x64.obj
-        )
+        # we already have the necessary .obj file - we will have to link this below
     else()
         message(FATAL_ERROR "Current OS and architecture combination is not supported")
     endif()
@@ -50,6 +48,10 @@ endif()
 
 add_library(eel2 STATIC ${EEL2_SOURCES})
 target_include_directories(eel2 PUBLIC ${EEL2_PATH} ${WDL_PATH})
+
+if(MSVC)
+    target_link_libraries(eel2 PRIVATE "${EEL2_PATH}/asm-nseel-x64.obj")
+endif()
 
 target_compile_definitions(eel2 PRIVATE
         WDL_FFT_REALSIZE=8
