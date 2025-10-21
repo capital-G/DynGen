@@ -19,11 +19,23 @@ set(EEL2_SOURCES
 #        ${EEL2_PATH}/eel_fft.c
 )
 
+# compile eel2 asm
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-    list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-x64-sse.asm)
-elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
-    list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-arm64ec.asm)
+    if(UNIX)
+        set(EEL2_ASM_SRC ${EEL2_PATH}/asm-nseel-x64-sse.asm)
+        set(EEL2_ASM_OBJ ${CMAKE_BINARY_DIR}/asm-nseel-x64-sse.o)
+        add_custom_command(
+                OUTPUT ${EEL2_ASM_OBJ}
+                DEPENDS ${EEL2_ASM_SRC}
+                COMMAND nasm -D AMD64ABI -f elf64 ${EEL2_ASM_SRC} -o ${EEL2_ASM_OBJ}
+                COMMENT "Converting EEL2 asm to object using nasm"
+        )
+        list(APPEND EEL2_SOURCES ${EEL2_ASM_OBJ})
+    endif()
+#elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm62")
+#    list(APPEND EEL0_SOURCES ${EEL2_PATH}/asm-nseel-arm64ec.asm)
 endif()
+
 
 add_library(eel2 STATIC ${EEL2_SOURCES})
 target_include_directories(eel2 PUBLIC ${EEL2_PATH} ${WDL_PATH})

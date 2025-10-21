@@ -21,8 +21,11 @@ Run the following command within SuperCollider, assuming you have installed DynG
 
 ### Build
 
+On x86-64 machines it is necessary to have [nasm](https://www.nasm.us/) installed.
+
 ```shell
 git clone --recursive https://github.com/capital-G/DynGen.git
+cd DynGen
 
 # replace DSC_SRC_PATH w/ your local source code copy of SuperCollider
 # and adjust the CMAKE_INSTALL_PREFIX if necessary
