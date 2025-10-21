@@ -53,7 +53,9 @@ target_compile_definitions(eel2 PRIVATE
         WDL_FFT_REALSIZE=8
         _FILE_OFFSET_BITS=64
 )
-target_compile_options(eel2 PRIVATE
+
+if(NOT MSVC)
+    target_compile_options(eel2 PRIVATE
         -Wall
         -Wno-unused-function
         -Wno-multichar
@@ -61,7 +63,9 @@ target_compile_options(eel2 PRIVATE
         -Wshadow -Wtype-limits
         -fsigned-char
         -fPIC
-)
+    )
+endif()
+
 target_compile_features(eel2 PUBLIC cxx_std_17)
 
 # UGen
