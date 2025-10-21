@@ -21,7 +21,7 @@ set(EEL2_SOURCES
 
 # compile eel2 asm
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-    if(UNIX)
+    if(LINUX)
         set(EEL2_ASM_SRC ${EEL2_PATH}/asm-nseel-x64-sse.asm)
         set(EEL2_ASM_OBJ ${CMAKE_BINARY_DIR}/asm-nseel-x64-sse.o)
         add_custom_command(
