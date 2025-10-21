@@ -40,12 +40,8 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=./install
         cmake --build build --config Release
         cmake --install build --config Release
-    - name: create archive
-      run: |
-        cd install
-        zip -r ../archive.zip .
     - name: upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: dyngen-${{  matrix.artifact-suffix }}
-        path: archive.zip
+        path: install/
