@@ -16,6 +16,8 @@ jobs:
             artifact-suffix: macos-arm64
           - os: macos-15-intel
             artifact-suffix: macos-x86-64
+          - os: windows-2022
+            artifact-suffix: win-x86-64
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
@@ -32,6 +34,7 @@ jobs:
       run: |
         sudo apt-get install --yes nasm
     - name: Build Plugin
+      shell: bash
       run: |
         cmake \
             -S . \
