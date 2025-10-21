@@ -34,6 +34,7 @@ jobs:
       run: |
         sudo apt-get install --yes nasm
     - name: Build Plugin
+      shell: bash
       run: |
         cmake \
             -S . \
