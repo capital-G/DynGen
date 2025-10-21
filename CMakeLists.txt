@@ -21,19 +21,27 @@ set(EEL2_SOURCES
 
 # compile eel2 asm
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-    if(UNIX)
+    if(LINUX)
         set(EEL2_ASM_SRC ${EEL2_PATH}/asm-nseel-x64-sse.asm)
         set(EEL2_ASM_OBJ ${CMAKE_BINARY_DIR}/asm-nseel-x64-sse.o)
         add_custom_command(
-                OUTPUT ${EEL2_ASM_OBJ}
-                DEPENDS ${EEL2_ASM_SRC}
-                COMMAND nasm -D AMD64ABI -f elf64 ${EEL2_ASM_SRC} -o ${EEL2_ASM_OBJ}
-                COMMENT "Converting EEL2 asm to object using nasm"
+            OUTPUT ${EEL2_ASM_OBJ}
+            DEPENDS ${EEL2_ASM_SRC}
+            COMMAND nasm -D AMD64ABI -f elf64 ${EEL2_ASM_SRC} -o ${EEL2_ASM_OBJ}
+            COMMENT "Converting EEL2 asm to object using nasm"
         )
         list(APPEND EEL2_SOURCES ${EEL2_ASM_OBJ})
+    elseif(APPLE)
+        list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-multi-macho.o)
+    else()
+        message(FATAL_ERROR "Current OS and architecture combination is not supported")
     endif()
-#elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm62")
-#    list(APPEND EEL0_SOURCES ${EEL2_PATH}/asm-nseel-arm64ec.asm)
+elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    if(APPLE)
+        list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-multi-macho.o)
+    else()
+        message(FATAL_ERROR "Current OS and architecture combination is not supported")
+    endif()
 endif()
 
 
