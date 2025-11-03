@@ -1,5 +1,7 @@
 #include "eel2_adapter.h"
 
+#include "ns-eel-addfuncs.h"
+
 // define symbols for jsfx
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
@@ -21,6 +23,9 @@ void EEL2Adapter::init(const std::string &script) {
     mOutputs[i] = NSEEL_VM_regvar(eel_state_, name.c_str());
   }
 
+  NSEEL_VM_SetCustomFuncThis(eel_state_, this);
+  NSEEL_addfunc_retval("bufRd", 2, NSEEL_PProc_THIS, &eelReadBuf);
+
   // define variables for the script context
   std::string header;
   header += "srate = " + std::to_string(mSampleRate) + ";\n";
@@ -38,6 +43,20 @@ void EEL2Adapter::init(const std::string &script) {
     return;
   }
   mReady.store(true);
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg) {
+  auto world = static_cast<EEL2Adapter*>(opaque)->mWorld;
+  int bufNum = static_cast<int>(*bufNumArg);
+  if (bufNum >= world->mNumSndBufs) {
+    return 0.0f;
+  };
+  auto buf = world->mSndBufs[bufNum];
+  int sampleNum = static_cast<int>(*sampleNumArg);
+  if (sampleNum >= buf.frames) {
+    return 0.0f;
+  }
+  return buf.data[sampleNum];
 }
 
 EEL2Adapter::~EEL2Adapter() {

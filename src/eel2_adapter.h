@@ -14,6 +14,7 @@ public:
   ~EEL2Adapter();
 
   void init(const std::string &script);
+  static EEL_F eelReadBuf(void *opaque, const EEL_F *bufNum, const EEL_F *sampleNum);
 
   void process(float **inBuf, float **outBuf, int numSamples) {
     for (int i = 0; i < numSamples; i++) {
