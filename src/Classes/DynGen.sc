@@ -35,6 +35,15 @@ DynGenDef {
 
 		server = server ? Server.default;
 		server.sendMsg(\cmd, \dyngenadd, hash, tmpFilePath);
+
+		fork {
+			var deleteSuccess;
+			server.sync;
+			deleteSuccess = File.delete(tmpFilePath);
+			if (deleteSuccess.not, {
+				"Could not delete DynGen temp file %".format(tmpFilePath).warn;
+			});
+		}
 	}
 
 	*prHashSymbol {|symbol|
