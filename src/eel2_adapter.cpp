@@ -2,6 +2,8 @@
 
 #include "ns-eel-addfuncs.h"
 
+#include <SC_Unit.h>
+
 // define symbols for jsfx
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
@@ -63,6 +65,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const EEL_F *bufNumA
     chanOffset = 0;
   }
 
+  LOCK_SNDBUF_SHARED(buf);
   return buf.data[(sampleNum*buf.channels) + chanOffset];
 }
 
@@ -83,6 +86,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, const EEL_F *bufNum
     chanOffset = 0;
   }
 
+  LOCK_SNDBUF(buf);
   buf.data[(sampleNum * buf.channels) + chanOffset] = static_cast<float>(*bufValueArg);
   // or should this return the old now overwritten value?
   return *bufValueArg;
