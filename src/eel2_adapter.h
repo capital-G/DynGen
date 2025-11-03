@@ -6,9 +6,11 @@
 
 #include "eel2/ns-eel.h"
 
+#include <SC_World.h>
+
 class EEL2Adapter {
 public:
-  EEL2Adapter(int numInputChannels, int numOutputChannels, int sampleRate) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mSampleRate(sampleRate) {};
+  EEL2Adapter(int numInputChannels, int numOutputChannels, int sampleRate, World *world) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mSampleRate(sampleRate), mWorld(world) {};
   ~EEL2Adapter();
 
   void init(const std::string &script);
@@ -41,6 +43,8 @@ private:
 
   double **mInputs = nullptr;
   double **mOutputs = nullptr;
+
+  World *mWorld;
 
   // @todo make this a RT alloc char* or free this via NRT thread
   std::string mScript;
