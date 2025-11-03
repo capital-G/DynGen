@@ -102,11 +102,4 @@ MetaDynGen : MultiOutUGen {
 	init { |... theInputs|
 		^this.initOutputs(theInputs[0], 'audio');
 	}
-
-	*codeBuffer {|code, server=nil|
-		var buffer;
-		server = server ? Server.default;
-		buffer = Buffer.loadCollection(server, code.ascii);
-		^buffer;
-	}
 }
