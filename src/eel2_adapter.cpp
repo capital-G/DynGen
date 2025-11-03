@@ -27,7 +27,12 @@ void EEL2Adapter::init(const std::string &script) {
 
   mScript = header + script;
 
-  code_ = NSEEL_code_compile(eel_state_, mScript.c_str(), 0);
+  auto compileFlags = \
+    NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS | \
+    NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS | \
+    NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET | \
+    NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
+  code_ = NSEEL_code_compile_ex(eel_state_, mScript.c_str(), 0, compileFlags);
   if (!code_) {
     std::cout << "NSEEL_code_compile failed" << std::endl;
     return;
