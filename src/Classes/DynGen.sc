@@ -68,8 +68,8 @@ DynGenDef {
 // UGen code
 
 DynGen : MetaDynGen {
-	*ar {|numOutputs, scriptBuffer ...inputs|
-		^super.ar(numOutputs, scriptBuffer, 0.0, *inputs);
+	*ar {|numOutputs, script ...inputs|
+		^super.ar(numOutputs, script, 0.0, *inputs);
 	}
 
 	init { |... theInputs|
@@ -79,8 +79,8 @@ DynGen : MetaDynGen {
 }
 
 DynGenRT : MetaDynGen {
-	*ar {|numOutputs, scriptBuffer ...inputs|
-		^super.ar(numOutputs, scriptBuffer, 1.0, *inputs);
+	*ar {|numOutputs, script ...inputs|
+		^super.ar(numOutputs, script, 1.0, *inputs);
 	}
 
 	init { |... theInputs|

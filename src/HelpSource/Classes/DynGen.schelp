@@ -167,7 +167,7 @@ argument:: numOutputs
 The number of outputs which will be output by this UGen.
 The value of each output can be defined by writing a value to the variables CODE::out0::, CODE::out1::, ...
 In case the script does not write to a variable it will output MATH::0.0::.
-argument:: scriptBuffer
+argument:: script
 The LINK::Classes/DynGenDef:: script which should be used.
 This can either be a LINK::Classes/Symbol:: with the name of the referenced script or a DynGenDef object.
 argument::  ... inputs
