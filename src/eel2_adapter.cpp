@@ -69,7 +69,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const EEL_F *bufNumA
   return buf.data[(sampleNum*buf.channels) + chanOffset];
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg, const EEL_F *bufValueArg, const EEL_F *chanArg) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg, const EEL_F *chanArg, const EEL_F *bufValueArg) {
   auto world = static_cast<EEL2Adapter*>(opaque)->mWorld;
   int bufNum = static_cast<int>(*bufNumArg);
   if (bufNum >= world->mNumSndBufs) {
