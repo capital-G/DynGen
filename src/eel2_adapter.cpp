@@ -24,8 +24,8 @@ void EEL2Adapter::init(const std::string &script) {
   }
 
   NSEEL_VM_SetCustomFuncThis(eel_state_, this);
-  NSEEL_addfunc_retval("bufRd", 2, NSEEL_PProc_THIS, &eelReadBuf);
-  NSEEL_addfunc_retval("bufWr", 3, NSEEL_PProc_THIS, &eelWriteBuf);
+  NSEEL_addfunc_retval("bufRd", 3, NSEEL_PProc_THIS, &eelReadBuf);
+  NSEEL_addfunc_retval("bufWr", 4, NSEEL_PProc_THIS, &eelWriteBuf);
 
   // define variables for the script context
   std::string header;
@@ -46,32 +46,44 @@ void EEL2Adapter::init(const std::string &script) {
   mReady.store(true);
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg, const EEL_F *chanArg) {
   auto world = static_cast<EEL2Adapter*>(opaque)->mWorld;
   int bufNum = static_cast<int>(*bufNumArg);
   if (bufNum >= world->mNumSndBufs) {
     return 0.0f;
   };
-  auto buf = world->mSndBufs[bufNum];
-  int sampleNum = static_cast<int>(*sampleNumArg);
+  const auto buf = world->mSndBufs[bufNum];
+  const int sampleNum = static_cast<int>(*sampleNumArg);
   if (sampleNum >= buf.frames) {
     return 0.0f;
   }
-  return buf.data[sampleNum];
+
+  int chanOffset = static_cast<int>(*chanArg);
+  if (chanOffset > buf.channels) {
+    chanOffset = 0;
+  }
+
+  return buf.data[(sampleNum*buf.channels) + chanOffset];
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg, const EEL_F *bufValueArg) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg, const EEL_F *bufValueArg, const EEL_F *chanArg) {
   auto world = static_cast<EEL2Adapter*>(opaque)->mWorld;
   int bufNum = static_cast<int>(*bufNumArg);
   if (bufNum >= world->mNumSndBufs) {
     return 0.0f;
   };
-  auto buf = world->mSndBufs[bufNum];
-  int sampleNum = static_cast<int>(*sampleNumArg);
+  const auto buf = world->mSndBufs[bufNum];
+  const int sampleNum = static_cast<int>(*sampleNumArg);
   if (sampleNum >= buf.frames) {
     return 0.0f;
   }
-  buf.data[sampleNum] = static_cast<float>(*bufValueArg);
+
+  int chanOffset = static_cast<int>(*chanArg);
+  if (chanOffset > buf.channels) {
+    chanOffset = 0;
+  }
+
+  buf.data[(sampleNum * buf.channels) + chanOffset] = static_cast<float>(*bufValueArg);
   // or should this return the old now overwritten value?
   return *bufValueArg;
 }
