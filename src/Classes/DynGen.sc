@@ -25,6 +25,17 @@ DynGenDef {
 		});
 	}
 
+	*load {|name, path|
+		var code;
+		path = path.asAbsolutePath;
+		if(File.exists(path).not, {
+			"DynGen file % does not exist".format(path).warn;
+			^nil;
+		});
+		code = File.readAllString(path);
+		^this.new(name, code);
+	}
+
 	add {|server|
 		// @todo add a uuid to avoid clashes?
 		var tmpFilePath = PathName.tmp ++ hash.asString;

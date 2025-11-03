@@ -21,6 +21,14 @@ Will be transformed to a LINK::Classes/Symbol::.
 argument:: code
 Script to store on the server under the given reference.
 
+METHOD:: load
+Loads a DynGen script from a file.
+argument:: name
+Name to be used as reference for the script.
+Will be transformed to a LINK::Classes/Symbol::.
+argument:: path
+Location of the DynGen script.
+
 METHOD:: all
 Returns all registered DynGenDef instances.
 
