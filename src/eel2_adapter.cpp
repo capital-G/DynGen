@@ -1,6 +1,7 @@
 #include "eel2_adapter.h"
 
 #include "ns-eel-addfuncs.h"
+#include "ns-eel-int.h"
 
 #include <SC_Unit.h>
 
@@ -13,7 +14,7 @@ void EEL2Adapter::init(const std::string &script) {
   mInputs = new double *[mNumInputChannels]();
   mOutputs = new double *[mNumOutputChannels]();
 
-  eel_state_ = NSEEL_VM_alloc();
+  eel_state_ = static_cast<compileContext*>(NSEEL_VM_alloc());
 
   // obtain handles to input and output variables
   for (int i = 0; i < mNumInputChannels; i++) {
@@ -35,59 +36,58 @@ void EEL2Adapter::init(const std::string &script) {
 
   mScript = header + script;
 
-  auto compileFlags = \
-    NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS | \
-    NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS | \
-    NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET | \
+  auto compileFlags =
+    NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS |
+    NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET |
     NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
   code_ = NSEEL_code_compile_ex(eel_state_, mScript.c_str(), 0, compileFlags);
   if (!code_) {
-    std::cout << "NSEEL_code_compile failed" << std::endl;
+    std::cout << "NSEEL_code_compile failed: " << eel_state_->last_error_string << std::endl;
     return;
   }
   mReady.store(true);
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg, const EEL_F *chanArg) {
-  auto world = static_cast<EEL2Adapter*>(opaque)->mWorld;
-  int bufNum = static_cast<int>(*bufNumArg);
-  if (bufNum >= world->mNumSndBufs) {
+  const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+  const auto optBuf =  eel2Adapter->GetBuffer(static_cast<int>(*bufNumArg));
+  if (!optBuf) {
     return 0.0f;
   };
-  const auto buf = world->mSndBufs[bufNum];
+  const auto buf = *optBuf;
   const int sampleNum = static_cast<int>(*sampleNumArg);
-  if (sampleNum >= buf.frames) {
+  if (sampleNum >= buf->frames || sampleNum < 0) {
     return 0.0f;
   }
 
   int chanOffset = static_cast<int>(*chanArg);
-  if (chanOffset > buf.channels) {
+  if (chanOffset > buf->channels || chanOffset < 0) {
     chanOffset = 0;
   }
 
   LOCK_SNDBUF_SHARED(buf);
-  return buf.data[(sampleNum*buf.channels) + chanOffset];
+  return buf->data[(sampleNum*buf->channels) + chanOffset];
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg, const EEL_F *chanArg, const EEL_F *bufValueArg) {
-  auto world = static_cast<EEL2Adapter*>(opaque)->mWorld;
-  int bufNum = static_cast<int>(*bufNumArg);
-  if (bufNum >= world->mNumSndBufs) {
+  const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+  const auto optBuf =  eel2Adapter->GetBuffer(static_cast<int>(*bufNumArg));
+  if (!optBuf) {
     return 0.0f;
   };
-  const auto buf = world->mSndBufs[bufNum];
+  const auto buf = *optBuf;
   const int sampleNum = static_cast<int>(*sampleNumArg);
-  if (sampleNum >= buf.frames) {
+  if (sampleNum >= buf->frames || sampleNum < 0) {
     return 0.0f;
   }
 
   int chanOffset = static_cast<int>(*chanArg);
-  if (chanOffset > buf.channels) {
+  if (chanOffset > buf->channels || chanOffset < 0) {
     chanOffset = 0;
   }
 
   LOCK_SNDBUF(buf);
-  buf.data[(sampleNum * buf.channels) + chanOffset] = static_cast<float>(*bufValueArg);
+  buf->data[(sampleNum * buf->channels) + chanOffset] = static_cast<float>(*bufValueArg);
   // or should this return the old now overwritten value?
   return *bufValueArg;
 }
