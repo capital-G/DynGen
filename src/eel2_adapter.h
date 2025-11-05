@@ -9,6 +9,7 @@
 #include "eel2/ns-eel.h"
 
 #include <SC_Graph.h>
+#include <SC_Unit.h>
 #include <SC_World.h>
 
 class EEL2Adapter {
@@ -17,9 +18,10 @@ public:
   ~EEL2Adapter();
 
   void init(const std::string &script);
-  static EEL_F eelReadBuf(void *opaque, const EEL_F *bufNum,
-                          const EEL_F *sampleNum, const EEL_F *chanAr);
-  static EEL_F eelWriteBuf(void* opaque, const EEL_F *bufNumArg, const EEL_F *sampleNumArg, const EEL_F *chanArg, const EEL_F *bufValueArg);
+  static EEL_F eelReadBuf(void* opaque, INT_PTR numParams, EEL_F** params);
+  static EEL_F eelReadBufL(void* opaque, INT_PTR numParams, EEL_F** params);
+  static EEL_F eelReadBufC(void* opaque, INT_PTR numParams, EEL_F** params);
+  static EEL_F eelWriteBuf(void *opaque, INT_PTR numParams, EEL_F **param);
 
   void process(float **inBuf, float **outBuf, int numSamples) {
     for (int i = 0; i < numSamples; i++) {
@@ -89,5 +91,24 @@ private:
     // no buffer found
     mSndBuf = nullptr;
     return {};
+  }
+
+  // Assumes that chan is within bounds
+  static float GetSample(const SndBuf *buf, const int chan, const int sampleNum) {
+    LOCK_SNDBUF_SHARED(buf);
+    if (sampleNum <= 0 ) {
+      return buf->data[chan];
+    }
+    if (sampleNum < buf->samples) {
+      return buf->data[buf->channels * sampleNum + chan];
+    }
+    return buf->data[buf->channels * (buf->samples -1) + chan];
+  }
+
+  static int GetChannelOffset(const SndBuf *buf, const int &chanNum) {
+    if (chanNum >= buf->channels || chanNum < 0) {
+      return 0;
+    }
+    return chanNum;
   }
 };
