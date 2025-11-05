@@ -5,6 +5,7 @@
 #include <atomic>
 #include <iostream>
 #include <string>
+#include <optional>
 
 #include "eel2/ns-eel.h"
 
