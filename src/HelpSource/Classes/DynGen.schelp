@@ -167,8 +167,10 @@ These do not implement any kind of interpolation.
 
 TABLE::
 ## function || comment
-## bufRd(bufNum, bufFrame, bufChan) || reads the frame of a LINK::Classes/Buffer:: on the server. If the buffer does not exist or bufFrame is out of bounds it will return 0.0. If bufChan is out of bounds, it will be mapped to the first channel.
-## bufWr(bufNum, bufFrame, bufChan, bufVal) || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. If the buffer does not exist or bufFrame is out of bounds it will not write to the buffer. If bufChan is out of bounds, it will be mapped to the first channel.
+## bufRead(bufNum, bufFrame, [bufChan]) || reads the frame of a LINK::Classes/Buffer:: on the server. If the buffer does not exist or bufFrame is out of bounds it will return 0.0. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
+## bufReadL(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses linear interpolation.
+## bufReadC(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses cubic interpolation.
+## bufWrite(bufNum, bufFrame, bufVal, [bufChan]) || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. If the buffer does not exist or bufFrame is out of bounds it will not write to the buffer. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
 ::
 
 An example of buffer playback
@@ -176,9 +178,16 @@ An example of buffer playback
 CODE::
 ~buffer = Buffer.read(s, path: ExampleFiles.apollo11);
 
-DynGenDef(\buffer, "out0 = bufRd(%, in0, 0)".format(~buffer.bufnum)).add;
+DynGenDef(\buffer, "out0 = bufRd(in0, in1)").add;
 
-Ndef(\p, {DynGen.ar(1, \buffer, Phasor.ar(rate: SinOscFB.ar(10.3, 1.3) + 1.0, end: ~buffer.numFrames))}).play;
+(
+Ndef(\p, {
+	DynGen.ar(1, \buffer,
+		K2A.ar(~buffer.bufnum), // in0 = bufNum
+		Phasor.ar(rate: SinOscFB.ar(5.3, 1.3) + 1.0, end: ~buffer.numFrames), // in1 = bufFrame
+	);
+}).play;
+)
 ::
 
 NOTE::
