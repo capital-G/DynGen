@@ -71,35 +71,26 @@ DynGen : MetaDynGen {
 	*ar {|numOutputs, script ...inputs|
 		^super.ar(numOutputs, script, 0.0, *inputs);
 	}
-
-	init { |... theInputs|
-		inputs = theInputs;
-		^this.initOutputs(theInputs[0], 'audio');
-	}
 }
 
 DynGenRT : MetaDynGen {
 	*ar {|numOutputs, script ...inputs|
 		^super.ar(numOutputs, script, 1.0, *inputs);
 	}
-
-	init { |... theInputs|
-		inputs = theInputs;
-		^this.initOutputs(theInputs[0], 'audio');
-	}
 }
 
 MetaDynGen : MultiOutUGen {
 	*ar {|numOutputs, script, realTime ...inputs|
-	    script = if(script.class == DynGenDef, {
+		script = if(script.class == DynGenDef, {
 			script.hash;
 		}, {
 			DynGenDef.prHashSymbol(script.asSymbol);
 		}).asFloat;
-		^this.multiNew('audio', numOutputs, script, inputs.size, realTime, *inputs);
+		^this.multiNew('audio', numOutputs, script, realTime, *inputs);
 	}
 
-	init { |... theInputs|
-		^this.initOutputs(theInputs[0], 'audio');
+	init { |numOutputs ... theInputs|
+		inputs = theInputs;
+		^this.initOutputs(numOutputs, 'audio');
 	}
 }
