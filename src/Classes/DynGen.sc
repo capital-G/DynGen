@@ -91,6 +91,13 @@ MetaDynGen : MultiOutUGen {
 
 	init { |numOutputs ... theInputs|
 		inputs = theInputs;
+		inputs = inputs.asArray.collect({|input|
+			if(input.rate != \audio, {
+				K2A.ar(input);
+			}, {
+				input;
+			});
+		});
 		^this.initOutputs(numOutputs, 'audio');
 	}
 }

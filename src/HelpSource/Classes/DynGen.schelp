@@ -183,7 +183,7 @@ DynGenDef(\buffer, "out0 = bufReadC(in0, in1)").add;
 (
 Ndef(\p, {
 	DynGen.ar(1, \buffer,
-		K2A.ar(~buffer.bufnum), // in0 = bufNum
+		~buffer.bufnum, // in0 = bufNum
 		Phasor.ar(rate: SinOscFB.ar(5.3, 1.3) + 1.0, end: ~buffer.numFrames), // in1 = bufFrame
 	);
 }).play;
