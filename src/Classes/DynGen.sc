@@ -1,9 +1,8 @@
 DynGenDef {
 	classvar <all;
 	var <name;
-	var <code;
-
 	var <hash;
+	var <>code;
 
 	*initClass {
 		all = IdentityDictionary();
@@ -11,32 +10,32 @@ DynGenDef {
 
 	*new {|name, code|
 		var res;
-		if(code.isNil, {
-			^all[name.asSymbol];
-		}, {
-			name = name.asSymbol;
-			res = super.newCopyArgs(
-				name,
-				code.value.asString,
-				DynGenDef.prHashSymbol(name),
-			);
-			all[res.name] = res;
+		var hash;
+
+		name = name.asSymbol;
+		res = all[name];
+		if(res.notNil, {
+			if(code.isNil.not, {
+				res.code = code;
+			});
 			^res;
 		});
+		hash = DynGenDef.prHashSymbol(name);
+		res = super.newCopyArgs(name, hash, code ? "");
+		all[name] = res;
+		^res;
 	}
 
 	*load {|name, path|
-		var code;
-		path = path.asAbsolutePath;
-		if(File.exists(path).not, {
-			"DynGen file % does not exist".format(path).warn;
-			^nil;
-		});
-		code = File.readAllString(path);
+		var code = DynGenDef.prLoadScript(path);
 		^this.new(name, code);
 	}
 
-	add {|server|
+	load {|path|
+		code = DynGenDef.prLoadScript(path);
+	}
+
+	send {|server|
 		// @todo add a uuid to avoid clashes?
 		var tmpFilePath = PathName.tmp ++ hash.asString;
 
@@ -55,6 +54,15 @@ DynGenDef {
 				"Could not delete DynGen temp file %".format(tmpFilePath).warn;
 			});
 		}
+	}
+
+	*prLoadScript {|path|
+		path = path.asAbsolutePath;
+		if(File.exists(path).not, {
+			"DynGen file % does not exist".format(path).warn;
+			^nil;
+		});
+		^File.readAllString(path);
 	}
 
 	*prHashSymbol {|symbol|

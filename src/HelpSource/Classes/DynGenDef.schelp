@@ -39,11 +39,16 @@ INSTANCEMETHODS::
 
 PRIVATE:: hash
 
-METHOD:: add
-Stores the DynGenDef on a server.
+METHOD:: send
+Registers the DynGenDef on a server.
 argument:: server
 The server on which the DynGenDef should be registered.
 If no server is provided, LINK::Classes/Server#*default:: will be used.
+
+METHOD:: load
+Loads the content of a file to the code variable.
+argument:: path
+Location of the DynGen script.
 
 PRIVATE:: name
 

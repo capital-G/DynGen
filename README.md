@@ -4,9 +4,6 @@
 
 ## Installation
 
-Currently DynGen is only tested on macOS, though it should also works on Linux.
-Windows is currently not supported, but should be available soon as well.
-
 Builds are occasionally uploaded at <https://github.com/capital-G/DynGen/releases>.
 Download and extract the content of the archive into the `Platform.userExtensionDir` folder.
 
@@ -53,8 +50,8 @@ All inputs are available via the variables `in0`, `in1`, ... and the outputs nee
 s.boot;
 
 // registers the script on the server with identifier \simple
-// like on SynthDef, remember to call .add
-~simple = DynGenDef(\simple, "out0 = in0 * 0.5;").add;
+// like on SynthDef, remember to call .send
+~simple = DynGenDef(\simple, "out0 = in0 * 0.5;").send;
 
 // spawn a synth which evaluates our script
 (
@@ -69,7 +66,7 @@ Ndef(\x, {DynGen.ar(
 ### Modulate parameters
 
 ```supercollider
-~modulate = DynGenDef(\modulate, "out0 = in0 * in1;").add;
+~modulate = DynGenDef(\modulate, "out0 = in0 * in1;").send;
 
 Ndef(\x, {DynGen.ar(1, ~modulate, SinOscFB.ar(200.0, 1.3), LFPulse.ar(5.2, width: 0.2)) * 0.2}).play;
 ```
@@ -86,7 +83,7 @@ alpha = 0.95;
 // the one pole filter formula
 out0 = alpha * y1 + (1.0 - alpha) * in0;
 y1 = out0; // write value to history
-").add;
+").send;
 )
 
 Ndef(\x, {DynGen.ar(1, ~onePoleFilter, Saw.ar(400.0)) * 0.2}).play;
@@ -115,7 +112,7 @@ phase -= (phase >= twoPi) * twoPi;
 out0 = sin(x);
 
 y1 = out0;
-").add;
+").send;
 )
 
 (
@@ -139,7 +136,7 @@ Write sample accurate into a modulatable delay line.
 ~delayLine = DynGenDef(\delayLine, "
 buf[in1] = in0;
 out0 = buf[in2];
-").add;
+").send;
 )
 
 (
@@ -203,7 +200,7 @@ loop(oversample,
 // scale down b/c of os
 out0 = sumA / oversample;
 out1 = sumB / oversample;
-").add;
+").send;
 )
 
 (
@@ -222,7 +219,7 @@ Ndef(\y, {
 ### Multi-channel
 
 ```supercollider
-~multi = DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").add;
+~multi = DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").send;
 
 (
 Ndef(\y, {DynGen.ar(2, ~multi, 

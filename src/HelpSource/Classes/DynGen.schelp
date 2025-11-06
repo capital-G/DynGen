@@ -17,7 +17,7 @@ CODE::
 // the server needs to be booted b/c we need to register the code on the server through DynGenDef
 s.boot;
 
-DynGenDef(\example, "out0 = 0.5;").add;
+DynGenDef(\example, "out0 = 0.5;").send;
 
 (
 Ndef(\x, {
@@ -38,7 +38,7 @@ If you want to run these steps on the realtime audio thread and want to get rid 
 It is also possible to update the associated code while the synth is running by replacing it through the associated code::DynGenDef:: definition.
 
 CODE::
-DynGenDef(\example, "out0 = 0.1;").add;
+DynGenDef(\example, "out0 = 0.1;").send;
 
 // now 0.1 should be polled
 
@@ -48,7 +48,7 @@ Ndef(\x).clear;
 It is also possible to process external input in a script by using the variables CODE::in0::, CODE::IN1::, ... and provide input signals at the invocation of the UGen.
 
 CODE::
-DynGenDef(\myInput, "out0 = in0 * 0.1;").add;
+DynGenDef(\myInput, "out0 = in0 * 0.1;").send;
 
 (
 Ndef(\x, {
@@ -87,7 +87,7 @@ out0 = sin(omega);
 
 // store previous output for next sample
 y1 = out0;
-").add;
+").send;
 )
 
 (
@@ -134,7 +134,7 @@ rightReadPos -= (rightReadPos >= bufferSize) * bufferSize;
 
 out0 = buf[readPos];
 out1 = buf[rightReadPos];
-").add;
+").send;
 )
 
 
@@ -232,7 +232,7 @@ phase -= (phase >= twoPi) * twoPi;
 out0 = sin(x);
 
 y1 = out0;
-").add;
+").send;
 )
 
 (
@@ -254,7 +254,7 @@ CODE::
 ~delayLine = DynGenDef(\delayLine, "
 buf[in1] = in0;
 out0 = buf[in2];
-").add;
+").send;
 )
 
 (
@@ -316,7 +316,7 @@ loop(oversample,
 // scale down b/c of os
 out0 = sumA / oversample;
 out1 = sumB / oversample;
-").add;
+").send;
 )
 
 (
@@ -335,7 +335,7 @@ Ndef(\y, {
 Multi-channel
 
 CODE::
-~multi = DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").add;
+~multi = DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").send;
 
 (
 Ndef(\y, {DynGen.ar(2, ~multi,
