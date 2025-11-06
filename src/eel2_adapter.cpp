@@ -52,69 +52,68 @@ void EEL2Adapter::init(const std::string &script) {
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const INT_PTR numParams, EEL_F** params) {
   const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
-  const auto buf =  eel2Adapter->GetBuffer(static_cast<int>(*params[0]));
+  const auto buf =  eel2Adapter->getBuffer(static_cast<int>(*params[0]));
   if (!buf) {
     return 0.0f;
   };
   int chanOffset = 0;
   if (numParams>=3) {
-    chanOffset = GetChannelOffset(*buf, static_cast<int>(*params[2]));
+    chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
   }
-  return GetSample(*buf, chanOffset, static_cast<int>(*params[1]));
+  return getSample(buf, chanOffset, static_cast<int>(*params[1]));
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufL(void* opaque, const INT_PTR numParams, EEL_F** params) {
   const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
-  const auto buf =  eel2Adapter->GetBuffer(static_cast<int>(*params[0]));
-  if (!buf) {
+  const auto buf =  eel2Adapter->getBuffer(static_cast<int>(*params[0]));
+  if (buf == nullptr) {
     return 0.0f;
   };
   int chanOffset = 0;
   if (numParams >= 3) {
-    chanOffset = GetChannelOffset(*buf, static_cast<int>(*params[2]));
+    chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
   }
 
-  const auto lowerIndex = static_cast<int>(floor(*params[1]));
+  const auto lowerIndex = static_cast<int>(*params[1]);
   const auto upperIndex = lowerIndex + 1;
   const float frac = static_cast<float>(*params[1]) - static_cast<float>(lowerIndex);
 
   return lininterp(
     frac,
-    GetSample(*buf, chanOffset, lowerIndex),
-    GetSample(*buf, chanOffset, upperIndex)
+    getSample(buf, chanOffset, lowerIndex),
+    getSample(buf, chanOffset, upperIndex)
   );
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufC(void* opaque, const INT_PTR numParams, EEL_F** params) {
   const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
-  const auto buf =  eel2Adapter->GetBuffer(static_cast<int>(*params[0]));
-  if (!buf) {
+  const auto buf =  eel2Adapter->getBuffer(static_cast<int>(*params[0]));
+  if (buf == nullptr) {
     return 0.0f;
   };
   int chanOffset = 0;
   if (numParams >= 3) {
-    chanOffset = GetChannelOffset(*buf, static_cast<int>(*params[2]));
+    chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
   }
 
-  const auto baseIndex = static_cast<int>(floor(*params[1]));
+  const auto baseIndex = static_cast<int>(*params[1]);
   const float frac = static_cast<float>(*params[1]) - static_cast<float>(baseIndex);
 
   return cubicinterp(
     frac,
-    GetSample(*buf, chanOffset, baseIndex-1),
-    GetSample(*buf, chanOffset, baseIndex),
-    GetSample(*buf, chanOffset, baseIndex+1),
-    GetSample(*buf, chanOffset, baseIndex+2)
+    getSample(buf, chanOffset, baseIndex-1),
+    getSample(buf, chanOffset, baseIndex),
+    getSample(buf, chanOffset, baseIndex+1),
+    getSample(buf, chanOffset, baseIndex+2)
   );
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, INT_PTR numParams, EEL_F** params) {
   const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
-  const auto optBuf =  eel2Adapter->GetBuffer(static_cast<int>(*params[0]));
-  if (!optBuf) {
+  const auto buf =  eel2Adapter->getBuffer(static_cast<int>(*params[0]));
+  if (buf == nullptr) {
     return 0.0f;
   };
-  const auto buf = *optBuf;
   const int sampleNum = static_cast<int>(*params[1]);
   if (sampleNum >= buf->frames || sampleNum < 0) {
     return 0.0f;

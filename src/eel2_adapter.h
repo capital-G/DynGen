@@ -5,7 +5,6 @@
 #include <atomic>
 #include <iostream>
 #include <string>
-#include <optional>
 
 #include "eel2/ns-eel.h"
 
@@ -65,9 +64,9 @@ private:
   std::string mScript;
 
   // see GET_BUF macro from SC_Unit.h
-  std::optional<SndBuf*> GetBuffer(int bufNum) {
+  SndBuf* getBuffer(int bufNum) {
     if (bufNum < 0) {
-      return {};
+      return nullptr;
     };
     if (bufNum == mSndBufNum && mSndBuf != nullptr) {
       return mSndBuf;
@@ -91,22 +90,17 @@ private:
 
     // no buffer found
     mSndBuf = nullptr;
-    return {};
+    return nullptr;
   }
 
   // Assumes that chan is within bounds
-  static float GetSample(const SndBuf *buf, const int chan, const int sampleNum) {
+  static float getSample(const SndBuf *buf, int chan, int sampleNum) {
     LOCK_SNDBUF_SHARED(buf);
-    if (sampleNum <= 0 ) {
-      return buf->data[chan];
-    }
-    if (sampleNum < buf->samples) {
-      return buf->data[buf->channels * sampleNum + chan];
-    }
-    return buf->data[buf->channels * (buf->samples -1) + chan];
+    sampleNum = std::clamp<int>(sampleNum, 0, buf->samples - 1);
+    return buf->data[buf->channels * sampleNum + chan];
   }
 
-  static int GetChannelOffset(const SndBuf *buf, const int &chanNum) {
+  static int getChannelOffset(const SndBuf *buf, int chanNum) {
     if (chanNum >= buf->channels || chanNum < 0) {
       return 0;
     }
