@@ -178,7 +178,7 @@ An example of buffer playback
 CODE::
 ~buffer = Buffer.read(s, path: ExampleFiles.apollo11);
 
-DynGenDef(\buffer, "out0 = bufRd(in0, in1)").add;
+DynGenDef(\buffer, "out0 = bufReadC(in0, in1)").add;
 
 (
 Ndef(\p, {
