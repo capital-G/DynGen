@@ -11,6 +11,7 @@ extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
 // this is not RT safe
 void EEL2Adapter::init(const std::string &script) {
+  mScript = script;
   mInputs = new double *[mNumInputChannels]();
   mOutputs = new double *[mNumOutputChannels]();
 
@@ -26,17 +27,16 @@ void EEL2Adapter::init(const std::string &script) {
     mOutputs[i] = NSEEL_VM_regvar(eel_state_, name.c_str());
   }
 
+  // eel2 functions
   NSEEL_VM_SetCustomFuncThis(eel_state_, this);
   NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelReadBuf);
   NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
   NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
   NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
 
-  // define variables for the script context
-  std::string header;
-  header += "srate = " + std::to_string(mSampleRate) + ";\n";
-
-  mScript = header + script;
+  // eel2 variables
+  auto eelSrate = NSEEL_VM_regvar(eel_state_, "srate");
+  *eelSrate = mSampleRate;
 
   auto compileFlags =
     NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS |
