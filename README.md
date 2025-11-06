@@ -46,7 +46,6 @@ All inputs are available via the variables `in0`, `in1`, ... and the outputs nee
 ### In = Output * 0.5
 
 ```supercollider
-// start the server
 s.boot;
 
 // registers the script on the server with identifier \simple
@@ -58,7 +57,8 @@ s.boot;
 Ndef(\x, {DynGen.ar(
 	1, // numOutputs
 	~simple, // script to use - can also be DynGenDef(\simple) or \simple
-	SinOsc.ar(200.0)), // ... the inputs to the script
+	SinOsc.ar(200.0), // ... the inputs to the script
+);
 }).scope;
 )
 ```
