@@ -195,6 +195,36 @@ Since EEL2 internally works with doubles instead of SuperCollider internal float
 This allows to address MATH::2^{53}:: samples accurately, which translates to around 6000 years on 48 kHz instead of the 6 minutes of LINK::Classes/BufRd::.
 ::
 
+SUBSECTION:: DynGen sections
+
+If no section block is given, the whole script will be evaluated for each sample.
+It is also possible to indicate a section of the script which only gets evaluated during the initaliziation of the script by prefxinig the section with CODE::@init::.
+A section which is prefixed with CODE::@block:: gets evaluated each block, see LINK::Classes/ServerOptions#-blockSize:: (aka the rate that CODE::.kr:: is running at).
+If any of those two sections is provided, it is necessary to also provide a header for the per-sample script via CODE::@sample::.
+
+The blocks need to be in order CODE::@init::, CODE::@block::, CODE::@sample::, where each of these blocks is optional except sample.
+
+CODE::
+(
+DynGenDef(\blocks, "
+@init
+x = $pi;
+
+@block
+y += 1;
+
+@sample
+z += 1;
+
+out0 = x;
+out1 = y;
+out2 = z;
+").send;
+)
+
+Ndef(\b, {DynGen.ar(3, \blocks).poll});
+::
+
 CLASSMETHODS::
 
 METHOD:: ar
