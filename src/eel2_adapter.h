@@ -88,7 +88,7 @@ private:
 
 class EEL2Adapter {
 public:
-  EEL2Adapter(int numInputChannels, int numOutputChannels, int sampleRate, World *world, Graph* parent) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mSampleRate(sampleRate), mWorld(world), mParent(parent) {};
+  EEL2Adapter(int numInputChannels, int numOutputChannels, int sampleRate, int blockSize, World *world, Graph* parent) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mSampleRate(sampleRate), mBlockSize(blockSize), mWorld(world), mParent(parent) {};
   ~EEL2Adapter();
 
   void init(const std::string &script);
@@ -128,6 +128,7 @@ private:
   int mNumInputChannels = 0;
   int mNumOutputChannels = 0;
   double mSampleRate = 0;
+  int mBlockSize = 0;
 
   double **mInputs = nullptr;
   double **mOutputs = nullptr;

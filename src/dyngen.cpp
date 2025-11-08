@@ -49,7 +49,7 @@ void dynGenCompileCallbackCleanup(World *world, void *raw_callback) {
 // *********
 // UGen code
 // *********
-DynGen::DynGen() : vm(mNumInputs-2, mNumOutputs, static_cast<int>(sampleRate()), mWorld, mParent) {
+DynGen::DynGen() : vm(mNumInputs-2, mNumOutputs, static_cast<int>(sampleRate()), mBufLength, mWorld, mParent) {
   mCodeID = static_cast<int>(in0(0));
   bool useAudioThread = in0(1) > 0.5;
 

@@ -37,6 +37,8 @@ void EEL2Adapter::init(const std::string &script) {
   // eel2 variables
   auto eelSrate = NSEEL_VM_regvar(mEelState, "srate");
   *eelSrate = mSampleRate;
+  auto eelBlockSize = NSEEL_VM_regvar(mEelState, "blockSize");
+  *eelBlockSize = mBlockSize;
 
   auto compileFlags =
     NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS |
