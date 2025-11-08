@@ -11,42 +11,71 @@ extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
 // this is not RT safe
 void EEL2Adapter::init(const std::string &script) {
-  mScript = script;
+  mScript = new DynGenScript(script);
   mInputs = new double *[mNumInputChannels]();
   mOutputs = new double *[mNumOutputChannels]();
 
-  eel_state_ = static_cast<compileContext*>(NSEEL_VM_alloc());
+  mEelState = static_cast<compileContext*>(NSEEL_VM_alloc());
 
   // obtain handles to input and output variables
   for (int i = 0; i < mNumInputChannels; i++) {
     std::string name = "in" + std::to_string(i);
-    mInputs[i] = NSEEL_VM_regvar(eel_state_, name.c_str());
+    mInputs[i] = NSEEL_VM_regvar(mEelState, name.c_str());
   }
   for (int i = 0; i < mNumOutputChannels; i++) {
     std::string name = "out" + std::to_string(i);
-    mOutputs[i] = NSEEL_VM_regvar(eel_state_, name.c_str());
+    mOutputs[i] = NSEEL_VM_regvar(mEelState, name.c_str());
   }
 
   // eel2 functions
-  NSEEL_VM_SetCustomFuncThis(eel_state_, this);
+  NSEEL_VM_SetCustomFuncThis(mEelState, this);
   NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelReadBuf);
   NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
   NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
   NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
 
   // eel2 variables
-  auto eelSrate = NSEEL_VM_regvar(eel_state_, "srate");
+  auto eelSrate = NSEEL_VM_regvar(mEelState, "srate");
   *eelSrate = mSampleRate;
+  auto eelBlockSize = NSEEL_VM_regvar(mEelState, "blockSize");
+  *eelBlockSize = mBlockSize;
 
   auto compileFlags =
     NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS |
     NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET |
     NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
-  code_ = NSEEL_code_compile_ex(eel_state_, mScript.c_str(), 0, compileFlags);
-  if (!code_) {
-    std::cout << "NSEEL_code_compile failed: " << eel_state_->last_error_string << std::endl;
+
+  if (mScript->sample.empty()) {
+    std::cout << "DynGen sample code is missing" << std::endl;
     return;
   }
+
+  if (!mScript->init.empty()) {
+    mInitCode = NSEEL_code_compile_ex(mEelState, mScript->init.c_str(), 0, compileFlags);
+    if (!mInitCode) {
+      std::cout << "DynGen init compile error: " << mEelState->last_error_string << std::endl;
+      return;
+    }
+  }
+
+  if (!mScript->block.empty()) {
+    mBlockCode = NSEEL_code_compile_ex(mEelState, mScript->block.c_str(), 0, compileFlags);
+    if (!mBlockCode) {
+      std::cout << "DynGen block compile error: " << mEelState->last_error_string << std::endl;
+      return;
+    }
+  }
+
+  mSampleCode = NSEEL_code_compile_ex(mEelState, mScript->sample.c_str(), 0, compileFlags);
+  if (!mSampleCode) {
+    std::cout << "DynGen sample compile error: " << mEelState->last_error_string << std::endl;
+    return;
+  }
+
+  if (mInitCode) {
+    NSEEL_code_execute(mInitCode);
+  }
+
   mReady.store(true);
 }
 
@@ -136,12 +165,16 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, INT_PTR numParams, 
 }
 
 EEL2Adapter::~EEL2Adapter() {
-  if (code_)
+  delete mScript;
+  if (mSampleCode)
+    NSEEL_code_free(mSampleCode);
+  if (mInitCode)
+    NSEEL_code_free(mInitCode);
+  if (mBlockCode)
+    NSEEL_code_free(mBlockCode);
+  if (mEelState)
     // @todo delay this to NRT thread
-    NSEEL_code_free(code_);
-  if (eel_state_)
-    // @todo delay this to NRT thread
-    NSEEL_VM_free(eel_state_);
+    NSEEL_VM_free(mEelState);
   delete[] mInputs;
   delete[] mOutputs;
 }
