@@ -1,0 +1,39 @@
+twopi = 2*$pi;
+
+phaseA += 0;
+phaseB += 0;
+
+freqA = in0;
+freqB = in1;
+modIndexA = in2;
+modIndexB = in3;
+
+oversample = 128;
+
+osSrate = srate * oversample;
+incA = freqA / osSrate;
+incB = freqB / osSrate;
+
+sumA = 0;
+sumB = 0;
+
+// calculate subsaples
+loop(oversample,
+    phaseA += incA;
+    phaseB += incB;
+    // wrap phases between [0, 1)
+    phaseA -= floor(phaseA);
+    phaseB -= floor(phaseB);
+
+    // apply cross-phase modulation
+    phaseA = phaseA + modIndexA * sin(twopi * phaseB);
+    phaseB = phaseB + modIndexB * sin(twopi * phaseA);
+
+    // accumulate (for downsampling)
+    sumA += sin(twopi * phaseA);
+    sumB += sin(twopi * phaseB);
+);
+
+// scale down b/c of os
+out0 = sumA / oversample;
+out1 = sumB / oversample;

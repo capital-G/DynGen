@@ -21,7 +21,7 @@ EXAMPLES::
 Compare the following versions of the code
 
 CODE::
-DynGenDef(\test, "out0 = 0.5").add;
+DynGenDef(\test, "out0 = 0.5").send;
 ::
 
 Non-RT version
