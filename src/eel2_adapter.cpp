@@ -1,7 +1,10 @@
+#define WDL_FFT_REALSIZE 8
+
 #include "eel2_adapter.h"
 
 #include "ns-eel-addfuncs.h"
 #include "ns-eel-int.h"
+#include "eel_fft.h"
 
 #include <SC_Unit.h>
 
@@ -33,6 +36,8 @@ void EEL2Adapter::init(const std::string &script) {
   NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
   NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
   NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
+
+  EEL_fft_register();
 
   // eel2 variables
   auto eelSrate = NSEEL_VM_regvar(mEelState, "srate");
