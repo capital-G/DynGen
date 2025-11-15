@@ -166,7 +166,7 @@ DynGen also offers some internal methods to interact with SuperCollider resource
 These do not implement any kind of interpolation.
 
 TABLE::
-## function || comment
+## STRONG::function:: || STRONG::comment::
 ## bufRead(bufNum, bufFrame, [bufChan]) || reads the frame of a LINK::Classes/Buffer:: on the server. If the buffer does not exist or bufFrame is out of bounds it will return 0.0. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
 ## bufReadL(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses linear interpolation.
 ## bufReadC(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses cubic interpolation.
@@ -223,6 +223,17 @@ out2 = z;
 )
 
 Ndef(\b, {DynGen.ar(3, \blocks).poll});
+::
+
+SUBSECTION:: DynGen constants
+
+DynGen provides some constants which are accessible like normal variables.
+There is no const protection, so pay attention to not overwrite them.
+
+TABLE::
+## STRONG::variable name:: || STRONG::comment::
+## srate || same as LINK::Classes/ServerOptions#-sampleRate::
+## blockSize || same as LINK::Classes/ServerOptions#-blockSize::
 ::
 
 CLASSMETHODS::
