@@ -262,7 +262,12 @@ bool swapCode(World* world, void *raw_callback) {
     entry->oldCode = node->code;
     node->code = entry->code;
     for (auto* unit = node->dynGenNodes; unit; unit = unit->next) {
-      unit->dynGenUnit->vm->init(entry->code);
+      // protecting in case the vm already got removed b/c the synth got removed
+      if (unit->dynGenUnit->vm != nullptr) {
+        unit->dynGenUnit->vm->init(entry->code);
+      } else {
+        return false;
+      }
     }
   }
 
