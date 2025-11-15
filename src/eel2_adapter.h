@@ -117,8 +117,6 @@ public:
     }
   }
 
-  std::atomic<bool> mReady{false};
-
 private:
   compileContext* mEelState = nullptr;
   NSEEL_CODEHANDLE mInitCode = nullptr;

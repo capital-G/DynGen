@@ -10,11 +10,8 @@ public:
   DynGen();
   ~DynGen();
 
-  // not RT safe
-  void updateCode(const std::string &code);
+  EEL2Adapter* vm = nullptr;
 private:
-  EEL2Adapter vm;
-  SndBuf *mScriptBuffer;
   int mCodeID;
 
   void next(int numSamples);
@@ -38,9 +35,19 @@ struct CodeLibrary {
 };
 
 struct DynGenCallbackData {
-  int scriptHash;
-  EEL2Adapter *adapter;
+  EEL2Adapter *vm;
+  EEL2Adapter *oldVm;
+
   CodeLibrary::DynGenNode* dynGenNode;
+  CodeLibrary *codeNode;
+
+  // vm init
+  int numInputChannels;
+  int numOutputChannels;
+  int sampleRate;
+  int blockSize;
+  World *world;
+  Graph *parent;
 };
 
 // used as callback data. Gets created in RT thread, passed to NRT threads

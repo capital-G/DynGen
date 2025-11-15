@@ -75,8 +75,6 @@ void EEL2Adapter::init(const std::string &script) {
   if (mInitCode) {
     NSEEL_code_execute(mInitCode);
   }
-
-  mReady.store(true);
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const INT_PTR numParams, EEL_F** params) {

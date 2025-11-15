@@ -14,34 +14,43 @@ static CodeLibrary *gLibrary = nullptr;
 // NRT callbacks for DynGen init
 // *****************************
 
-// Gets called deferred from the UGen init in a
-// stage2 thread which is NRT - so it is safe to allocate
-// memory and also spawn a thread to which we offload
-// all the heavy lifting of initializing the VM.
-bool dynGenCompileCallback(World *world, void *rawCallbackData) {
+// stage 2 - NRT
+bool createVmAndCompile(World* world, void *rawCallbackData) {
   auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
 
-  CodeLibrary* node = gLibrary;
-  while (node && node->id != callbackData->scriptHash) {
-    node = node->next;
-  }
+  callbackData->vm = new EEL2Adapter(
+    callbackData->numInputChannels,
+    callbackData->numOutputChannels,
+    callbackData->sampleRate,
+    callbackData->blockSize,
+    callbackData->world,
+    callbackData->parent
+  );
 
-  if (!node) {
-    Print("Could not find script with hash %i\n", callbackData->scriptHash);
-    return false;
-  }
-
-  callbackData->adapter->init(node->code);
-
-  // insert the dyngen node
-  callbackData->dynGenNode->next = node->dynGenNodes;
-  node->dynGenNodes = callbackData->dynGenNode;
-
-  // do not continue to stage 3
-  return false;
+  callbackData->vm->init(callbackData->codeNode->code);
+  // continue to stage 3
+  return true;
 }
 
-void dynGenCompileCallbackCleanup(World *world, void *raw_callback) {
+// stage 3 - RT
+bool swapVmPointers(World* world, void *rawCallbackData) {
+  auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
+  if (callbackData->dynGenNode->dynGenUnit->vm != nullptr) {
+    callbackData->oldVm = callbackData->dynGenNode->dynGenUnit->vm;
+  }
+  callbackData->dynGenNode->dynGenUnit->vm = callbackData->vm;
+  return true;
+}
+
+// stage 4 - NRT
+bool deleteOldVm(World* world, void *rawCallbackData) {
+  auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
+  delete callbackData->oldVm;
+  return true;
+}
+
+// cleanup
+void dynGenInitCallbackCleanup(World *world, void *raw_callback) {
   auto callback = static_cast<DynGenCallbackData *>(raw_callback);
   RTFree(world, callback);
 }
@@ -49,33 +58,48 @@ void dynGenCompileCallbackCleanup(World *world, void *raw_callback) {
 // *********
 // UGen code
 // *********
-DynGen::DynGen() : vm(mNumInputs-2, mNumOutputs, static_cast<int>(sampleRate()), mBufLength, mWorld, mParent) {
+DynGen::DynGen() {
   mCodeID = static_cast<int>(in0(0));
   bool useAudioThread = in0(1) > 0.5;
+  set_calc_function<DynGen, &DynGen::next>();
+
+  // search for codeId within code library linked list
+  auto codeNode = gLibrary;
+  bool found = false;
+  while (codeNode!=nullptr) {
+    if (codeNode->id == mCodeID) {
+      found = true;
+      break;
+    }
+    codeNode = codeNode->next;
+  }
+  if (!found) {
+    Print("Could not find script with hash %i\n", mCodeID);
+    next(1);
+    return;
+  }
+
+  // insert ourselves into the linked list such that we can
+  // receive code updates
+  auto const dynGenNode = static_cast<CodeLibrary::DynGenNode*>(RTAlloc(mWorld, sizeof(CodeLibrary::DynGenNode)));
+  dynGenNode->dynGenUnit = this;
+  dynGenNode->next = codeNode->dynGenNodes;
+  codeNode->dynGenNodes = dynGenNode;
 
   if (useAudioThread) {
     // do init of VM in RT thread - this is dangerous and should not be done,
     // yet it get rids of one block size delay until the signal appears.
     // Since the VM init seems to be often fast enough we allow the user
     // to decide, yet this is not the default case.
-    auto node = gLibrary;
-    bool found = false;
-    while (node!=nullptr) {
-      if (node->id == mCodeID) {
-        found = true;
-        vm.init(node->code);
-
-        auto const unitNode = static_cast<CodeLibrary::DynGenNode*>(RTAlloc(mWorld, sizeof(CodeLibrary::DynGenNode)));
-        unitNode->dynGenUnit = this;
-        unitNode->next = node->dynGenNodes;
-        node->dynGenNodes = unitNode;
-        break;
-      }
-      node = node->next;
-    }
-    if (!found) {
-      Print("Could not find script with hash %i\n", mCodeID);
-    }
+    vm = new EEL2Adapter(
+      mNumInputs-2,
+      mNumOutputs,
+      static_cast<int>(sampleRate()),
+      mBufLength,
+      mWorld,
+      mParent
+    );
+    vm->init(codeNode->code);
   } else {
     // offload VM init to NRT thread
     auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
@@ -83,21 +107,31 @@ DynGen::DynGen() : vm(mNumInputs-2, mNumOutputs, static_cast<int>(sampleRate()),
     auto unit = this; // the macro needs a reference to unit
     ClearUnitIfMemFailed(payload);
 
-    auto codeNode = static_cast<CodeLibrary::DynGenNode*>(RTAlloc(mWorld, sizeof(CodeLibrary::DynGenNode)));
-    ClearUnitIfMemFailed(codeNode);
-    codeNode->dynGenUnit = this;
-    codeNode->next = nullptr;
+    payload->dynGenNode = dynGenNode;
+    payload->codeNode = codeNode;
 
-    payload->scriptHash = mCodeID;
-    payload->adapter = &vm;
-    payload->dynGenNode = codeNode;
+    payload->numInputChannels = mNumInputs;
+    payload->numOutputChannels = mNumOutputs;
+    payload->sampleRate = static_cast<int>(sampleRate());
+    payload->blockSize = mBufLength;
+    payload->world = mWorld;
+    payload->parent = mParent;
+    payload->oldVm = nullptr;
 
     ft->fDoAsynchronousCommand(
-        mWorld, nullptr, nullptr, static_cast<void*>(payload),
-        dynGenCompileCallback, nullptr,nullptr, dynGenCompileCallbackCleanup, 0, nullptr);
+        mWorld,
+        nullptr,
+        nullptr,
+        static_cast<void*>(payload),
+        createVmAndCompile,
+        swapVmPointers,
+        deleteOldVm,
+        dynGenInitCallbackCleanup,
+        0,
+        nullptr
+      );
   }
 
-  set_calc_function<DynGen, &DynGen::next>();
   next(1);
 }
 
@@ -133,22 +167,15 @@ DynGen::DynGen() : vm(mNumInputs-2, mNumOutputs, static_cast<int>(sampleRate()),
 }
 
 void DynGen::next(int numSamples) {
-  if (!vm.mReady.load()) {
+  if (vm == nullptr) {
     for (int i = 0; i < mNumOutputs; i++) {
       Clear(numSamples, mOutBuf[i]);
     }
   } else {
     // skip first 2 channels since those are not signals
-    vm.process(mInBuf + 2, mOutBuf, numSamples);
+    vm->process(mInBuf + 2, mOutBuf, numSamples);
   }
 }
-
-void DynGen::updateCode(const std::string &code) {
-  vm.mReady.store(false);
-  // init sets the mReady variable when finished/successful
-  vm.init(code);
-}
-
 
 // ************
 // Library code
@@ -208,7 +235,7 @@ bool swapCode(World* world, void *raw_callback) {
     entry->oldCode = node->code;
     node->code = entry->code;
     for (auto* unit = node->dynGenNodes; unit; unit = unit->next) {
-      unit->dynGenUnit->updateCode(entry->code);
+      unit->dynGenUnit->vm->init(entry->code);
     }
   }
 
@@ -250,6 +277,7 @@ void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* arg
     Print("Invalid dyngenadd message\n");
     return;
   }
+  newLibraryEntry->oldCode = nullptr;
 
   ft->fDoAsynchronousCommand(
     inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
