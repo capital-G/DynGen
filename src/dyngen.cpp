@@ -55,6 +55,20 @@ void dynGenInitCallbackCleanup(World *world, void *raw_callback) {
   RTFree(world, callback);
 }
 
+// ~DynGen callback to destroy the vm in a NRT thread on stage 2
+bool deleteVmOnSynthDestruction(World *world, void *rawCallbackData) {
+  if (rawCallbackData != nullptr) {
+    auto vm = static_cast<EEL2Adapter*>(rawCallbackData);
+    delete vm;
+  }
+  // do not return to stage 3 - we are done
+  return false;
+}
+
+// dummy task b/c we are already deleting the vm above which
+// is the pointer we pass around
+void doNothing(World *world, void *rawCallbackData) {}
+
 // *********
 // UGen code
 // *********
@@ -164,6 +178,19 @@ DynGen::DynGen() {
     };
     node = node->next;
   }
+
+  ft->fDoAsynchronousCommand(
+    mWorld,
+    nullptr,
+    nullptr,
+    static_cast<void*>(vm),
+    deleteVmOnSynthDestruction,
+    nullptr,
+    nullptr,
+    doNothing,
+    0,
+    nullptr
+  );
 }
 
 void DynGen::next(int numSamples) {
