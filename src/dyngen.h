@@ -34,7 +34,7 @@ struct CodeLibrary {
   CodeLibrary *next;
   int id;
   DynGenNode *dynGenNodes;
-  std::string code;
+  char* code;
 };
 
 struct DynGenCallbackData {
@@ -48,4 +48,7 @@ struct DynGenCallbackData {
 struct NewDynGenLibraryEntry {
   int hash;
   char* codePath;
+
+  char* code;
+  char* oldCode;
 };

@@ -158,15 +158,35 @@ void DynGen::updateCode(const std::string &code) {
 // the library by traversing the library which is a linked list.
 // If the hash ID already exists the code gets updated and all running
 // instances should be updated.
-bool enterFileToDynGenLibrary(World *world, void *raw_callback) {
+bool loadFileToDynGenLibrary(World *world, void *raw_callback) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
 
-  // read file, see https://stackoverflow.com/a/19922123
-  std::ifstream codeFile;
-  codeFile.open(entry->codePath);
+  auto codeFile = std::ifstream(entry->codePath, std::ios::binary);
+  if (!codeFile.is_open()) {
+    std::cerr << "Could not open DynGen file at " << entry->codePath << std::endl;
+    return false;
+  }
+
   std::stringstream codeStream;
-  codeStream << codeFile.rdbuf();
-  const std::string code = codeStream.str();
+
+  codeFile.seekg(0, std::ios::end);
+  const std::streamsize codeSize = codeFile.tellg();
+  codeFile.seekg(0);
+
+  // add /0
+  auto* codeBuffer = new char[codeSize + 1];
+  codeFile.read(codeBuffer, codeSize);
+  codeBuffer[codeSize] = '\0';
+
+  entry->code = codeBuffer;
+
+  // continue to next stage
+  return true;
+}
+
+// runs in stage 3 (RT-thread)
+bool swapCode(World* world, void *raw_callback) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
 
   CodeLibrary* node = gLibrary;
   CodeLibrary* prevNode = nullptr;
@@ -180,18 +200,26 @@ bool enterFileToDynGenLibrary(World *world, void *raw_callback) {
       gLibrary,
       entry->hash,
       nullptr,
-      code,
+      entry->code,
     };
     gLibrary = newNode;
   } else {
-    node->code = code;
+    // swap code
+    entry->oldCode = node->code;
+    node->code = entry->code;
     for (auto* unit = node->dynGenNodes; unit; unit = unit->next) {
-      unit->dynGenUnit->updateCode(code);
+      unit->dynGenUnit->updateCode(entry->code);
     }
   }
 
-  // do not continue to stage 3 by returning false
-  return false;
+  return true;
+}
+
+// runs in stage 4 (non-RT-thread)
+bool deleteOldCode(World *world, void *raw_callback) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
+  delete entry->oldCode;
+  return true;
 }
 
 // frees the created struct. Uses RTFree since this has been managed
@@ -203,10 +231,11 @@ void pluginCmdCallbackCleanup(World *world, void *raw_callback) {
 }
 
 
+// runs in stage  1 (RT thread)
 // responds to an osc message on the RT thread - we therefore have to
 // copy the OSC data to a new struct which then gets passed to another
-// callback which runs in stage 2, aka non-rt. We have to
-// free the created struct afterward.
+// callback which runs in stage 2 (non-RT thread).
+// We have to free the created struct afterward via `pluginCmdCallbackCleanup`.
 void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
   auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
   newLibraryEntry->hash = args->geti();
@@ -224,7 +253,7 @@ void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* arg
 
   ft->fDoAsynchronousCommand(
     inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    enterFileToDynGenLibrary, nullptr,nullptr, pluginCmdCallbackCleanup, 0, nullptr);
+    loadFileToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, 0, nullptr);
 }
 
 // ********************
