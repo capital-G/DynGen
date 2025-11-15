@@ -144,7 +144,7 @@ void DynGen::next(int numSamples) {
 }
 
 void DynGen::updateCode(const std::string &code) {
-  vm.mReady.store(false, std::memory_order_release);
+  vm.mReady.store(false);
   // init sets the mReady variable when finished/successful
   vm.init(code);
 }
