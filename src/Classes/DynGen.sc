@@ -89,12 +89,13 @@ DynGenRT : MetaDynGen {
 
 MetaDynGen : MultiOutUGen {
 	*ar {|numOutputs, script, realTime ...inputs|
-		script = if(script.class == DynGenDef, {
-			script.hash;
-		}, {
-			DynGenDef.prHashSymbol(script.asSymbol);
-		}).asFloat;
-		^this.multiNew('audio', numOutputs, script, realTime, *inputs);
+		script = case
+		{script.isKindOf(DynGenDef)} {script.hash}
+		{script.isKindOf(String)} {DynGenDef.prHashSymbol(script.asSymbol)}
+		{script.isKindOf(Symbol)} {DynGenDef.prHashSymbol(script)}
+		{Error("Script input needs to be a DynGenDef object or a symbol, found %".format(script.class)).throw}
+
+		^this.multiNew('audio', numOutputs, script.asFloat, realTime, *inputs);
 	}
 
 	init { |numOutputs ... theInputs|
