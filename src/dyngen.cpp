@@ -246,12 +246,11 @@ bool swapCode(World* world, void *rawCallbackData) {
   }
 
   if (!node) {
-    auto* newNode = new CodeLibrary {
-      gLibrary,
-      entry->hash,
-      nullptr,
-      entry->code,
-    };
+    auto* newNode = static_cast<CodeLibrary*>(RTAlloc(world, sizeof(CodeLibrary)));
+    newNode->next = gLibrary;
+    newNode->id = entry->hash;
+    newNode->dynGenNodes = nullptr;
+    newNode->code = entry->code;
     gLibrary = newNode;
   } else {
     // swap code
