@@ -55,10 +55,8 @@ void dynGenInitCallbackCleanup(World *world, void *rawCallbackData) {
 
 // ~DynGen callback to destroy the vm in a NRT thread on stage 2
 bool deleteVmOnSynthDestruction(World *world, void *rawCallbackData) {
-  if (rawCallbackData != nullptr) {
-    auto vm = static_cast<EEL2Adapter*>(rawCallbackData);
-    delete vm;
-  }
+  auto vm = static_cast<EEL2Adapter*>(rawCallbackData);
+  delete vm;
   // do not return to stage 3 - we are done
   return false;
 }
