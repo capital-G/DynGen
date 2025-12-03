@@ -35,10 +35,10 @@ bool createVmAndCompile(World* world, void *rawCallbackData) {
 // stage 3 - RT
 bool swapVmPointers(World* world, void *rawCallbackData) {
   auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
-  if (callbackData->dynGenNode->dynGenUnit->vm != nullptr) {
-    callbackData->oldVm = callbackData->dynGenNode->dynGenUnit->vm;
+  if (callbackData->dynGenNode->dynGenUnit->mVm != nullptr) {
+    callbackData->oldVm = callbackData->dynGenNode->dynGenUnit->mVm;
   }
-  callbackData->dynGenNode->dynGenUnit->vm = callbackData->vm;
+  callbackData->dynGenNode->dynGenUnit->mVm = callbackData->vm;
   return true;
 }
 
@@ -105,7 +105,7 @@ DynGen::DynGen() {
     // yet it get rids of one block size delay until the signal appears.
     // Since the VM init seems to be often fast enough we allow the user
     // to decide, yet this is not the default case.
-    vm = new EEL2Adapter(
+    mVm = new EEL2Adapter(
       mNumInputs-2,
       mNumOutputs,
       static_cast<int>(sampleRate()),
@@ -113,7 +113,7 @@ DynGen::DynGen() {
       mWorld,
       mParent
     );
-    vm->init(codeNode->code);
+    mVm->init(codeNode->code);
   } else {
     // offload VM init to NRT thread
     auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
@@ -183,7 +183,7 @@ DynGen::DynGen() {
     mWorld,
     nullptr,
     nullptr,
-    static_cast<void*>(vm),
+    static_cast<void*>(mVm),
     deleteVmOnSynthDestruction,
     nullptr,
     nullptr,
@@ -194,13 +194,13 @@ DynGen::DynGen() {
 }
 
 void DynGen::next(int numSamples) {
-  if (vm == nullptr) {
+  if (mVm == nullptr) {
     for (int i = 0; i < mNumOutputs; i++) {
       Clear(numSamples, mOutBuf[i]);
     }
   } else {
     // skip first 2 channels since those are not signals
-    vm->process(mInBuf + 2, mOutBuf, numSamples);
+    mVm->process(mInBuf + 2, mOutBuf, numSamples);
   }
 }
 
@@ -263,8 +263,8 @@ bool swapCode(World* world, void *raw_callback) {
     node->code = entry->code;
     for (auto* unit = node->dynGenNodes; unit; unit = unit->next) {
       // protecting in case the vm already got removed b/c the synth got removed
-      if (unit->dynGenUnit->vm != nullptr) {
-        unit->dynGenUnit->vm->init(entry->code);
+      if (unit->dynGenUnit->mVm != nullptr) {
+        unit->dynGenUnit->mVm->init(entry->code);
       } else {
         return false;
       }

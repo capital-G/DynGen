@@ -10,7 +10,7 @@ public:
   DynGen();
   ~DynGen();
 
-  EEL2Adapter* vm = nullptr;
+  EEL2Adapter* mVm = nullptr;
 private:
   int mCodeID;
 
