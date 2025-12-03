@@ -35,9 +35,7 @@ bool createVmAndCompile(World* world, void *rawCallbackData) {
 // stage 3 - RT
 bool swapVmPointers(World* world, void *rawCallbackData) {
   auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
-  if (callbackData->dynGenNode->dynGenUnit->mVm != nullptr) {
-    callbackData->oldVm = callbackData->dynGenNode->dynGenUnit->mVm;
-  }
+  callbackData->oldVm = callbackData->dynGenNode->dynGenUnit->mVm;
   callbackData->dynGenNode->dynGenUnit->mVm = callbackData->vm;
   return true;
 }
