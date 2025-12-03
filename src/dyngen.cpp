@@ -208,8 +208,8 @@ void DynGen::next(int numSamples) {
 // the library by traversing the library which is a linked list.
 // If the hash ID already exists the code gets updated and all running
 // instances should be updated.
-bool loadFileToDynGenLibrary(World *world, void *raw_callback) {
-  auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
+bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
 
   auto codeFile = std::ifstream(entry->codePath, std::ios::binary);
   if (!codeFile.is_open()) {
@@ -235,8 +235,8 @@ bool loadFileToDynGenLibrary(World *world, void *raw_callback) {
 }
 
 // runs in stage 3 (RT-thread)
-bool swapCode(World* world, void *raw_callback) {
-  auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
+bool swapCode(World* world, void *rawCallbackData) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
 
   CodeLibrary* node = gLibrary;
   CodeLibrary* prevNode = nullptr;
@@ -271,16 +271,16 @@ bool swapCode(World* world, void *raw_callback) {
 }
 
 // runs in stage 4 (non-RT-thread)
-bool deleteOldCode(World *world, void *raw_callback) {
-  auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
+bool deleteOldCode(World *world, void *rawCallbackData) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
   delete entry->oldCode;
   return true;
 }
 
 // frees the created struct. Uses RTFree since this has been managed
 // by the RT thread.
-void pluginCmdCallbackCleanup(World *world, void *raw_callback) {
-  auto callBackData = static_cast<NewDynGenLibraryEntry*>(raw_callback);
+void pluginCmdCallbackCleanup(World *world, void *rawCallbackData) {
+  auto callBackData = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
   RTFree(world, callBackData->codePath);
   RTFree(world, callBackData);
 }
