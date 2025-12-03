@@ -239,9 +239,7 @@ bool swapCode(World* world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
 
   CodeLibrary* node = gLibrary;
-  CodeLibrary* prevNode = nullptr;
   while (node && node->id != entry->hash) {
-    prevNode = node;
     node = node->next;
   }
 
