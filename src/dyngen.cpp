@@ -48,8 +48,8 @@ bool deleteOldVm(World* world, void *rawCallbackData) {
 }
 
 // cleanup
-void dynGenInitCallbackCleanup(World *world, void *raw_callback) {
-  auto callback = static_cast<DynGenCallbackData *>(raw_callback);
+void dynGenInitCallbackCleanup(World *world, void *rawCallbackData) {
+  auto callback = static_cast<DynGenCallbackData *>(rawCallbackData);
   RTFree(world, callback);
 }
 
