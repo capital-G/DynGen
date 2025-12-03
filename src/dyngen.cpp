@@ -273,7 +273,7 @@ bool swapCode(World* world, void *rawCallbackData) {
 // runs in stage 4 (non-RT-thread)
 bool deleteOldCode(World *world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
-  delete entry->oldCode;
+  delete[] entry->oldCode;
   return true;
 }
 
