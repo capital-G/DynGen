@@ -46,7 +46,9 @@ struct DynGenCallbackData {
   int numOutputChannels;
   int sampleRate;
   int blockSize;
+  // necessary to access params such as sample rate and RTFree
   World *world;
+  // necessary for accessing local buffers
   Graph *parent;
 };
 

@@ -129,17 +129,17 @@ DynGen::DynGen() {
     payload->oldVm = nullptr;
 
     ft->fDoAsynchronousCommand(
-        mWorld,
-        nullptr,
-        nullptr,
-        static_cast<void*>(payload),
-        createVmAndCompile,
-        swapVmPointers,
-        deleteOldVm,
-        dynGenInitCallbackCleanup,
-        0,
-        nullptr
-      );
+      mWorld,
+      nullptr,
+      nullptr,
+      static_cast<void*>(payload),
+      createVmAndCompile,
+      swapVmPointers,
+      deleteOldVm,
+      dynGenInitCallbackCleanup,
+      0,
+      nullptr
+    );
   }
 
   next(1);
@@ -204,10 +204,8 @@ void DynGen::next(int numSamples) {
 // Library code
 // ************
 
-// this runs in stage 2 (NRT) and enters the content of the file to
-// the library by traversing the library which is a linked list.
-// If the hash ID already exists the code gets updated and all running
-// instances should be updated.
+// this runs in stage 2 (NRT) and loads the content of the file
+// which gets passed to stage 3 (RT)
 bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
 
@@ -235,6 +233,10 @@ bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
 }
 
 // runs in stage 3 (RT-thread)
+// The code string gets entered into the library
+// by traversing it as a linked list.
+// If the hash ID already exists the code gets updated and all running
+// instances should be updated.
 bool swapCode(World* world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
 
