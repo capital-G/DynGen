@@ -27,7 +27,7 @@ bool createVmAndCompile(World* world, void *rawCallbackData) {
     callbackData->parent
   );
 
-  callbackData->vm->init(callbackData->codeNode->code);
+  callbackData->vm->init(callbackData->code);
   // continue to stage 3
   return true;
 }
@@ -35,8 +35,8 @@ bool createVmAndCompile(World* world, void *rawCallbackData) {
 // stage 3 - RT
 bool swapVmPointers(World* world, void *rawCallbackData) {
   auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
-  callbackData->oldVm = callbackData->dynGenNode->dynGenUnit->mVm;
-  callbackData->dynGenNode->dynGenUnit->mVm = callbackData->vm;
+  callbackData->oldVm = callbackData->dynGen->mVm;
+  callbackData->dynGen->mVm = callbackData->vm;
   return true;
 }
 
@@ -47,7 +47,7 @@ bool deleteOldVm(World* world, void *rawCallbackData) {
   return true;
 }
 
-// cleanup
+// cleanup - RT
 void dynGenInitCallbackCleanup(World *world, void *rawCallbackData) {
   auto callback = static_cast<DynGenCallbackData *>(rawCallbackData);
   RTFree(world, callback);
@@ -55,7 +55,7 @@ void dynGenInitCallbackCleanup(World *world, void *rawCallbackData) {
 
 // ~DynGen callback to destroy the vm in a NRT thread on stage 2
 bool deleteVmOnSynthDestruction(World *world, void *rawCallbackData) {
-  auto vm = static_cast<EEL2Adapter*>(rawCallbackData);
+  const auto vm = static_cast<EEL2Adapter*>(rawCallbackData);
   delete vm;
   // do not return to stage 3 - we are done
   return false;
@@ -68,9 +68,9 @@ void doNothing(World *world, void *rawCallbackData) {}
 // *********
 // UGen code
 // *********
-DynGen::DynGen() {
+DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(nullptr) {
   mCodeID = static_cast<int>(in0(0));
-  bool useAudioThread = in0(1) > 0.5;
+  const bool useAudioThread = in0(1) > 0.5;
   set_calc_function<DynGen, &DynGen::next>();
 
   // search for codeId within code library linked list
@@ -89,12 +89,25 @@ DynGen::DynGen() {
     return;
   }
 
-  // insert ourselves into the linked list such that we can
-  // receive code updates
-  auto const dynGenNode = static_cast<CodeLibrary::DynGenNode*>(RTAlloc(mWorld, sizeof(CodeLibrary::DynGenNode)));
-  dynGenNode->dynGenUnit = this;
-  dynGenNode->next = codeNode->dynGenNodes;
-  codeNode->dynGenNodes = dynGenNode;
+  // insert ourselves into the linked list of DynGen nodes which are
+  // using the same code such that we can receive code updates
+  auto sameCodeDynGen = codeNode->dynGen;
+  if (sameCodeDynGen == nullptr) {
+    // start the list
+    codeNode->dynGen = this;
+  } else {
+    // insert ourselves into the list
+    while (sameCodeDynGen->mNextDynGen!=nullptr) {
+      sameCodeDynGen = sameCodeDynGen->mNextDynGen;
+    }
+    sameCodeDynGen->mNextDynGen = this;
+    mPrevDynGen = sameCodeDynGen;
+  }
+
+  // we may have to re-adjust the entry point of our linked list if we
+  // get cleared, so we store the handle to the library which can not be
+  // deleted.
+  mCodeLibrary = codeNode;
 
   if (useAudioThread) {
     // do init of VM in RT thread - this is dangerous and should not be done,
@@ -117,8 +130,8 @@ DynGen::DynGen() {
     auto unit = this; // the macro needs a reference to unit
     ClearUnitIfMemFailed(payload);
 
-    payload->dynGenNode = dynGenNode;
-    payload->codeNode = codeNode;
+    payload->code = codeNode->code;
+    payload->dynGen = this;
 
     payload->numInputChannels = mNumInputs;
     payload->numOutputChannels = mNumOutputs;
@@ -146,35 +159,26 @@ DynGen::DynGen() {
 }
 
  DynGen::~DynGen() {
-  // delete ourselves from the linked list of units in the associated library.
-  auto node = gLibrary;
-  while (node != nullptr) {
-    if (node->id == mCodeID) {
-      auto unit = node->dynGenNodes;
-      CodeLibrary::DynGenNode *previousUnit = nullptr;
-
-      // @todo this can probably be written cleaner and more optimized?
-      while (unit!=nullptr) {
-        if (unit->dynGenUnit == this) {
-          if (previousUnit != nullptr) {
-            if (unit->next != nullptr) {
-              previousUnit->next = unit->next;
-            } else {
-              previousUnit->next = nullptr;
-            }
-          } else {
-            node->dynGenNodes = nullptr;
-          }
-          ft->fRTFree(mWorld, static_cast<void*>(unit));
-          break;
-        }
-        previousUnit = unit;
-        unit = unit->next;
-      }
-    };
-    node = node->next;
+  // in case we have not found a matching code the vm was never initialized
+  // so we also do not have access to a code library or a vm we would have
+  // to clean up, so we bail out early.
+  if (mCodeLibrary == nullptr) {
+    return;
+  }
+  // readjust the head of the linked list of the code library if necessary
+  if (mCodeLibrary->dynGen == this) {
+    mCodeLibrary->dynGen = mNextDynGen;
   }
 
+  // remove ourselves from the linked list
+  if (mPrevDynGen != nullptr) {
+    mPrevDynGen->mNextDynGen = mNextDynGen;
+  }
+  if (mNextDynGen != nullptr) {
+    mNextDynGen->mPrevDynGen = mPrevDynGen;
+  }
+
+  // free the vm in RT context through async command
   ft->fDoAsynchronousCommand(
     mWorld,
     nullptr,
@@ -249,20 +253,23 @@ bool swapCode(World* world, void *rawCallbackData) {
     auto* newNode = static_cast<CodeLibrary*>(RTAlloc(world, sizeof(CodeLibrary)));
     newNode->next = gLibrary;
     newNode->id = entry->hash;
-    newNode->dynGenNodes = nullptr;
+    newNode->dynGen = nullptr;
     newNode->code = entry->code;
     gLibrary = newNode;
   } else {
     // swap code
     entry->oldCode = node->code;
     node->code = entry->code;
-    for (auto* unit = node->dynGenNodes; unit; unit = unit->next) {
-      // protecting in case the vm already got removed b/c the synth got removed
-      if (unit->dynGenUnit->mVm != nullptr) {
-        unit->dynGenUnit->mVm->init(entry->code);
-      } else {
-        return false;
+    auto dynGen = node->dynGen;
+    while (dynGen != nullptr) {
+      // protect the case where the DynGen got created
+      // but the vm is not ready yet - this will result in a non-updated
+      // DynGen, but better than a crash and should happen only rarely
+      if (dynGen->mVm != nullptr) {
+        // @todo delay this to NRT thread via async cmd
+        dynGen->mVm->init(entry->code);
       }
+      dynGen = dynGen->mNextDynGen;
     }
   }
 
@@ -276,8 +283,8 @@ bool deleteOldCode(World *world, void *rawCallbackData) {
   return true;
 }
 
-// frees the created struct. Uses RTFree since this has been managed
-// by the RT thread.
+// frees the created struct. Uses RTFree since the callback data has been
+// allocated within RT thread
 void pluginCmdCallbackCleanup(World *world, void *rawCallbackData) {
   auto callBackData = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
   RTFree(world, callBackData->codePath);
