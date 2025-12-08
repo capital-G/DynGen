@@ -7,6 +7,8 @@ static InterfaceTable *ft;
 
 struct CodeLibrary;
 
+struct DynGenStub;
+
 class DynGen : public SCUnit {
 public:
   DynGen();
@@ -25,8 +27,31 @@ public:
   CodeLibrary* mCodeLibrary;
 private:
   int mCodeID;
+  DynGenStub* mStub;
 
   void next(int numSamples);
+};
+
+// RT owned
+// because we use async command to delay the vm initialization of a DynGen
+// it is possible that the server deletes the UGen/DynGen while we are preparing
+// the vm.
+// In case we would put the vm in place, this would result in a crash
+// because the DynGen object has already been deleted by the server.
+// Therefore, instead of passing around the DynGen itself we pass around
+// this DynGenStub, which also holds a reference counter.
+// The ref count starts at 1 and gets incremented during each callback.
+// When a DynGen gets destroyed, the ref counter gets decremented and its DynGen
+// reference gets set to nullptr.
+// When an async command wants to swap the vm,  a nullptr check
+// can be performed on mObject, indicating if the object is still
+// existing or not.
+// Once the reference counter hits 0, the stub can be destroyed, which can
+// either happen during ~DynGen or within the free function of the async
+// update command.
+struct DynGenStub {
+  DynGen* mObject;
+  size_t mRefCount;
 };
 
 // A linked list which manages stores the code under a given ID (id/code) and
@@ -54,8 +79,8 @@ struct DynGenCallbackData {
   EEL2Adapter *vm;
   EEL2Adapter *oldVm;
 
-  // the running dyngen to be updtade
-  DynGen *dynGen;
+  // the running dyngen stub to be updated
+  DynGenStub *dynGenStub;
   // the new code to be used
   char* code;
 

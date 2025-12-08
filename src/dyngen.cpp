@@ -35,8 +35,11 @@ bool createVmAndCompile(World* world, void *rawCallbackData) {
 // stage 3 - RT
 bool swapVmPointers(World* world, void *rawCallbackData) {
   auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
-  callbackData->oldVm = callbackData->dynGen->mVm;
-  callbackData->dynGen->mVm = callbackData->vm;
+  // only replace if DynGen instance is still existing
+  if (callbackData->dynGenStub->mObject) {
+    callbackData->oldVm = callbackData->dynGenStub->mObject->mVm;
+    callbackData->dynGenStub->mObject->mVm = callbackData->vm;
+  }
   return true;
 }
 
@@ -50,6 +53,11 @@ bool deleteOldVm(World* world, void *rawCallbackData) {
 // cleanup - RT
 void dynGenInitCallbackCleanup(World *world, void *rawCallbackData) {
   auto callback = static_cast<DynGenCallbackData *>(rawCallbackData);
+  callback->dynGenStub->mRefCount -= 1;
+  // destroy if there are no references to the DynGen
+  if (callback->dynGenStub->mRefCount == 0) {
+    RTFree(world, callback->dynGenStub);
+  }
   RTFree(world, callback);
 }
 
@@ -68,10 +76,17 @@ void doNothing(World *world, void *rawCallbackData) {}
 // *********
 // UGen code
 // *********
-DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(nullptr) {
+DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(nullptr), mStub(nullptr) {
   mCodeID = static_cast<int>(in0(0));
   const bool useAudioThread = in0(1) > 0.5;
   set_calc_function<DynGen, &DynGen::next>();
+
+  // necessary for `ClearUnitIfMemFailed` macro
+  auto unit = this;
+  mStub = static_cast<DynGenStub*>(RTAlloc(mWorld, sizeof(DynGenStub)));
+  ClearUnitIfMemFailed(mStub);
+  mStub->mObject = this;
+  mStub->mRefCount = 1;
 
   // search for codeId within code library linked list
   auto codeNode = gLibrary;
@@ -126,12 +141,10 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
   } else {
     // offload VM init to NRT thread
     auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
-
-    auto unit = this; // the macro needs a reference to unit
     ClearUnitIfMemFailed(payload);
 
     payload->code = codeNode->code;
-    payload->dynGen = this;
+    payload->dynGenStub = mStub;
 
     payload->numInputChannels = mNumInputs;
     payload->numOutputChannels = mNumOutputs;
@@ -140,6 +153,9 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
     payload->world = mWorld;
     payload->parent = mParent;
     payload->oldVm = nullptr;
+
+    // increment ref counter before we start the async command
+    mStub->mRefCount += 1;
 
     ft->fDoAsynchronousCommand(
       mWorld,
@@ -159,6 +175,12 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
 }
 
  DynGen::~DynGen() {
+  mStub->mObject = nullptr;
+  mStub->mRefCount -= 1;
+  if (mStub->mRefCount==0) {
+    RTFree(mWorld, mStub);
+  }
+
   // in case we have not found a matching code the vm was never initialized
   // so we also do not have access to a code library or a vm we would have
   // to clean up, so we bail out early.
