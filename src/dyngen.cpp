@@ -106,18 +106,12 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
 
   // insert ourselves into the linked list of DynGen nodes which are
   // using the same code such that we can receive code updates
-  auto sameCodeDynGen = codeNode->dynGen;
-  if (sameCodeDynGen == nullptr) {
-    // start the list
-    codeNode->dynGen = this;
-  } else {
-    // insert ourselves into the list
-    while (sameCodeDynGen->mNextDynGen!=nullptr) {
-      sameCodeDynGen = sameCodeDynGen->mNextDynGen;
-    }
-    sameCodeDynGen->mNextDynGen = this;
-    mPrevDynGen = sameCodeDynGen;
+  auto const head = codeNode->dynGen;
+  if (head) {
+    head->mPrevDynGen = this;
   }
+  mNextDynGen = head;
+  codeNode->dynGen = this;
 
   // we may have to re-adjust the entry point of our linked list if we
   // get cleared, so we store the handle to the library which can not be
