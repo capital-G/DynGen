@@ -143,17 +143,7 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
     auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
     ClearUnitIfMemFailed(payload);
 
-    payload->code = codeNode->code;
-    payload->dynGenStub = mStub;
-
-    payload->numInputChannels = mNumInputs;
-    payload->numOutputChannels = mNumOutputs;
-    payload->sampleRate = static_cast<int>(sampleRate());
-    payload->blockSize = mBufLength;
-    payload->world = mWorld;
-    payload->parent = mParent;
-    payload->oldVm = nullptr;
-
+    fillCallbackData(payload, codeNode->code);
     // increment ref counter before we start the async command
     mStub->mRefCount += 1;
 
@@ -172,6 +162,18 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
   }
 
   next(1);
+}
+
+void DynGen::fillCallbackData(DynGenCallbackData* payload, char* code) const {
+  payload->dynGenStub = mStub;
+  payload->numInputChannels = mNumInputs;
+  payload->numOutputChannels = mNumOutputs;
+  payload->sampleRate = static_cast<int>(sampleRate());
+  payload->blockSize = mBufLength;
+  payload->world = mWorld;
+  payload->parent = mParent;
+  payload->oldVm = nullptr;
+  payload->code = code;
 }
 
  DynGen::~DynGen() {
@@ -288,8 +290,92 @@ bool swapCode(World* world, void *rawCallbackData) {
       // but the vm is not ready yet - this will result in a non-updated
       // DynGen, but better than a crash and should happen only rarely
       if (dynGen->mVm != nullptr) {
-        // @todo delay this to NRT thread via async cmd
-        dynGen->mVm->init(entry->code);
+        auto* callbackData = static_cast<DynGenCallbackData*>(RTAlloc(world, sizeof(DynGenCallbackData)));
+        // make sure allocation worked
+        if (callbackData) {
+          // although the code can be updated, the referenced code
+          // lives long enough b/c in worst case there is already
+          // a new code in the pipeline at stage2 where the old code
+          // would be destroyed in its stage4.
+          // Yet we only need to access the code in stage 2 in our callback,
+          // where it could not have been destroyed yet.
+          // See https://github.com/capital-G/DynGen/pull/40#discussion_r2599579920
+
+/*
+     ┌─────────┐             ┌──────────┐           ┌─────────┐          ┌──────────┐
+     │STAGE1_RT│             │STAGE2_NRT│           │STAGE3_RT│          │STAGE4_NRT│
+     └────┬────┘             └─────┬────┘           └────┬────┘          └─────┬────┘
+          │loadFileToDynGenLibrary │                     │                     │
+          │───────────────────────>│                     │                     │
+          │                        │                     │                     │
+          │                        │      swapCode       │                     │
+          │                        │────────────────────>│                     │
+          │                        │                     │                     │
+          │loadFileToDynGenLibrary │                     │                     │
+          │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ >│                     │                     │
+          │                        │                     │                     │
+          │     ╔════════════════╗ │createVmAndCompileA  │                     │
+          │     ║accessing code ░║ │<────────────────────│                     │
+          │     ╚════════════════╝ │                     │                     │
+          │                        │createVmAndCompileB  │                     │
+          │                        │<────────────────────│                     │
+          │                        │                     │                     │
+          │    ╔═════════════════╗ │      swapCode       │                     │
+          │    ║code -> oldCode ░║ │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─>│                     │
+          │    ╚═════════════════╝ │                     │                     │
+          │                        │                     │   deleteOldCode     │
+          │                        │                     │────────────────────>│
+          │                        │                     │                     │
+          │                        │  swapVmPointersA    │                     │
+          │                        │────────────────────>│                     │
+          │                        │                     │                     │
+          │                        │  swapVmPointersB    │                     │
+          │                        │────────────────────>│                     │
+          │                        │                     │                     │
+          │                 ╔══════╧═══════════════════╗ │   deleteOldCode     │
+          │                 ║deleting code as oldCode ░║ │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─>│
+          │                 ╚══════╤═══════════════════╝ │                     │
+          │                        │                     │    deleteOldVm      │
+          │                        │                     │────────────────────>│
+     ┌────┴────┐             ┌─────┴────┐           ┌────┴────┐          ┌─────┴────┐
+     │STAGE1_RT│             │STAGE2_NRT│           │STAGE3_RT│          │STAGE4_NRT│
+     └─────────┘             └──────────┘           └─────────┘          └──────────┘
+
+source code:
+```plantuml
+@startuml
+STAGE1_RT -> STAGE2_NRT : loadFileToDynGenLibrary
+STAGE2_NRT -> STAGE3_RT : swapCode
+STAGE1_RT --> STAGE2_NRT : loadFileToDynGenLibrary
+STAGE3_RT -> STAGE2_NRT : createVmAndCompileA
+note left: accessing code
+STAGE3_RT -> STAGE2_NRT : createVmAndCompileB
+STAGE2_NRT --> STAGE3_RT: swapCode
+note left: code -> oldCode
+STAGE3_RT -> STAGE4_NRT : deleteOldCode
+STAGE2_NRT -> STAGE3_RT: swapVmPointersA
+STAGE2_NRT -> STAGE3_RT: swapVmPointersB
+STAGE3_RT --> STAGE4_NRT : deleteOldCode
+note left: deleting code as oldCode
+STAGE3_RT -> STAGE4_NRT : deleteOldVm
+@enduml
+```
+*/
+          dynGen->fillCallbackData(callbackData, entry->code);
+          dynGen->mStub->mRefCount += 1;
+          ft->fDoAsynchronousCommand(
+            world,
+            nullptr,
+            nullptr,
+            static_cast<void*>(callbackData),
+            createVmAndCompile,
+            swapVmPointers,
+            deleteOldVm,
+            dynGenInitCallbackCleanup,
+            0,
+            nullptr
+          );
+        }
       }
       dynGen = dynGen->mNextDynGen;
     }

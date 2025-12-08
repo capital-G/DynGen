@@ -5,13 +5,15 @@
 
 static InterfaceTable *ft;
 
+// forward declarations
 struct CodeLibrary;
-
 struct DynGenStub;
+struct DynGenCallbackData;
 
 class DynGen : public SCUnit {
 public:
   DynGen();
+  void fillCallbackData(DynGenCallbackData *payload, char *code) const;
   ~DynGen();
 
   // the active vm - at the point it is not a null pointer it will
@@ -25,9 +27,10 @@ public:
   // we need a reference to the used CodeLibrary b/c in case we get freed
   // we may have to update the associated linked list
   CodeLibrary* mCodeLibrary;
+
+  DynGenStub* mStub;
 private:
   int mCodeID;
-  DynGenStub* mStub;
 
   void next(int numSamples);
 };
