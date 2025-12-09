@@ -6,6 +6,8 @@
 #include <thread>
 #include <atomic>
 
+InterfaceTable *ft;
+
 // a global linked list which stores the code
 // and its associated running DynGens.
 static CodeLibrary *gLibrary = nullptr;
@@ -14,217 +16,405 @@ static CodeLibrary *gLibrary = nullptr;
 // NRT callbacks for DynGen init
 // *****************************
 
-// Gets called deferred from the UGen init in a
-// stage2 thread which is NRT - so it is safe to allocate
-// memory and also spawn a thread to which we offload
-// all the heavy lifting of initializing the VM.
-bool dynGenCompileCallback(World *world, void *rawCallbackData) {
+// stage 2 - NRT
+bool createVmAndCompile(World* world, void *rawCallbackData) {
   auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
 
-  CodeLibrary* node = gLibrary;
-  while (node && node->id != callbackData->scriptHash) {
-    node = node->next;
-  }
+  callbackData->vm = new EEL2Adapter(
+    callbackData->numInputChannels,
+    callbackData->numOutputChannels,
+    callbackData->sampleRate,
+    callbackData->blockSize,
+    callbackData->world,
+    callbackData->parent
+  );
 
-  if (!node) {
-    Print("Could not find script with hash %i\n", callbackData->scriptHash);
+  auto success = callbackData->vm->init(callbackData->code);
+  if (!success) {
+    // if not successful, remove vm and do not attempt to replace
+    // running vm.
+    delete callbackData->vm;
     return false;
   }
+  // continue to stage 3
+  return true;
+}
 
-  callbackData->adapter->init(node->code);
+// stage 3 - RT
+bool swapVmPointers(World* world, void *rawCallbackData) {
+  auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
+  // only replace if DynGen instance is still existing
+  if (callbackData->dynGenStub->mObject) {
+    callbackData->oldVm = callbackData->dynGenStub->mObject->mVm;
+    callbackData->dynGenStub->mObject->mVm = callbackData->vm;
+  } else {
+    // mark the vm we just created ready for deletion since the DynGen
+    // it was created for does not exist anymore.
+    callbackData->oldVm = callbackData->vm;
+  }
+  return true;
+}
 
-  // insert the dyngen node
-  callbackData->dynGenNode->next = node->dynGenNodes;
-  node->dynGenNodes = callbackData->dynGenNode;
+// stage 4 - NRT
+bool deleteOldVm(World* world, void *rawCallbackData) {
+  auto callbackData = static_cast<DynGenCallbackData*>(rawCallbackData);
+  delete callbackData->oldVm;
+  return true;
+}
 
-  // do not continue to stage 3
+// cleanup - RT
+void dynGenInitCallbackCleanup(World *world, void *rawCallbackData) {
+  auto callback = static_cast<DynGenCallbackData *>(rawCallbackData);
+  callback->dynGenStub->mRefCount -= 1;
+  // destroy if there are no references to the DynGen
+  if (callback->dynGenStub->mRefCount == 0) {
+    RTFree(world, callback->dynGenStub);
+  }
+  RTFree(world, callback);
+}
+
+// ~DynGen callback to destroy the vm in a NRT thread on stage 2
+bool deleteVmOnSynthDestruction(World *world, void *rawCallbackData) {
+  const auto vm = static_cast<EEL2Adapter*>(rawCallbackData);
+  delete vm;
+  // do not return to stage 3 - we are done
   return false;
 }
 
-void dynGenCompileCallbackCleanup(World *world, void *raw_callback) {
-  auto callback = static_cast<DynGenCallbackData *>(raw_callback);
-  RTFree(world, callback);
-}
+// dummy task b/c we are already deleting the vm above which
+// is the pointer we pass around
+void doNothing(World *world, void *rawCallbackData) {}
 
 // *********
 // UGen code
 // *********
-DynGen::DynGen() : vm(mNumInputs-2, mNumOutputs, static_cast<int>(sampleRate()), mBufLength, mWorld, mParent) {
+DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(nullptr), mStub(nullptr) {
   mCodeID = static_cast<int>(in0(0));
-  bool useAudioThread = in0(1) > 0.5;
+  const bool useAudioThread = in0(1) > 0.5;
+  set_calc_function<DynGen, &DynGen::next>();
+
+  // necessary for `ClearUnitIfMemFailed` macro
+  auto unit = this;
+  mStub = static_cast<DynGenStub*>(RTAlloc(mWorld, sizeof(DynGenStub)));
+  ClearUnitIfMemFailed(mStub);
+  mStub->mObject = this;
+  mStub->mRefCount = 1;
+
+  // search for codeId within code library linked list
+  auto codeNode = gLibrary;
+  bool found = false;
+  while (codeNode!=nullptr) {
+    if (codeNode->id == mCodeID) {
+      found = true;
+      break;
+    }
+    codeNode = codeNode->next;
+  }
+  if (!found) {
+    Print("ERROR: Could not find script with hash %i\n", mCodeID);
+    next(1);
+    return;
+  }
+
+  // insert ourselves into the linked list of DynGen nodes which are
+  // using the same code such that we can receive code updates
+  auto const head = codeNode->dynGen;
+  if (head) {
+    head->mPrevDynGen = this;
+  }
+  mNextDynGen = head;
+  codeNode->dynGen = this;
+
+  // we may have to re-adjust the entry point of our linked list if we
+  // get cleared, so we store the handle to the library which can not be
+  // deleted.
+  mCodeLibrary = codeNode;
 
   if (useAudioThread) {
     // do init of VM in RT thread - this is dangerous and should not be done,
     // yet it get rids of one block size delay until the signal appears.
     // Since the VM init seems to be often fast enough we allow the user
     // to decide, yet this is not the default case.
-    auto node = gLibrary;
-    bool found = false;
-    while (node!=nullptr) {
-      if (node->id == mCodeID) {
-        found = true;
-        vm.init(node->code);
-
-        auto const unitNode = static_cast<CodeLibrary::DynGenNode*>(RTAlloc(mWorld, sizeof(CodeLibrary::DynGenNode)));
-        unitNode->dynGenUnit = this;
-        unitNode->next = node->dynGenNodes;
-        node->dynGenNodes = unitNode;
-        break;
-      }
-      node = node->next;
-    }
-    if (!found) {
-      Print("Could not find script with hash %i\n", mCodeID);
-    }
+    mVm = new EEL2Adapter(
+      mNumInputs-2,
+      mNumOutputs,
+      static_cast<int>(sampleRate()),
+      mBufLength,
+      mWorld,
+      mParent
+    );
+    mVm->init(codeNode->code);
   } else {
     // offload VM init to NRT thread
-    auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
+    ClearUnitIfMemFailed(updateCode(codeNode->code));
+  }
+}
 
-    auto unit = this; // the macro needs a reference to unit
-    ClearUnitIfMemFailed(payload);
+bool DynGen::updateCode(const char* code) const {
+  auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
 
-    auto codeNode = static_cast<CodeLibrary::DynGenNode*>(RTAlloc(mWorld, sizeof(CodeLibrary::DynGenNode)));
-    ClearUnitIfMemFailed(codeNode);
-    codeNode->dynGenUnit = this;
-    codeNode->next = nullptr;
+  // guard in case allocation fails
+  if (payload) {
+    payload->dynGenStub = mStub;
+    payload->numInputChannels = mNumInputs;
+    payload->numOutputChannels = mNumOutputs;
+    payload->sampleRate = static_cast<int>(sampleRate());
+    payload->blockSize = mBufLength;
+    payload->world = mWorld;
+    payload->parent = mParent;
+    payload->oldVm = nullptr;
+    payload->code = code;
 
-    payload->scriptHash = mCodeID;
-    payload->adapter = &vm;
-    payload->dynGenNode = codeNode;
+    // increment ref counter before we start the async command
+    mStub->mRefCount += 1;
 
     ft->fDoAsynchronousCommand(
-        mWorld, nullptr, nullptr, static_cast<void*>(payload),
-        dynGenCompileCallback, nullptr,nullptr, dynGenCompileCallbackCleanup, 0, nullptr);
+      mWorld,
+      nullptr,
+      nullptr,
+      static_cast<void*>(payload),
+      createVmAndCompile,
+      swapVmPointers,
+      deleteOldVm,
+      dynGenInitCallbackCleanup,
+      0,
+      nullptr
+    );
   }
 
-  set_calc_function<DynGen, &DynGen::next>();
-  next(1);
+  return payload != nullptr;
 }
 
  DynGen::~DynGen() {
-  // delete ourselves from the linked list of units in the associated library.
-  auto node = gLibrary;
-  while (node != nullptr) {
-    if (node->id == mCodeID) {
-      auto unit = node->dynGenNodes;
-      CodeLibrary::DynGenNode *previousUnit = nullptr;
-
-      // @todo this can probably be written cleaner and more optimized?
-      while (unit!=nullptr) {
-        if (unit->dynGenUnit == this) {
-          if (previousUnit != nullptr) {
-            if (unit->next != nullptr) {
-              previousUnit->next = unit->next;
-            } else {
-              previousUnit->next = nullptr;
-            }
-          } else {
-            node->dynGenNodes = nullptr;
-          }
-          ft->fRTFree(mWorld, static_cast<void*>(unit));
-          break;
-        }
-        previousUnit = unit;
-        unit = unit->next;
-      }
-    };
-    node = node->next;
+  mStub->mObject = nullptr;
+  mStub->mRefCount -= 1;
+  if (mStub->mRefCount==0) {
+    RTFree(mWorld, mStub);
   }
+
+  // in case we have not found a matching code the vm was never initialized
+  // so we also do not have access to a code library or a vm we would have
+  // to clean up, so we bail out early.
+  if (mCodeLibrary == nullptr) {
+    return;
+  }
+  // readjust the head of the linked list of the code library if necessary
+  if (mCodeLibrary->dynGen == this) {
+    mCodeLibrary->dynGen = mNextDynGen;
+  }
+
+  // remove ourselves from the linked list
+  if (mPrevDynGen != nullptr) {
+    mPrevDynGen->mNextDynGen = mNextDynGen;
+  }
+  if (mNextDynGen != nullptr) {
+    mNextDynGen->mPrevDynGen = mPrevDynGen;
+  }
+
+  // free the vm in RT context through async command
+  ft->fDoAsynchronousCommand(
+    mWorld,
+    nullptr,
+    nullptr,
+    static_cast<void*>(mVm),
+    deleteVmOnSynthDestruction,
+    nullptr,
+    nullptr,
+    doNothing,
+    0,
+    nullptr
+  );
 }
 
 void DynGen::next(int numSamples) {
-  if (!vm.mReady.load()) {
+  if (mVm == nullptr) {
     for (int i = 0; i < mNumOutputs; i++) {
       Clear(numSamples, mOutBuf[i]);
     }
   } else {
     // skip first 2 channels since those are not signals
-    vm.process(mInBuf + 2, mOutBuf, numSamples);
+    mVm->process(mInBuf + 2, mOutBuf, numSamples);
   }
 }
-
-void DynGen::updateCode(const std::string &code) {
-  vm.mReady.store(false, std::memory_order_release);
-  // init sets the mReady variable when finished/successful
-  vm.init(code);
-}
-
 
 // ************
 // Library code
 // ************
 
-// this runs in stage 2 (NRT) and enters the content of the file to
-// the library by traversing the library which is a linked list.
+// this runs in stage 2 (NRT) and loads the content of the file
+// which gets passed to stage 3 (RT)
+bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
+
+  auto codeFile = std::ifstream(entry->codePath, std::ios::binary);
+  if (!codeFile.is_open()) {
+    Print("ERROR: Could not open DynGen file at %s\n", entry->codePath);
+    return false;
+  }
+
+  std::stringstream codeStream;
+
+  codeFile.seekg(0, std::ios::end);
+  const std::streamsize codeSize = codeFile.tellg();
+  codeFile.seekg(0);
+
+  // add /0
+  auto* codeBuffer = new char[codeSize + 1];
+  codeFile.read(codeBuffer, codeSize);
+  codeBuffer[codeSize] = '\0';
+
+  entry->code = codeBuffer;
+
+  // continue to next stage
+  return true;
+}
+
+// runs in stage 3 (RT-thread)
+// The code string gets entered into the library
+// by traversing it as a linked list.
 // If the hash ID already exists the code gets updated and all running
 // instances should be updated.
-bool enterFileToDynGenLibrary(World *world, void *raw_callback) {
-  auto entry = static_cast<NewDynGenLibraryEntry*>(raw_callback);
-
-  // read file, see https://stackoverflow.com/a/19922123
-  std::ifstream codeFile;
-  codeFile.open(entry->codePath);
-  std::stringstream codeStream;
-  codeStream << codeFile.rdbuf();
-  const std::string code = codeStream.str();
+bool swapCode(World* world, void *rawCallbackData) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
 
   CodeLibrary* node = gLibrary;
-  CodeLibrary* prevNode = nullptr;
   while (node && node->id != entry->hash) {
-    prevNode = node;
     node = node->next;
   }
 
   if (!node) {
-    auto* newNode = new CodeLibrary {
-      gLibrary,
-      entry->hash,
-      nullptr,
-      code,
-    };
+    auto* newNode = static_cast<CodeLibrary*>(RTAlloc(world, sizeof(CodeLibrary)));
+    newNode->next = gLibrary;
+    newNode->id = entry->hash;
+    newNode->dynGen = nullptr;
+    newNode->code = entry->code;
     gLibrary = newNode;
   } else {
-    node->code = code;
-    for (auto* unit = node->dynGenNodes; unit; unit = unit->next) {
-      unit->dynGenUnit->updateCode(code);
+    // swap code
+    entry->oldCode = node->code;
+    node->code = entry->code;
+    auto dynGen = node->dynGen;
+    while (dynGen != nullptr) {
+      auto* callbackData = static_cast<DynGenCallbackData*>(RTAlloc(world, sizeof(DynGenCallbackData)));
+      // make sure allocation worked
+      if (callbackData) {
+        // although the code can be updated, the referenced code
+        // lives long enough b/c in worst case there is already
+        // a new code in the pipeline at stage2 where the old code
+        // would be destroyed in its stage4.
+        // Yet we only need to access the code in stage 2 in our callback,
+        // where it could not have been destroyed yet.
+        // See https://github.com/capital-G/DynGen/pull/40#discussion_r2599579920
+
+/*
+     ┌─────────┐             ┌──────────┐           ┌─────────┐          ┌──────────┐
+     │STAGE1_RT│             │STAGE2_NRT│           │STAGE3_RT│          │STAGE4_NRT│
+     └────┬────┘             └─────┬────┘           └────┬────┘          └─────┬────┘
+          │loadFileToDynGenLibrary │                     │                     │
+          │───────────────────────>│                     │                     │
+          │                        │                     │                     │
+          │                        │      swapCode       │                     │
+          │                        │────────────────────>│                     │
+          │                        │                     │                     │
+          │loadFileToDynGenLibrary │                     │                     │
+          │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ >│                     │                     │
+          │                        │                     │                     │
+          │     ╔════════════════╗ │createVmAndCompileA  │                     │
+          │     ║accessing code ░║ │<────────────────────│                     │
+          │     ╚════════════════╝ │                     │                     │
+          │                        │createVmAndCompileB  │                     │
+          │                        │<────────────────────│                     │
+          │                        │                     │                     │
+          │    ╔═════════════════╗ │      swapCode       │                     │
+          │    ║code -> oldCode ░║ │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─>│                     │
+          │    ╚═════════════════╝ │                     │                     │
+          │                        │                     │   deleteOldCode     │
+          │                        │                     │────────────────────>│
+          │                        │                     │                     │
+          │                        │  swapVmPointersA    │                     │
+          │                        │────────────────────>│                     │
+          │                        │                     │                     │
+          │                        │  swapVmPointersB    │                     │
+          │                        │────────────────────>│                     │
+          │                        │                     │                     │
+          │                 ╔══════╧═══════════════════╗ │   deleteOldCode     │
+          │                 ║deleting code as oldCode ░║ │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─>│
+          │                 ╚══════╤═══════════════════╝ │                     │
+          │                        │                     │    deleteOldVm      │
+          │                        │                     │────────────────────>│
+     ┌────┴────┐             ┌─────┴────┐           ┌────┴────┐          ┌─────┴────┐
+     │STAGE1_RT│             │STAGE2_NRT│           │STAGE3_RT│          │STAGE4_NRT│
+     └─────────┘             └──────────┘           └─────────┘          └──────────┘
+
+source code:
+```plantuml
+@startuml
+STAGE1_RT -> STAGE2_NRT : loadFileToDynGenLibrary
+STAGE2_NRT -> STAGE3_RT : swapCode
+STAGE1_RT --> STAGE2_NRT : loadFileToDynGenLibrary
+STAGE3_RT -> STAGE2_NRT : createVmAndCompileA
+note left: accessing code
+STAGE3_RT -> STAGE2_NRT : createVmAndCompileB
+STAGE2_NRT --> STAGE3_RT: swapCode
+note left: code -> oldCode
+STAGE3_RT -> STAGE4_NRT : deleteOldCode
+STAGE2_NRT -> STAGE3_RT: swapVmPointersA
+STAGE2_NRT -> STAGE3_RT: swapVmPointersB
+STAGE3_RT --> STAGE4_NRT : deleteOldCode
+note left: deleting code as oldCode
+STAGE3_RT -> STAGE4_NRT : deleteOldVm
+@enduml
+```
+*/
+        dynGen->updateCode(entry->code);
+      }
+      dynGen = dynGen->mNextDynGen;
     }
   }
 
-  // do not continue to stage 3 by returning false
-  return false;
+  return true;
 }
 
-// frees the created struct. Uses RTFree since this has been managed
-// by the RT thread.
-void pluginCmdCallbackCleanup(World *world, void *raw_callback) {
-  auto callBackData = static_cast<NewDynGenLibraryEntry*>(raw_callback);
+// runs in stage 4 (non-RT-thread)
+bool deleteOldCode(World *world, void *rawCallbackData) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
+  delete[] entry->oldCode;
+  return true;
+}
+
+// frees the created struct. Uses RTFree since the callback data has been
+// allocated within RT thread
+void pluginCmdCallbackCleanup(World *world, void *rawCallbackData) {
+  auto callBackData = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
   RTFree(world, callBackData->codePath);
   RTFree(world, callBackData);
 }
 
 
+// runs in stage  1 (RT thread)
 // responds to an osc message on the RT thread - we therefore have to
 // copy the OSC data to a new struct which then gets passed to another
-// callback which runs in stage 2, aka non-rt. We have to
-// free the created struct afterward.
+// callback which runs in stage 2 (non-RT thread).
+// We have to free the created struct afterward via `pluginCmdCallbackCleanup`.
 void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
   auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
   newLibraryEntry->hash = args->geti();
   if (const char* codePath = args->gets()) {
     newLibraryEntry->codePath = static_cast<char*>(RTAlloc(inWorld, strlen(codePath) + 1));
     if (!newLibraryEntry->codePath) {
-      Print("Failed to allocate memory for DynGen code library");
+      Print("ERROR: Failed to allocate memory for DynGen code library\n");
       return;
     }
     strcpy(newLibraryEntry->codePath, codePath);
   } else {
-    Print("Invalid dyngenadd message\n");
+    Print("ERROR: Invalid dyngenadd message\n");
     return;
   }
+  newLibraryEntry->oldCode = nullptr;
 
   ft->fDoAsynchronousCommand(
     inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    enterFileToDynGenLibrary, nullptr,nullptr, pluginCmdCallbackCleanup, 0, nullptr);
+    loadFileToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, 0, nullptr);
 }
 
 // ********************

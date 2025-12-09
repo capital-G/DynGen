@@ -3,14 +3,17 @@
 #include "ns-eel-addfuncs.h"
 #include "ns-eel-int.h"
 
+#include <SC_InterfaceTable.h>
 #include <SC_Unit.h>
+
+extern InterfaceTable *ft;
 
 // define symbols for jsfx
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
 // this is not RT safe
-void EEL2Adapter::init(const std::string &script) {
+bool EEL2Adapter::init(const std::string &script) {
   mScript = new DynGenScript(script);
   mInputs = new double *[mNumInputChannels]();
   mOutputs = new double *[mNumOutputChannels]();
@@ -46,37 +49,36 @@ void EEL2Adapter::init(const std::string &script) {
     NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
 
   if (mScript->sample.empty()) {
-    std::cout << "DynGen sample code is missing" << std::endl;
-    return;
+    Print("ERROR: DynGen sample code is missing\n");
+    return false;
   }
 
   if (!mScript->init.empty()) {
     mInitCode = NSEEL_code_compile_ex(mEelState, mScript->init.c_str(), 0, compileFlags);
     if (!mInitCode) {
-      std::cout << "DynGen init compile error: " << mEelState->last_error_string << std::endl;
-      return;
+      Print("ERROR: DynGen init compile error: %s\n", mEelState->last_error_string);
+      return false;
     }
   }
 
   if (!mScript->block.empty()) {
     mBlockCode = NSEEL_code_compile_ex(mEelState, mScript->block.c_str(), 0, compileFlags);
     if (!mBlockCode) {
-      std::cout << "DynGen block compile error: " << mEelState->last_error_string << std::endl;
-      return;
+      Print("ERROR: DynGen block compile error %s\n", mEelState->last_error_string);
+      return false;
     }
   }
 
   mSampleCode = NSEEL_code_compile_ex(mEelState, mScript->sample.c_str(), 0, compileFlags);
   if (!mSampleCode) {
-    std::cout << "DynGen sample compile error: " << mEelState->last_error_string << std::endl;
-    return;
+    Print("ERROR: DynGen sample compile error: %s\n", mEelState->last_error_string);
+    return false;
   }
 
   if (mInitCode) {
     NSEEL_code_execute(mInitCode);
   }
-
-  mReady.store(true);
+  return true;
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const INT_PTR numParams, EEL_F** params) {
