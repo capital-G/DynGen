@@ -40,6 +40,16 @@ DynGenDef {
 	}
 
 	send {|server|
+		var message = [\cmd, \dyngenscript, hash, code];
+		if(message.flatten.size <= (65535 div: 4), {
+			server.sendMsg(*message);
+		}, {
+			"DynGen % too big for sending via OSC message, sending via file".format(name).warn;
+			this.prSendFile(server);
+		});
+	}
+
+	prSendFile {|server|
 		var tmpFilePath = PathName.tmp +/+ "%_%".format(hash.asString, counter);
 		counter = counter + 1;
 
@@ -55,7 +65,7 @@ DynGenDef {
 			server.sync;
 			deleteSuccess = File.delete(tmpFilePath);
 			if (deleteSuccess.not, {
-				"Could not delete DynGen temp file %".format(tmpFilePath).warn;
+				"Could not delete temp file % of DynGen %".format(tmpFilePath, name).warn;
 			});
 		}
 	}
