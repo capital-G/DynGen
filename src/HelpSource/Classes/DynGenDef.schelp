@@ -42,9 +42,13 @@ PRIVATE:: hash
 
 METHOD:: send
 Registers the DynGenDef on a server.
+NOTE::
+By default the associated DynGen code will be transferred to the server directly via osc using the CODE::/dyngenscript:: plugin command.
+In case the script is too big, the script will be saved to a local temp file and its path will be sent to the server via the CODE::/dyngenfile:: plugin command.
+::
 argument:: server
 The server on which the DynGenDef should be registered.
-If no server is provided, LINK::Classes/Server#*default:: will be used.
+If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
 
 METHOD:: load
 Loads the content of a file to the code variable.
