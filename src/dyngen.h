@@ -13,7 +13,9 @@ struct DynGenCallbackData;
 class DynGen : public SCUnit {
 public:
   DynGen();
-  void fillCallbackData(DynGenCallbackData *payload, char *code) const;
+  // updates vm in an async manner.
+  // Returns false in case the allocation of the callback data failed.
+  bool updateCode(const char *code) const;
   ~DynGen();
 
   // the active vm - at the point it is not a null pointer it will
@@ -85,7 +87,7 @@ struct DynGenCallbackData {
   // the running dyngen stub to be updated
   DynGenStub *dynGenStub;
   // the new code to be used
-  char* code;
+  const char* code;
 
   // vm init
   uint32 numInputChannels;

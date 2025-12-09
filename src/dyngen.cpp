@@ -134,10 +134,25 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
     mVm->init(codeNode->code);
   } else {
     // offload VM init to NRT thread
-    auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
-    ClearUnitIfMemFailed(payload);
+    ClearUnitIfMemFailed(updateCode(codeNode->code));
+  }
+}
 
-    fillCallbackData(payload, codeNode->code);
+bool DynGen::updateCode(const char* code) const {
+  auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
+
+  // guard in case allocation fails
+  if (payload) {
+    payload->dynGenStub = mStub;
+    payload->numInputChannels = mNumInputs;
+    payload->numOutputChannels = mNumOutputs;
+    payload->sampleRate = static_cast<int>(sampleRate());
+    payload->blockSize = mBufLength;
+    payload->world = mWorld;
+    payload->parent = mParent;
+    payload->oldVm = nullptr;
+    payload->code = code;
+
     // increment ref counter before we start the async command
     mStub->mRefCount += 1;
 
@@ -154,18 +169,8 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
       nullptr
     );
   }
-}
 
-void DynGen::fillCallbackData(DynGenCallbackData* payload, char* code) const {
-  payload->dynGenStub = mStub;
-  payload->numInputChannels = mNumInputs;
-  payload->numOutputChannels = mNumOutputs;
-  payload->sampleRate = static_cast<int>(sampleRate());
-  payload->blockSize = mBufLength;
-  payload->world = mWorld;
-  payload->parent = mParent;
-  payload->oldVm = nullptr;
-  payload->code = code;
+  return payload != nullptr;
 }
 
  DynGen::~DynGen() {
@@ -349,20 +354,7 @@ STAGE3_RT -> STAGE4_NRT : deleteOldVm
 @enduml
 ```
 */
-        dynGen->fillCallbackData(callbackData, entry->code);
-        dynGen->mStub->mRefCount += 1;
-        ft->fDoAsynchronousCommand(
-          world,
-          nullptr,
-          nullptr,
-          static_cast<void*>(callbackData),
-          createVmAndCompile,
-          swapVmPointers,
-          deleteOldVm,
-          dynGenInitCallbackCleanup,
-          0,
-          nullptr
-        );
+        dynGen->updateCode(entry->code);
       }
       dynGen = dynGen->mNextDynGen;
     }
