@@ -4,8 +4,12 @@ DynGenDef {
 	var <hash;
 	var <>code;
 
+	// private
+	classvar counter;
+
 	*initClass {
 		all = IdentityDictionary();
+		counter = 0;
 	}
 
 	*new {|name, code|
@@ -36,8 +40,8 @@ DynGenDef {
 	}
 
 	send {|server|
-		// @todo add a uuid to avoid clashes?
-		var tmpFilePath = PathName.tmp ++ hash.asString;
+		var tmpFilePath = PathName.tmp +/+ "%_%".format(hash.asString, counter);
+		counter = counter + 1;
 
 		File.use(tmpFilePath, "w", {|f|
 			f.write(code);
