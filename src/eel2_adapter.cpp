@@ -6,7 +6,7 @@
 #include <SC_InterfaceTable.h>
 #include <SC_Unit.h>
 
-static InterfaceTable *ft;
+extern InterfaceTable *ft;
 
 // define symbols for jsfx
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
@@ -49,7 +49,8 @@ bool EEL2Adapter::init(const std::string &script) {
     NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
 
   if (mScript->sample.empty()) {
-    Print("ERROR: DynGen sample code is missing");
+    // do not use Print b/c in NRT context this will not be displayed in console
+    std::cout << "ERROR: DynGen sample code is missing" << std::endl;
     return false;
   }
 

@@ -3,8 +3,6 @@
 #include "eel2_adapter.h"
 #include <SC_PlugIn.hpp>
 
-static InterfaceTable *ft;
-
 // forward declarations
 struct CodeLibrary;
 struct DynGenStub;

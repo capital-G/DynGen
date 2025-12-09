@@ -6,6 +6,8 @@
 #include <thread>
 #include <atomic>
 
+InterfaceTable *ft;
+
 // a global linked list which stores the code
 // and its associated running DynGens.
 static CodeLibrary *gLibrary = nullptr;
@@ -246,7 +248,8 @@ bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
 
   auto codeFile = std::ifstream(entry->codePath, std::ios::binary);
   if (!codeFile.is_open()) {
-    Print("ERROR: Could not open DynGen file at %s", entry->codePath);
+    // use std::cout instead of Print b/c of NRT context
+    std::cout << "ERROR: Could not open DynGen file at " << entry->codePath << std::endl;
     return false;
   }
 
