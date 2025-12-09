@@ -39,6 +39,10 @@ bool swapVmPointers(World* world, void *rawCallbackData) {
   if (callbackData->dynGenStub->mObject) {
     callbackData->oldVm = callbackData->dynGenStub->mObject->mVm;
     callbackData->dynGenStub->mObject->mVm = callbackData->vm;
+  } else {
+    // mark the vm we just created ready for deletion since the DynGen
+    // it was created for does not exist anymore.
+    callbackData->oldVm = callbackData->vm;
   }
   return true;
 }
