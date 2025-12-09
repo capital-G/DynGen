@@ -23,6 +23,7 @@ Script to store on the server under the given reference.
 
 METHOD:: load
 Loads a DynGen script from a file.
+If the file does not exist or can not be read, it will throw an exception.
 argument:: name
 Name to be used as reference for the script.
 Will be transformed to a LINK::Classes/Symbol::.
@@ -47,6 +48,7 @@ If no server is provided, LINK::Classes/Server#*default:: will be used.
 
 METHOD:: load
 Loads the content of a file to the code variable.
+If the file does not exist or can not be read, it will throw an exception.
 argument:: path
 Location of the DynGen script.
 

@@ -27,12 +27,12 @@ DynGenDef {
 	}
 
 	*load {|name, path|
-		var code = DynGenDef.prLoadScript(path);
+		var code = File.readAllString(path.asAbsolutePath);
 		^this.new(name, code);
 	}
 
 	load {|path|
-		code = DynGenDef.prLoadScript(path);
+		code = File.readAllString(path.asAbsolutePath);
 	}
 
 	send {|server|
@@ -54,15 +54,6 @@ DynGenDef {
 				"Could not delete DynGen temp file %".format(tmpFilePath).warn;
 			});
 		}
-	}
-
-	*prLoadScript {|path|
-		path = path.asAbsolutePath;
-		if(File.exists(path).not, {
-			"DynGen file % does not exist".format(path).warn;
-			^nil;
-		});
-		^File.readAllString(path);
 	}
 
 	*prHashSymbol {|symbol|
