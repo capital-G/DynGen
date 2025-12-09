@@ -3,7 +3,10 @@
 #include "ns-eel-addfuncs.h"
 #include "ns-eel-int.h"
 
+#include <SC_InterfaceTable.h>
 #include <SC_Unit.h>
+
+static InterfaceTable *ft;
 
 // define symbols for jsfx
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
@@ -46,14 +49,14 @@ void EEL2Adapter::init(const std::string &script) {
     NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
 
   if (mScript->sample.empty()) {
-    std::cout << "DynGen sample code is missing" << std::endl;
+    Print("ERROR: DynGen sample code is missing");
     return;
   }
 
   if (!mScript->init.empty()) {
     mInitCode = NSEEL_code_compile_ex(mEelState, mScript->init.c_str(), 0, compileFlags);
     if (!mInitCode) {
-      std::cout << "DynGen init compile error: " << mEelState->last_error_string << std::endl;
+      Print("ERROR: DynGen init compile error: %c",  mEelState->last_error_string);
       return;
     }
   }
@@ -61,14 +64,14 @@ void EEL2Adapter::init(const std::string &script) {
   if (!mScript->block.empty()) {
     mBlockCode = NSEEL_code_compile_ex(mEelState, mScript->block.c_str(), 0, compileFlags);
     if (!mBlockCode) {
-      std::cout << "DynGen block compile error: " << mEelState->last_error_string << std::endl;
+      Print("ERROR: DynGen block compile error: %c", mEelState->last_error_string);
       return;
     }
   }
 
   mSampleCode = NSEEL_code_compile_ex(mEelState, mScript->sample.c_str(), 0, compileFlags);
   if (!mSampleCode) {
-    std::cout << "DynGen sample compile error: " << mEelState->last_error_string << std::endl;
+    Print("DynGen sample compile error: %c", mEelState->last_error_string);
     return;
   }
 

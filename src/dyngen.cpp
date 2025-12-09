@@ -99,7 +99,7 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
     codeNode = codeNode->next;
   }
   if (!found) {
-    Print("Could not find script with hash %i\n", mCodeID);
+    Print("ERROR: Could not find script with hash %i\n", mCodeID);
     next(1);
     return;
   }
@@ -236,7 +236,7 @@ bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
 
   auto codeFile = std::ifstream(entry->codePath, std::ios::binary);
   if (!codeFile.is_open()) {
-    std::cerr << "Could not open DynGen file at " << entry->codePath << std::endl;
+    Print("ERROR: Could not open DynGen file at %s", entry->codePath);
     return false;
   }
 
@@ -390,12 +390,12 @@ void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* arg
   if (const char* codePath = args->gets()) {
     newLibraryEntry->codePath = static_cast<char*>(RTAlloc(inWorld, strlen(codePath) + 1));
     if (!newLibraryEntry->codePath) {
-      Print("Failed to allocate memory for DynGen code library");
+      Print("ERROR: Failed to allocate memory for DynGen code library");
       return;
     }
     strcpy(newLibraryEntry->codePath, codePath);
   } else {
-    Print("Invalid dyngenadd message\n");
+    Print("ERROR: Invalid dyngenadd message\n");
     return;
   }
   newLibraryEntry->oldCode = nullptr;
