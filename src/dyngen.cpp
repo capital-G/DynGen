@@ -295,16 +295,13 @@ bool swapCode(World* world, void *rawCallbackData) {
     node->code = entry->code;
     auto dynGen = node->dynGen;
     while (dynGen != nullptr) {
-      auto* callbackData = static_cast<DynGenCallbackData*>(RTAlloc(world, sizeof(DynGenCallbackData)));
-      // make sure allocation worked
-      if (callbackData) {
-        // although the code can be updated, the referenced code
-        // lives long enough b/c in worst case there is already
-        // a new code in the pipeline at stage2 where the old code
-        // would be destroyed in its stage4.
-        // Yet we only need to access the code in stage 2 in our callback,
-        // where it could not have been destroyed yet.
-        // See https://github.com/capital-G/DynGen/pull/40#discussion_r2599579920
+      // although the code can be updated, the referenced code
+      // lives long enough b/c in worst case there is already
+      // a new code in the pipeline at stage2 where the old code
+      // would be destroyed in its stage4.
+      // Yet we only need to access the code in stage 2 in our callback,
+      // where it could not have been destroyed yet.
+      // See https://github.com/capital-G/DynGen/pull/40#discussion_r2599579920
 
 /*
      ┌─────────┐             ┌──────────┐           ┌─────────┐          ┌──────────┐
@@ -366,8 +363,7 @@ STAGE3_RT -> STAGE4_NRT : deleteOldVm
 @enduml
 ```
 */
-        dynGen->updateCode(entry->code);
-      }
+      dynGen->updateCode(entry->code);
       dynGen = dynGen->mNextDynGen;
     }
   }
