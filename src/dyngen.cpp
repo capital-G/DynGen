@@ -403,7 +403,7 @@ void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* arg
   if (const char* codePath = args->gets()) {
     newLibraryEntry->codePath = static_cast<char*>(RTAlloc(inWorld, strlen(codePath) + 1));
     if (!newLibraryEntry->codePath) {
-      Print("ERROR: Failed to allocate memory for DynGen code library");
+      Print("ERROR: Failed to allocate memory for DynGen code library\n");
       return;
     }
     strcpy(newLibraryEntry->codePath, codePath);
