@@ -49,15 +49,14 @@ bool EEL2Adapter::init(const std::string &script) {
     NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
 
   if (mScript->sample.empty()) {
-    // do not use Print b/c in NRT context this will not be displayed in console
-    std::cout << "ERROR: DynGen sample code is missing" << std::endl;
+    Print("ERROR: DynGen sample code is missing\n");
     return false;
   }
 
   if (!mScript->init.empty()) {
     mInitCode = NSEEL_code_compile_ex(mEelState, mScript->init.c_str(), 0, compileFlags);
     if (!mInitCode) {
-      std::cout << "ERROR: DynGen init compile error: " << mEelState->last_error_string << std::endl;
+      Print("ERROR: DynGen init compile error: %s\n", mEelState->last_error_string);
       return false;
     }
   }
@@ -65,14 +64,14 @@ bool EEL2Adapter::init(const std::string &script) {
   if (!mScript->block.empty()) {
     mBlockCode = NSEEL_code_compile_ex(mEelState, mScript->block.c_str(), 0, compileFlags);
     if (!mBlockCode) {
-      std::cout << "ERROR: DynGen block compile error " << mEelState->last_error_string << std::endl;
+      Print("ERROR: DynGen block compile error %s\n", mEelState->last_error_string);
       return false;
     }
   }
 
   mSampleCode = NSEEL_code_compile_ex(mEelState, mScript->sample.c_str(), 0, compileFlags);
   if (!mSampleCode) {
-    std::cout << "ERROR: DynGen sample compile error: " << mEelState->last_error_string << std::endl;
+    Print("ERROR: DynGen sample compile error: %s\n", mEelState->last_error_string);
     return false;
   }
 

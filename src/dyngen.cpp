@@ -248,8 +248,7 @@ bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
 
   auto codeFile = std::ifstream(entry->codePath, std::ios::binary);
   if (!codeFile.is_open()) {
-    // use std::cout instead of Print b/c of NRT context
-    std::cout << "ERROR: Could not open DynGen file at " << entry->codePath << std::endl;
+    Print("ERROR: Could not open DynGen file at %s\n", entry->codePath);
     return false;
   }
 
