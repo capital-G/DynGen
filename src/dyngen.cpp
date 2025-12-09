@@ -410,11 +410,27 @@ void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* arg
     Print("ERROR: Invalid dyngenadd message\n");
     return;
   }
+  auto completionMsgSize = args->getbsize();
+  auto* completionMsgBuf = static_cast<char*>(RTAlloc(inWorld, completionMsgSize));
+  if (!completionMsgBuf) {
+    Print("ERROR: Failed to allocate memory for DynGen completion message buffer\n");
+    return;
+  }
+  args->getb(completionMsgBuf, completionMsgSize);
   newLibraryEntry->oldCode = nullptr;
 
   ft->fDoAsynchronousCommand(
-    inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    loadFileToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, 0, nullptr);
+    inWorld,
+    replyAddr,
+    nullptr,
+    static_cast<void*>(newLibraryEntry),
+    loadFileToDynGenLibrary,
+    swapCode,
+    deleteOldCode,
+    pluginCmdCallbackCleanup,
+    static_cast<int>(completionMsgSize),
+    completionMsgBuf
+  );
 }
 
 // ********************

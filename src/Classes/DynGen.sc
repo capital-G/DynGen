@@ -35,7 +35,7 @@ DynGenDef {
 		code = DynGenDef.prLoadScript(path);
 	}
 
-	send {|server|
+	send {|server, completionMsg|
 		// @todo add a uuid to avoid clashes?
 		var tmpFilePath = PathName.tmp ++ hash.asString;
 
@@ -44,7 +44,7 @@ DynGenDef {
 		});
 
 		server = server ? Server.default;
-		server.sendMsg(\cmd, \dyngenadd, hash, tmpFilePath);
+		server.sendMsg(\cmd, \dyngenadd, hash, tmpFilePath, completionMsg);
 
 		fork {
 			var deleteSuccess;
