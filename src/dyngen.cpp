@@ -27,7 +27,13 @@ bool createVmAndCompile(World* world, void *rawCallbackData) {
     callbackData->parent
   );
 
-  callbackData->vm->init(callbackData->code);
+  auto success = callbackData->vm->init(callbackData->code);
+  if (!success) {
+    // if not successful, remove vm and do not attempt to replace
+    // running vm.
+    delete callbackData->vm;
+    return false;
+  }
   // continue to stage 3
   return true;
 }

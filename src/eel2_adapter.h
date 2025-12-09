@@ -91,7 +91,8 @@ public:
   EEL2Adapter(const uint32 numInputChannels, const uint32 numOutputChannels, const int sampleRate, const int blockSize, World *world, Graph* parent) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mSampleRate(sampleRate), mBlockSize(blockSize), mWorld(world), mParent(parent) {};
   ~EEL2Adapter();
 
-  void init(const std::string &script);
+  // returns true if vm has been compiled successfully
+  bool init(const std::string &script);
   static EEL_F eelReadBuf(void* opaque, INT_PTR numParams, EEL_F** params);
   static EEL_F eelReadBufL(void* opaque, INT_PTR numParams, EEL_F** params);
   static EEL_F eelReadBufC(void* opaque, INT_PTR numParams, EEL_F** params);

@@ -13,7 +13,7 @@ extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
 // this is not RT safe
-void EEL2Adapter::init(const std::string &script) {
+bool EEL2Adapter::init(const std::string &script) {
   mScript = new DynGenScript(script);
   mInputs = new double *[mNumInputChannels]();
   mOutputs = new double *[mNumOutputChannels]();
@@ -50,34 +50,35 @@ void EEL2Adapter::init(const std::string &script) {
 
   if (mScript->sample.empty()) {
     Print("ERROR: DynGen sample code is missing");
-    return;
+    return false;
   }
 
   if (!mScript->init.empty()) {
     mInitCode = NSEEL_code_compile_ex(mEelState, mScript->init.c_str(), 0, compileFlags);
     if (!mInitCode) {
-      Print("ERROR: DynGen init compile error: %c",  mEelState->last_error_string);
-      return;
+      std::cout << "ERROR: DynGen init compile error: " << mEelState->last_error_string << std::endl;
+      return false;
     }
   }
 
   if (!mScript->block.empty()) {
     mBlockCode = NSEEL_code_compile_ex(mEelState, mScript->block.c_str(), 0, compileFlags);
     if (!mBlockCode) {
-      Print("ERROR: DynGen block compile error: %c", mEelState->last_error_string);
-      return;
+      std::cout << "ERROR: DynGen block compile error " << mEelState->last_error_string << std::endl;
+      return false;
     }
   }
 
   mSampleCode = NSEEL_code_compile_ex(mEelState, mScript->sample.c_str(), 0, compileFlags);
   if (!mSampleCode) {
-    Print("DynGen sample compile error: %c", mEelState->last_error_string);
-    return;
+    std::cout << "ERROR: DynGen sample compile error: " << mEelState->last_error_string << std::endl;
+    return false;
   }
 
   if (mInitCode) {
     NSEEL_code_execute(mInitCode);
   }
+  return true;
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const INT_PTR numParams, EEL_F** params) {
