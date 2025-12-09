@@ -245,7 +245,15 @@ void DynGen::next(int numSamples) {
 // which gets passed to stage 3 (RT)
 bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
+  if (entry->rtCode != nullptr) {
+    // in case we got the code via a RT char*, we copy it
+    auto* codeBuffer = new char[strlen(entry->rtCode)];
+    strcpy(codeBuffer, entry->rtCode);
+    entry->code = codeBuffer;
+    return true;
+  }
 
+  // else we load it from file
   auto codeFile = std::ifstream(entry->codePath, std::ios::binary);
   if (!codeFile.is_open()) {
     Print("ERROR: Could not open DynGen file at %s\n", entry->codePath);
@@ -382,6 +390,7 @@ bool deleteOldCode(World *world, void *rawCallbackData) {
 // allocated within RT thread
 void pluginCmdCallbackCleanup(World *world, void *rawCallbackData) {
   auto callBackData = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
+  RTFree(world, callBackData->rtCode);
   RTFree(world, callBackData->codePath);
   RTFree(world, callBackData);
 }
@@ -392,7 +401,7 @@ void pluginCmdCallbackCleanup(World *world, void *rawCallbackData) {
 // copy the OSC data to a new struct which then gets passed to another
 // callback which runs in stage 2 (non-RT thread).
 // We have to free the created struct afterward via `pluginCmdCallbackCleanup`.
-void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+void dyngenAddFileCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
   auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
   newLibraryEntry->hash = args->geti();
   if (const char* codePath = args->gets()) {
@@ -403,9 +412,36 @@ void pluginCmdCallback(World* inWorld, void* inUserData, struct sc_msg_iter* arg
     }
     strcpy(newLibraryEntry->codePath, codePath);
   } else {
-    Print("ERROR: Invalid dyngenadd message\n");
+    Print("ERROR: Invalid dyngenfile message\n");
     return;
   }
+  newLibraryEntry->rtCode = nullptr;
+  newLibraryEntry->oldCode = nullptr;
+
+  ft->fDoAsynchronousCommand(
+    inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
+    loadFileToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, 0, nullptr);
+}
+
+// like `dyngenAddFileCallback` but instead of a path we obtain the
+// script within the OSC message.
+void dyngenAddScriptCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+  auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
+  newLibraryEntry->hash = args->geti();
+  if (const char* oscCode = args->gets()) {
+    auto oscCodeLength = strlen(oscCode);
+    newLibraryEntry->rtCode = static_cast<char*>(RTAlloc(inWorld, oscCodeLength + 1));
+    newLibraryEntry->rtCode[oscCodeLength] = '\0';
+    if (!newLibraryEntry->rtCode) {
+      Print("ERROR: Failed to allocate memory for DynGen code library\n");
+      return;
+    }
+    strcpy(newLibraryEntry->rtCode, oscCode);
+  } else {
+    Print("ERROR: Invalid dyngenscript message\n");
+    return;
+  }
+  newLibraryEntry->codePath = nullptr;
   newLibraryEntry->oldCode = nullptr;
 
   ft->fDoAsynchronousCommand(
@@ -426,8 +462,14 @@ PluginLoad("DynGen") {
   registerUnit<DynGen>(inTable, "DynGenRT", false);
 
   ft->fDefinePlugInCmd(
-    "dyngenadd",
-    pluginCmdCallback,
+    "dyngenfile",
+    dyngenAddFileCallback,
     nullptr
   );
+
+  ft->fDefinePlugInCmd(
+  "dyngenscript",
+  dyngenAddScriptCallback,
+  nullptr
+);
 }

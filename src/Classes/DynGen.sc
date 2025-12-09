@@ -48,7 +48,7 @@ DynGenDef {
 		});
 
 		server = server ? Server.default;
-		server.sendMsg(\cmd, \dyngenadd, hash, tmpFilePath);
+		server.sendMsg(\cmd, \dyngenfile, hash, tmpFilePath);
 
 		fork {
 			var deleteSuccess;
