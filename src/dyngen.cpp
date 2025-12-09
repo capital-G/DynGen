@@ -154,8 +154,6 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
       nullptr
     );
   }
-
-  next(1);
 }
 
 void DynGen::fillCallbackData(DynGenCallbackData* payload, char* code) const {
