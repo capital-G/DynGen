@@ -245,18 +245,10 @@ void DynGen::next(int numSamples) {
 // which gets passed to stage 3 (RT)
 bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
-  if (entry->rtCode != nullptr) {
-    // in case we got the code via a RT char*, we copy it
-    auto* codeBuffer = new char[strlen(entry->rtCode)];
-    strcpy(codeBuffer, entry->rtCode);
-    entry->code = codeBuffer;
-    return true;
-  }
 
-  // else we load it from file
-  auto codeFile = std::ifstream(entry->codePath, std::ios::binary);
+  auto codeFile = std::ifstream(entry->oscString, std::ios::binary);
   if (!codeFile.is_open()) {
-    Print("ERROR: Could not open DynGen file at %s\n", entry->codePath);
+    Print("ERROR: Could not open DynGen file at %s\n", entry->oscString);
     return false;
   }
 
@@ -274,6 +266,18 @@ bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
   entry->code = codeBuffer;
 
   // continue to next stage
+  return true;
+}
+
+// this runs in stage 2 (NRT) and copies the content of the RT owned code
+// to a NRT owned code
+bool loadScriptToDynGenLibrary(World *world, void *rawCallbackData) {
+  auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
+  auto codeLength = strlen(entry->oscString);
+  auto* codeBuffer = new char[codeLength + 1];
+  std::copy_n(entry->oscString, codeLength, codeBuffer);
+  codeBuffer[codeLength] = '\0';
+  entry->code = codeBuffer;
   return true;
 }
 
@@ -390,8 +394,7 @@ bool deleteOldCode(World *world, void *rawCallbackData) {
 // allocated within RT thread
 void pluginCmdCallbackCleanup(World *world, void *rawCallbackData) {
   auto callBackData = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
-  RTFree(world, callBackData->rtCode);
-  RTFree(world, callBackData->codePath);
+  RTFree(world, callBackData->oscString);
   RTFree(world, callBackData);
 }
 
@@ -405,17 +408,20 @@ void dyngenAddFileCallback(World* inWorld, void* inUserData, struct sc_msg_iter*
   auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
   newLibraryEntry->hash = args->geti();
   if (const char* codePath = args->gets()) {
-    newLibraryEntry->codePath = static_cast<char*>(RTAlloc(inWorld, strlen(codePath) + 1));
-    if (!newLibraryEntry->codePath) {
+    auto codePathLength = strlen(codePath);
+    newLibraryEntry->oscString = static_cast<char*>(RTAlloc(inWorld, codePathLength + 1));
+    if (!newLibraryEntry->oscString) {
       Print("ERROR: Failed to allocate memory for DynGen code library\n");
+      RTFree(inWorld, newLibraryEntry);
       return;
     }
-    strcpy(newLibraryEntry->codePath, codePath);
+    std::copy_n(codePath, codePathLength, newLibraryEntry->oscString);
+    newLibraryEntry->oscString[codePathLength] = '\0';
   } else {
     Print("ERROR: Invalid dyngenfile message\n");
+    RTFree(inWorld, newLibraryEntry);
     return;
   }
-  newLibraryEntry->rtCode = nullptr;
   newLibraryEntry->oldCode = nullptr;
 
   ft->fDoAsynchronousCommand(
@@ -430,23 +436,24 @@ void dyngenAddScriptCallback(World* inWorld, void* inUserData, struct sc_msg_ite
   newLibraryEntry->hash = args->geti();
   if (const char* oscCode = args->gets()) {
     auto oscCodeLength = strlen(oscCode);
-    newLibraryEntry->rtCode = static_cast<char*>(RTAlloc(inWorld, oscCodeLength + 1));
-    newLibraryEntry->rtCode[oscCodeLength] = '\0';
-    if (!newLibraryEntry->rtCode) {
+    newLibraryEntry->oscString = static_cast<char*>(RTAlloc(inWorld, oscCodeLength + 1));
+    if (!newLibraryEntry->oscString) {
       Print("ERROR: Failed to allocate memory for DynGen code library\n");
+      RTFree(inWorld, newLibraryEntry);
       return;
     }
-    strcpy(newLibraryEntry->rtCode, oscCode);
+    std::copy_n(oscCode, oscCodeLength, newLibraryEntry->oscString);
+    newLibraryEntry->oscString[oscCodeLength] = '\0';
   } else {
     Print("ERROR: Invalid dyngenscript message\n");
+    RTFree(inWorld, newLibraryEntry);
     return;
   }
-  newLibraryEntry->codePath = nullptr;
   newLibraryEntry->oldCode = nullptr;
 
   ft->fDoAsynchronousCommand(
     inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    loadFileToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, 0, nullptr);
+    loadScriptToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, 0, nullptr);
 }
 
 // ********************

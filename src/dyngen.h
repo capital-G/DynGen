@@ -107,13 +107,12 @@ struct NewDynGenLibraryEntry {
   // while in sclang land we use strings to identify
   int hash;
 
+  // This can hold 2 alternatives, both RT managed and 0 terminated
   // Alternative A: read code from file
-  // absolute path to the file storing the DynGen code - RT managed
-  char* codePath;
-
+  // absolute path to the file storing the DynGen code
   // Alternative B: code was bundled within OSC message
-  // RT managed code we receive via script command - 0 terminated
-  char* rtCode;
+  // RT managed code we receive via script command
+  char* oscString;
 
   // the newly received code - NRT managed
   char* code;
