@@ -273,10 +273,9 @@ bool loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
 // to a NRT owned code
 bool loadScriptToDynGenLibrary(World *world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
-  auto codeLength = strlen(entry->oscString);
-  auto* codeBuffer = new char[codeLength + 1];
+  auto codeLength = strlen(entry->oscString) + 1;
+  auto* codeBuffer = new char[codeLength];
   std::copy_n(entry->oscString, codeLength, codeBuffer);
-  codeBuffer[codeLength] = '\0';
   entry->code = codeBuffer;
   return true;
 }
@@ -408,15 +407,14 @@ void dyngenAddFileCallback(World* inWorld, void* inUserData, struct sc_msg_iter*
   auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
   newLibraryEntry->hash = args->geti();
   if (const char* codePath = args->gets()) {
-    auto codePathLength = strlen(codePath);
-    newLibraryEntry->oscString = static_cast<char*>(RTAlloc(inWorld, codePathLength + 1));
+    auto codePathLength = strlen(codePath) + 1;
+    newLibraryEntry->oscString = static_cast<char*>(RTAlloc(inWorld, codePathLength));
     if (!newLibraryEntry->oscString) {
       Print("ERROR: Failed to allocate memory for DynGen code library\n");
       RTFree(inWorld, newLibraryEntry);
       return;
     }
     std::copy_n(codePath, codePathLength, newLibraryEntry->oscString);
-    newLibraryEntry->oscString[codePathLength] = '\0';
   } else {
     Print("ERROR: Invalid dyngenfile message\n");
     RTFree(inWorld, newLibraryEntry);
@@ -435,15 +433,14 @@ void dyngenAddScriptCallback(World* inWorld, void* inUserData, struct sc_msg_ite
   auto newLibraryEntry = static_cast<NewDynGenLibraryEntry*>(RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
   newLibraryEntry->hash = args->geti();
   if (const char* oscCode = args->gets()) {
-    auto oscCodeLength = strlen(oscCode);
-    newLibraryEntry->oscString = static_cast<char*>(RTAlloc(inWorld, oscCodeLength + 1));
+    auto oscCodeLength = strlen(oscCode) + 1;
+    newLibraryEntry->oscString = static_cast<char*>(RTAlloc(inWorld, oscCodeLength));
     if (!newLibraryEntry->oscString) {
       Print("ERROR: Failed to allocate memory for DynGen code library\n");
       RTFree(inWorld, newLibraryEntry);
       return;
     }
     std::copy_n(oscCode, oscCodeLength, newLibraryEntry->oscString);
-    newLibraryEntry->oscString[oscCodeLength] = '\0';
   } else {
     Print("ERROR: Invalid dyngenscript message\n");
     RTFree(inWorld, newLibraryEntry);
