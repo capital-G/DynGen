@@ -100,9 +100,6 @@ struct DynGenCallbackData {
 
 // The callback payload to enter a new entry into the code library, which
 // gets invoked via an OSC message/command.
-// This can either
-// a) hold `codePath` in which case we read its content in stage 2
-// b) hold `rtCode` in which we copy the RT char* into a NRT char* in stage2
 struct NewDynGenLibraryEntry {
   // while in sclang land we use strings to identify
   int hash;
