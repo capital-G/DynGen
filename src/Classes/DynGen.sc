@@ -74,7 +74,6 @@ DynGenDef {
 			f.write(code);
 		});
 
-		server = server ? Server.default;
 		server.sendMsg(\cmd, \dyngenfile, hash, tmpFilePath);
 
 		fork {
