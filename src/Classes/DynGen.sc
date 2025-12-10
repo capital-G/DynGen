@@ -51,7 +51,7 @@ DynGenDef {
 
 	prSendScript {|server|
 		var message = [\cmd, \dyngenscript, hash, code];
-		if(message.flatten.size <= (65535 div: 4), {
+		if(message.flatten.size < (65535 div: 4), {
 			server.sendMsg(*message);
 		}, {
 			this.prSendFile(server);
