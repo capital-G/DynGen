@@ -54,7 +54,6 @@ DynGenDef {
 		if(message.flatten.size <= (65535 div: 4), {
 			server.sendMsg(*message);
 		}, {
-			"DynGenDef % too big for sending via OSC message, sending via file".format(name).warn;
 			this.prSendFile(server);
 		});
 	}
