@@ -98,16 +98,21 @@ struct DynGenCallbackData {
   Graph *parent;
 };
 
-// used as callback data. Gets created in RT thread, passed to NRT threads
-// for consumption and freed in RT thread again, so it is managed by RT malloc.
+// The callback payload to enter a new entry into the code library, which
+// gets invoked via an OSC message/command.
 struct NewDynGenLibraryEntry {
   // while in sclang land we use strings to identify
   int hash;
-  // absolute path to the file storing the DynGen code
-  char* codePath;
 
-  // the newly received code - RTAlloc
+  // This can hold 2 alternatives, both RT managed and 0 terminated
+  // Alternative A: read code from file
+  // absolute path to the file storing the DynGen code
+  // Alternative B: code was bundled within OSC message
+  // RT managed code we receive via script command
+  char* oscString;
+
+  // the newly received code - NRT managed
   char* code;
-  // the code to be replaced and should be deleted - RTAlloc
+  // the code to be replaced and should be deleted - NRT managed
   char* oldCode;
 };
