@@ -397,6 +397,25 @@ void pluginCmdCallbackCleanup(World *world, void *rawCallbackData) {
   RTFree(world, callBackData);
 }
 
+// consumes a completion msg from the msg stack
+// makes completionMsg either a nullptr (no message) or point it
+// to the buffer within the osc message.
+int getCompletionMsg(sc_msg_iter* args, char* &completionMsg) {
+  auto const completionMsgSize = static_cast<int>(args->getbsize());
+  if (completionMsgSize > 0) {
+    // make readPos non const such that it can be passed to
+    // `fDoAsynchronousCommand` which requires non-const ptr
+    auto* readPos = const_cast<char *>(args->rdpos);
+    // point to the buf data of the completion msg - args->getb
+    // would make a copy which we do not want since
+    // `fDoAsynchronousCommand` already copies the buffer
+    completionMsg = readPos + sizeof(int32_t);
+    args->skipb();
+  } else {
+    completionMsg = nullptr;
+  }
+  return completionMsgSize;
+}
 
 // runs in stage  1 (RT thread)
 // responds to an osc message on the RT thread - we therefore have to
@@ -420,11 +439,14 @@ void dyngenAddFileCallback(World* inWorld, void* inUserData, struct sc_msg_iter*
     RTFree(inWorld, newLibraryEntry);
     return;
   }
+  char* completionMsg;
+  auto completionMsgSize = getCompletionMsg(args, completionMsg);
+
   newLibraryEntry->oldCode = nullptr;
 
   ft->fDoAsynchronousCommand(
     inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    loadFileToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, 0, nullptr);
+    loadFileToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, completionMsgSize, completionMsg);
 }
 
 // like `dyngenAddFileCallback` but instead of a path we obtain the
@@ -446,11 +468,14 @@ void dyngenAddScriptCallback(World* inWorld, void* inUserData, struct sc_msg_ite
     RTFree(inWorld, newLibraryEntry);
     return;
   }
+  char* completionMsg;
+  auto completionMsgSize = getCompletionMsg(args, completionMsg);
+
   newLibraryEntry->oldCode = nullptr;
 
   ft->fDoAsynchronousCommand(
     inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    loadScriptToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, 0, nullptr);
+    loadScriptToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, completionMsgSize, completionMsg);
 }
 
 // ********************
