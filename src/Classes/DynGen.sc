@@ -39,26 +39,26 @@ DynGenDef {
 		code = File.readAllString(path.asAbsolutePath);
 	}
 
-	send {|server|
+	send {|server, completionMsg|
 		var servers = (server ?? { Server.allBootedServers }).asArray;
 		servers.do { |each|
 			if(each.hasBooted.not) {
 				"Server % not running, could not send DynGenDef.".format(server.name).warn
 			};
-			this.prSendScript(each);
+			this.prSendScript(each, completionMsg);
 		}
 	}
 
-	prSendScript {|server|
-		var message = [\cmd, \dyngenscript, hash, code];
-		if(message.flatten.size < (65535 div: 4), {
+	prSendScript {|server, completionMsg|
+		var message = [\cmd, \dyngenscript, hash, code, completionMsg];
+		if(message.flatten(2).size < (65535 div: 4), {
 			server.sendMsg(*message);
 		}, {
-			this.prSendFile(server);
+			this.prSendFile(server, completionMsg);
 		});
 	}
 
-	prSendFile {|server|
+	prSendFile {|server, completionMsg|
 		var tmpFilePath = PathName.tmp +/+ "%_%".format(hash.asString, counter);
 		counter = counter + 1;
 
@@ -74,7 +74,7 @@ DynGenDef {
 			f.write(code);
 		});
 
-		server.sendMsg(\cmd, \dyngenfile, hash, tmpFilePath);
+		server.sendMsg(\cmd, \dyngenfile, hash, tmpFilePath, completionMsg);
 
 		fork {
 			var deleteSuccess;

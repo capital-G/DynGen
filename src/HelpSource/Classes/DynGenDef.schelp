@@ -51,6 +51,8 @@ In case the script is too big, the script will be saved to a local temp file and
 argument:: server
 The server on which the DynGenDef should be registered.
 If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
+argument:: completionMsg
+An optional OSC message that will be executed by the server after the DynGenDef has been registered on the server.
 
 METHOD:: load
 Loads the content of a file to the code variable.
