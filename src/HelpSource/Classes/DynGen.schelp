@@ -236,6 +236,78 @@ TABLE::
 ## blockSize || same as LINK::Classes/ServerOptions#-blockSize::
 ::
 
+SUBSECTION:: FFT
+
+DynGen also allows to perform FFT operations on a buffer, similiar to PV UGens of SuperCollider.
+Valid FFT window sizes are 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, or 32768.
+
+There is also DCT available via CODE::mdct(start_index, size):: and CODE::imdct(start_index, size):: and also a way to convolve two buffers via CODE::convolve_c(dest,src,size)::, typically performed on FFT buffers.
+
+For further information see https://www.cockos.com/EEL2/index.php#advanced
+
+CODE::
+(
+DynGenDef(\fft, "
+@init
+fftSize = 512;
+// input buffer is starting at memory position 0
+inBuf = 0;
+// create a buffer with a memory offset of the size
+// of our input buffer. fft consists of real and complex/imaginary
+// part, so we need two times the fft size since we are copying the
+// the non-fft inBuf over to the fft outBuf to perform fft
+// if we do not copy over the zero-ed complex part of inBuf,
+// we will have a tainted outBuf when performing fft
+outBuf = fftSize * 2;
+writePos = 0;
+
+@sample
+// write into our input buffer
+inBuf[writePos] = in0;
+writePos += 1;
+offset = in1;
+spread = in2;
+
+// if we have enough samples in our input buffer,
+// perform a fft step
+writePos >= fftSize ? (
+  memcpy(outBuf, inBuf, fftSize*2);
+  fft(outBuf, fftSize);
+  // separate real and complex parts
+  fft_permute(outBuf, fftSize);
+
+  // shift around some real parts
+  i = 0;
+  loop(fftSize,
+    outBuf[i] = outBuf[((i)+(offset * (spread)))%fftSize];
+    i+=1;
+  );
+
+  // interleaving real/complex again
+  fft_ipermute(outBuf, fftSize);
+  // inverse fft on the out buffer
+  ifft(outBuf, fftSize);
+  // reset write header
+  writePos = 0;
+);
+
+// scale output of fft with fftSize!
+out0 = outBuf[writepos] / fftSize;
+").send;
+)
+
+~buffer = Buffer.read(s, ExampleFiles.apollo11);
+(
+Ndef(\fft2, {
+	DynGen.ar(1, \fft,
+		PlayBuf.ar(1, ~buffer, \rate.kr(1.0), loop: 1.0),
+		\offset.ar(0.0, spec: [-512, 512]),
+		\spread.ar(1.0, spec: ControlSpec(-4.0, 4.0, step: 1/8)),
+	).tanh * 0.5.dup;
+}).play.gui;
+)
+::
+
 CLASSMETHODS::
 
 METHOD:: ar
