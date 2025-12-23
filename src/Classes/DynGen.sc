@@ -50,9 +50,9 @@ DynGenDef {
 	}
 
 	prSendScript {|server, completionMsg|
-		var message = [\cmd, \dyngenscript, hash, code, completionMsg];
-		if(message.flatten(2).size < (65535 div: 4), {
-			server.sendMsg(*message);
+		var message = [\cmd, \dyngenscript, hash, code, completionMsg].asRawOSC;
+		if(message.size < (65535 div: 4), {
+			server.sendRaw(message);
 		}, {
 			this.prSendFile(server, completionMsg);
 		});
