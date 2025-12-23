@@ -16,7 +16,7 @@ set(EEL2_SOURCES
         ${EEL2_PATH}/nseel-ram.c
         ${EEL2_PATH}/nseel-yylex.c
         ${EEL2_PATH}/nseel-cfunc.c
-#        ${EEL2_PATH}/eel_fft.c
+        ${WDL_PATH}/fft.c
 )
 
 # compile eel2 asm
