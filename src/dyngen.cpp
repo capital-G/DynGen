@@ -400,8 +400,9 @@ void pluginCmdCallbackCleanup(World *world, void *rawCallbackData) {
 // consumes a completion msg from the msg stack
 // makes completionMsg either a nullptr (no message) or point it
 // to the buffer within the osc message.
-int getCompletionMsg(sc_msg_iter* args, const char* &completionMsg) {
+std::pair<int, const char*> getCompletionMsg(sc_msg_iter* args) {
   auto const completionMsgSize = static_cast<int>(args->getbsize());
+  const char* completionMsg = nullptr;
   if (completionMsgSize > 0) {
     auto* readPos = args->rdpos;
     // point to the buf data of the completion msg - args->getb
@@ -409,10 +410,8 @@ int getCompletionMsg(sc_msg_iter* args, const char* &completionMsg) {
     // `fDoAsynchronousCommand` already copies the buffer
     completionMsg = readPos + sizeof(int32_t);
     args->skipb();
-  } else {
-    completionMsg = nullptr;
   }
-  return completionMsgSize;
+  return {completionMsgSize, completionMsg};
 }
 
 // runs in stage  1 (RT thread)
@@ -437,8 +436,7 @@ void dyngenAddFileCallback(World* inWorld, void* inUserData, struct sc_msg_iter*
     RTFree(inWorld, newLibraryEntry);
     return;
   }
-  const char* completionMsg;
-  auto completionMsgSize = getCompletionMsg(args, completionMsg);
+  auto [completionMsgSize, completionMsg] = getCompletionMsg(args);
 
   newLibraryEntry->oldCode = nullptr;
 
@@ -466,8 +464,7 @@ void dyngenAddScriptCallback(World* inWorld, void* inUserData, struct sc_msg_ite
     RTFree(inWorld, newLibraryEntry);
     return;
   }
-  const char* completionMsg;
-  auto completionMsgSize = getCompletionMsg(args, completionMsg);
+  auto [completionMsgSize, completionMsg] = getCompletionMsg(args);
 
   newLibraryEntry->oldCode = nullptr;
 
