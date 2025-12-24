@@ -167,6 +167,8 @@ These do not implement any kind of interpolation.
 
 TABLE::
 ## STRONG::function:: || STRONG::comment::
+## in(numChannel) || reads the n-th input channel - index gets clamped
+## out(numChannel) || writes to the n-th output channel - index gets clamped
 ## bufRead(bufNum, bufFrame, [bufChan]) || reads the frame of a LINK::Classes/Buffer:: on the server. If the buffer does not exist or bufFrame is out of bounds it will return 0.0. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
 ## bufReadL(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses linear interpolation.
 ## bufReadC(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses cubic interpolation.

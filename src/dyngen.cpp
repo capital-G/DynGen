@@ -156,7 +156,7 @@ bool DynGen::updateCode(const char* code) const {
   // guard in case allocation fails
   if (payload) {
     payload->dynGenStub = mStub;
-    payload->numInputChannels = mNumInputs;
+    payload->numInputChannels = mNumInputs-2;
     payload->numOutputChannels = mNumOutputs;
     payload->sampleRate = static_cast<int>(sampleRate());
     payload->blockSize = mBufLength;
