@@ -91,6 +91,9 @@ void doNothing(World *world, void *rawCallbackData) {}
 DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(nullptr), mStub(nullptr) {
   mCodeID = static_cast<int>(in0(0));
   const bool useAudioThread = in0(1) > 0.5;
+  mNumDynGenInputs = static_cast<int>(in0(2));
+  mNumDynGenParameters = static_cast<int>(in0(3));
+
   set_calc_function<DynGen, &DynGen::next>();
 
   // necessary for `ClearUnitIfMemFailed` macro
@@ -136,7 +139,7 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
     // Since the VM init seems to be often fast enough we allow the user
     // to decide, yet this is not the default case.
     mVm = new EEL2Adapter(
-      mNumInputs-2,
+      mNumDynGenInputs,
       mNumOutputs,
       static_cast<int>(sampleRate()),
       mBufLength,
@@ -232,8 +235,8 @@ void DynGen::next(int numSamples) {
       Clear(numSamples, mOutBuf[i]);
     }
   } else {
-    // skip first 2 channels since those are not signals
-    mVm->process(mInBuf + 2, mOutBuf, numSamples);
+    // skip first 4 channels since those are not signals
+    mVm->process(mInBuf + 4, mOutBuf, numSamples);
   }
 }
 
@@ -277,6 +280,14 @@ bool loadScriptToDynGenLibrary(World *world, void *rawCallbackData) {
   auto* codeBuffer = new char[codeLength];
   std::copy_n(entry->oscString, codeLength, codeBuffer);
   entry->code = codeBuffer;
+
+  entry->parameterNamesNRT = new char*[entry->numParameters];
+  for (int i = 0; i < entry->numParameters; i++) {
+    auto paramLength = strlen(entry->parameterNamesRT[i]) + 1;
+    auto* paramBuffer = new char[paramLength];
+    std::copy_n(entry->parameterNamesRT[i], paramLength, paramBuffer);
+    entry->parameterNamesNRT[i] = paramBuffer;
+  }
   return true;
 }
 
@@ -299,11 +310,19 @@ bool swapCode(World* world, void *rawCallbackData) {
     newNode->id = entry->hash;
     newNode->dynGen = nullptr;
     newNode->code = entry->code;
+    newNode->numParameters = entry->numParameters;
+    newNode->parameters = entry->parameterNamesNRT;
     gLibrary = newNode;
   } else {
     // swap code
     entry->oldCode = node->code;
+    entry->numOldParameterNames = node->numParameters;
+    entry->oldParameterNames = node->parameters;
+
     node->code = entry->code;
+    node->numParameters = entry->numParameters;
+    node->parameters = entry->parameterNamesNRT;
+
     auto dynGen = node->dynGen;
     while (dynGen != nullptr) {
       // although the code can be updated, the referenced code
@@ -386,6 +405,10 @@ STAGE3_RT -> STAGE4_NRT : deleteOldVm
 bool deleteOldCode(World *world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
   delete[] entry->oldCode;
+  for (int i = 0; i < entry->numOldParameterNames; i++) {
+    delete[] entry->oldParameterNames[i];
+  }
+  delete[] entry->oldParameterNames;
   return true;
 }
 
@@ -464,13 +487,45 @@ void dyngenAddScriptCallback(World* inWorld, void* inUserData, struct sc_msg_ite
     RTFree(inWorld, newLibraryEntry);
     return;
   }
+
+  newLibraryEntry->numParameters = args->geti();
+  newLibraryEntry->parameterNamesRT = static_cast<char**>(RTAlloc(inWorld, newLibraryEntry->numParameters));
+  for (int i=0; i < newLibraryEntry->numParameters; i++) {
+    if (const char* rawParam = args->gets()) {
+      auto paramLength = strlen(rawParam) + 1;
+
+      auto paramName = static_cast<char*>(RTAlloc(inWorld, paramLength));
+      if (!paramName) {
+        Print("ERROR: Failed to allocate memory for DynGen parameter names\n");
+        // @todo rollback
+        return;
+      }
+      std::copy_n(rawParam, paramLength, paramName);
+      newLibraryEntry->parameterNamesRT[i] = paramName;
+    }
+    else {
+      Print("ERROR: Invalid dyngenscript message of parameters\n");
+    }
+  }
+
   auto [completionMsgSize, completionMsg] = getCompletionMsg(args);
 
   newLibraryEntry->oldCode = nullptr;
+  newLibraryEntry->oldParameterNames = nullptr;
+  newLibraryEntry->numOldParameterNames = 0;
 
   ft->fDoAsynchronousCommand(
-    inWorld, nullptr, nullptr, static_cast<void*>(newLibraryEntry),
-    loadScriptToDynGenLibrary, swapCode,deleteOldCode, pluginCmdCallbackCleanup, completionMsgSize, const_cast<char*>(completionMsg));
+    inWorld,
+    nullptr,
+    nullptr,
+    static_cast<void*>(newLibraryEntry),
+    loadScriptToDynGenLibrary,
+    swapCode,
+    deleteOldCode,
+    pluginCmdCallbackCleanup,
+    completionMsgSize,
+    const_cast<char*>(completionMsg)
+    );
 }
 
 // ********************

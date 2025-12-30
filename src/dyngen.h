@@ -31,6 +31,8 @@ public:
   DynGenStub* mStub;
 private:
   int mCodeID;
+  int mNumDynGenInputs;
+  int mNumDynGenParameters;
 
   void next(int numSamples);
 };
@@ -73,6 +75,10 @@ struct CodeLibrary {
   DynGen *dynGen;
   // the eel2 code currently associated with the DynGen instance
   char* code;
+  // parameters which need to be exposed by - referenced by the integer
+  // position within the array
+  char** parameters;
+  int numParameters;
 };
 
 // struct to be passed around to update already running dyngen nodes
@@ -111,8 +117,22 @@ struct NewDynGenLibraryEntry {
   // RT managed code we receive via script command
   char* oscString;
 
+  // when registering a new script we also need to know which
+  // parameter names we need to expose via the script.
+  // We therefore store an array which matches the position of each
+  // arg from the client so the server only needs to transfer
+  // the array position in its signal instead of transferring
+  // a script
+  char** parameterNamesRT;
+  int numParameters;
+
   // the newly received code - NRT managed
   char* code;
+  // the parameters - NRT version
+  char** parameterNamesNRT;
+
   // the code to be replaced and should be deleted - NRT managed
   char* oldCode;
+  int numOldParameterNames;
+  char** oldParameterNames;
 };
