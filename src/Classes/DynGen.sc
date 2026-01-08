@@ -119,16 +119,17 @@ DynGenDef {
 	// as these are considered parameter variables
 	*prExtractParameters {|code|
 		var regex = "[^(?:A-z|\\_|$)](\_(?:[A-z]|[0-9]|_)+)";
-		var params = code.findRegexp(regex);
+		var params = DynGenDef.prRemoveComments(code).findRegexp(regex);
 		// regex returns match and group - we are only interested in the group
 		params = params.reject({|x, i| i.even});
 		// and we are not interested in the position - so we also remove that
 		params = params.collect({|x| x[1].asSymbol});
+		params = DynGenDef.prRemoveDuplicates(params);
 		^params;
 	}
 
 	// takes an array of [\paramName, signal] which should be
-	// trasformed to its numerical representation of the `prParameters`
+	// transformed to its numerical representation of the `prParameters`
 	// array. Non existing parameters will be thrown away
 	prTranslateParameters {|parameters|
 		var newParameters = [];
@@ -144,6 +145,65 @@ DynGenDef {
 			});
 		});
 		^newParameters;
+	}
+
+	*prRemoveComments {|code|
+	    // dyngen code does not contain string, so we could get
+	    // away with regex, but regex is broken, see
+	    // https://github.com/supercollider/supercollider/issues/7313
+		var out = String.new;
+		var i = 0;
+		var len = code.size;
+		var inLine = false;
+		var inBlock = false;
+
+		while {i < len } {
+			var c = code[i];
+			var next = if(i + 1 < len, {code[i+1]}, {nil});
+
+			if(inLine, {
+				if(c==$\n, {
+					inLine = false;
+					out = out ++ c;
+				});
+				i = i + 1;
+			}, {
+				if(inBlock, {
+					if((c==$*).and(next==$/), {
+						inBlock = false;
+						i = i+2;
+					}, {
+						i = i+1;
+					});
+				}, {
+					if((c==$/).and(next == $/), {
+						inLine = true;
+						i = i+2;
+					}, {
+						if ((c==$/).and(next==$*), {
+							inBlock = true;
+							i = i+2;
+						}, {
+							out = out ++ c;
+							i = i+1;
+						})
+					})
+				});
+			});
+		};
+		^out;
+	}
+
+	// removes duplicate mentions w/o changing
+	// order via a set
+	*prRemoveDuplicates {|parameters|
+		var out = [];
+		parameters.do({|p|
+			if(out.includes(p).not, {
+				out = out.add(p);
+			});
+		});
+		^out;
 	}
 }
 
@@ -182,7 +242,7 @@ MetaDynGen : MultiOutUGen {
 			realTime,
 			inputs.size,
 			parameters.size/2.0,  // parameters are tuples of [id, value]
-			*(signals).postln,
+			*signals,
 		);
 	}
 
