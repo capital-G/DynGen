@@ -15,6 +15,10 @@ extern InterfaceTable *ft;
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
+// fallback value for functions which return
+// a ptr to an EEL_F such as in and out
+EEL_F nullValue = double{0.0};
+
 // this is not RT safe
 bool EEL2Adapter::init(const std::string &script, char** const parameters) {
   mScript = new DynGenScript(script);
@@ -48,6 +52,8 @@ bool EEL2Adapter::init(const std::string &script, char** const parameters) {
   NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
   NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
   NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
+  NSEEL_addfunc_retptr("in", 1, NSEEL_PProc_THIS, &in);
+  NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &out);
 
   // eel2 variables
   auto eelSrate = NSEEL_VM_regvar(mEelState, "srate");
@@ -176,6 +182,25 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, INT_PTR numParams, 
   buf->data[(sampleNum * buf->channels) + chanOffset] = static_cast<float>(*params[2]);
   // or should this return the old now overwritten value?
   return *params[2];
+}
+
+EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::in(void* opaque, EEL_F *channel) {
+  const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+  if (eel2Adapter->mNumInputChannels <= 0) {
+    return &nullValue;
+  };
+  auto numChannel = std::clamp(static_cast<int>(*channel), 0, eel2Adapter->mNumInputChannels-1);
+  return eel2Adapter->mInputs[numChannel];
+}
+
+EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::out(void* opaque, EEL_F *channel) {
+  const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+  if (eel2Adapter->mNumOutputChannels <= 0) {
+    return &nullValue;
+  };
+  auto numChannel = static_cast<int>(*channel);
+  numChannel = std::clamp(numChannel, 0, eel2Adapter->mNumOutputChannels-1);
+  return eel2Adapter->mOutputs[numChannel];
 }
 
 EEL2Adapter::~EEL2Adapter() {
