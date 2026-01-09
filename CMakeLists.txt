@@ -81,10 +81,9 @@ endif()
 
 # static?
 add_library(DynGen MODULE
-        src/dyngen.h
         src/dyngen.cpp
-        src/eel2_adapter.h
         src/eel2_adapter.cpp
+        src/library.cpp
 )
 
 target_link_libraries(DynGen PRIVATE eel2)

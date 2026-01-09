@@ -13,13 +13,18 @@
 #include <SC_World.h>
 
 
-// non rt safe! does not trim output
+/*! @class DynGenScript
+ *  @brief Splits the DynGen scripts into its sections
+ *  non rt safe! does not trim output
+ */
 class DynGenScript {
 public:
   DynGenScript(const std::string &script) {
     std::string_view stringView(script);
-    // do not search for \n@init\n b/c the script may start with @init
-    // which is fine.
+
+    /*! @brief do not search for \n@init\n b/c the script may start with @init
+     *  which is fine.
+     */
     auto posInit = stringView.find("@init\n");
     auto posBlock = stringView.find("@block\n");
     auto posSample = stringView.find("@sample\n");
@@ -86,13 +91,17 @@ private:
   }
 };
 
+/*! @class EEL2Adapter
+ *  @brief wraps a EEL2 VM and injects special functions and variables
+ *  for the usage within SuperCollider.
+ */
 class EEL2Adapter {
 public:
-  EEL2Adapter(const uint32 numInputChannels, const uint32 numOutputChannels, const int sampleRate, const int blockSize, World *world, Graph* parent) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mSampleRate(sampleRate), mBlockSize(blockSize), mWorld(world), mParent(parent) {};
+  EEL2Adapter(const uint32 numInputChannels, const uint32 numOutputChannels, const uint32 numParameters, const int sampleRate, const int blockSize, World *world, Graph* parent) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mNumParameters(numParameters), mSampleRate(sampleRate), mBlockSize(blockSize), mWorld(world), mParent(parent) {};
   ~EEL2Adapter();
 
-  // returns true if vm has been compiled successfully
-  bool init(const std::string &script);
+  /*! @brief returns true if vm has been compiled successfully */
+  bool init(const std::string &script, char **parameters);
   static EEL_F eelReadBuf(void* opaque, INT_PTR numParams, EEL_F** params);
   static EEL_F eelReadBufL(void* opaque, INT_PTR numParams, EEL_F** params);
   static EEL_F eelReadBufC(void* opaque, INT_PTR numParams, EEL_F** params);
@@ -100,7 +109,7 @@ public:
   static EEL_F* in(void *opaque, EEL_F *channel);
   static EEL_F* out(void *opaque, EEL_F *channel);
 
-  void process(float **inBuf, float **outBuf, int numSamples) {
+  void process(float **inBuf, float **outBuf, int numParameters, int* parameterIndices, int numSamples) {
     if (mBlockCode) {
       NSEEL_code_execute(mBlockCode);
     }
@@ -109,6 +118,10 @@ public:
       // copy input buffer to vm - cast to double!
       for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
         *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][i]);
+      }
+
+      for (int numParam=0; numParam < numParameters; numParam++) {
+        *mParameters[parameterIndices[numParam]] = static_cast<double>(inBuf[mNumInputChannels + (numParam * 2) + 1][i]);
       }
 
       NSEEL_code_execute(mSampleCode);
@@ -128,24 +141,28 @@ private:
 
   int mNumInputChannels = 0;
   int mNumOutputChannels = 0;
+  int mNumParameters = 0;
+
   double mSampleRate = 0;
   int mBlockSize = 0;
 
   double **mInputs = nullptr;
   double **mOutputs = nullptr;
+  double **mParameters = nullptr;
 
   World *mWorld;
   Graph *mParent;
 
-  // cache the latest sndbuf b/c it is likely that we
-  // stick to one sndbuf
+  /*! @brief cache the latest sndbuf b/c it is likely that we
+   * stick to one sndbuf
+   */
   SndBuf *mSndBuf = nullptr;
   int mSndBufNum = -1;
 
   // @todo make this a RT alloc char* or free this via NRT thread
   DynGenScript *mScript;
 
-  // see GET_BUF macro from SC_Unit.h
+  /*! @brief see GET_BUF macro from SC_Unit.h */
   SndBuf* getBuffer(int bufNum) {
     if (bufNum < 0) {
       return nullptr;
@@ -175,7 +192,7 @@ private:
     return nullptr;
   }
 
-  // Assumes that chan is within bounds
+  /*! @brief Assumes that chan is within bounds */
   static float getSample(const SndBuf *buf, int chan, int sampleNum) {
     LOCK_SNDBUF_SHARED(buf);
     sampleNum = std::clamp<int>(sampleNum, 0, buf->samples - 1);

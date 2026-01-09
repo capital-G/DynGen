@@ -20,10 +20,11 @@ extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 EEL_F nullValue = double{0.0};
 
 // this is not RT safe
-bool EEL2Adapter::init(const std::string &script) {
+bool EEL2Adapter::init(const std::string &script, char** const parameters) {
   mScript = new DynGenScript(script);
   mInputs = new double *[mNumInputChannels]();
   mOutputs = new double *[mNumOutputChannels]();
+  mParameters = new double *[mNumParameters]();
 
   mEelState = static_cast<compileContext*>(NSEEL_VM_alloc());
 
@@ -35,6 +36,13 @@ bool EEL2Adapter::init(const std::string &script) {
   for (int i = 0; i < mNumOutputChannels; i++) {
     std::string name = "out" + std::to_string(i);
     mOutputs[i] = NSEEL_VM_regvar(mEelState, name.c_str());
+  }
+  // since parameters are append only, and we can only reference
+  // existing parameters during the init of the synth
+  // it is safe and sufficient to only add references to the number of
+  // parameters that were available during init time.
+  for (int i = 0; i < mNumParameters; i++) {
+    mParameters[i] = NSEEL_VM_regvar(mEelState, parameters[i]);
   }
 
   // eel2 functions
