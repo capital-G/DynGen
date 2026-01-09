@@ -64,21 +64,21 @@ Ndef(\x).clear;
 ::
 
 It is not just possible to use the pre-defined variables within a script but also declare new ones which allows us to store past values for performing single sample based calulations.
+Instead of passing parameters as input, we can declare them in the script with a pre-pended CODE::_::, which we then can refer to without the pre-fixed name as a keyword argument within DynGen which makes the code clearer.
+While inputs can be multi-channel, parameter variables are always one-dimensional.
+It may be more performant to exclusively rely on inputs though.
 
 CODE::
 (
 DynGenDef(\fbSin, "
-freq = in0;
-feedback = in1;
-
 // make variables persistent across invocations
 phase += 0;
 y1 += 0;
 
-omega = phase + (feedback * y1);
+omega = phase + (_feedback * y1);
 
 // phase increment of normal sin osc
-phase +=  2*$pi * freq / srate;
+phase +=  2*$pi * _freq / srate;
 
 // exercise: wrap phase between [0, 2pi)
 
@@ -92,11 +92,9 @@ y1 = out0;
 
 (
 Ndef(\z, {
-	DynGen.ar(
-		1,
-		\fbSin,
-		\freq.ar(200.0), // in0
-		\feedback.ar(0.0, spec: [0.0, 2.0]), // in1
+	DynGen.ar(1, \fbSin,
+		freq: \freq.ar(200.0), // in0
+		feedback: \feedback.ar(0.0, spec: [0.0, 2.0]), // in1
 	) ! 2 * \amp.kr(0.2);
 }).play.gui;
 )
@@ -107,30 +105,26 @@ Additionally, each variable within EEL2 is already an array which allows us to u
 CODE::
 (
 DynGenDef(\granular, "
-bufferSize = in1;
-grainSize = in2;
-stereoOffset = in3;
-
 grainIndex += 1;
 
 // sample random offset when grain finished
-readOffset += (grainIndex >= grainSize) * rand() * bufferSize;
+readOffset += (grainIndex >= _grainSize) * rand() * _bufferSize;
 // wrap offset
-readOffset -= (readOffset >= bufferSize) * bufferSize;
+readOffset -= (readOffset >= _bufferSize) * _bufferSize;
 
 // wrap grainIndex
-grainIndex -= (grainIndex >= grainSize) * grainSize;
+grainIndex -= (grainIndex >= _grainSize) * _grainSize;
 
 writeIndex += 1;
-writeIndex -= (writeIndex >= bufferSize) * bufferSize;
+writeIndex -= (writeIndex >= _bufferSize) * _bufferSize;
 
 buffer[writeIndex] = in0;
 
 readPos = readOffset + grainIndex;
-readPos -= (readPos >= bufferSize) * bufferSize;
+readPos -= (readPos >= _bufferSize) * _bufferSize;
 
-rightReadPos = readPos - stereoOffset;
-rightReadPos -= (rightReadPos >= bufferSize) * bufferSize;
+rightReadPos = readPos - _stereoOffset;
+rightReadPos -= (rightReadPos >= _bufferSize) * _bufferSize;
 
 out0 = buf[readPos];
 out1 = buf[rightReadPos];
@@ -143,9 +137,9 @@ Ndef(\g, {
 	var sig = SinOscFB.ar(100, 1.3) * Env.perc(0.01, 0.2).ar(gate: Impulse.ar(4.0));
 	sig = DynGen.ar(2, \granular,
 		sig, // in0 = signal
-		DC.ar(20000.0), // in1 = bufferSize
-		SinOsc.ar(1/pi).range(1000, 10000), // in2 = grainSize
-		SinOsc.ar(0.5).range(0, 100), // in3 = stereoOffset
+		bufferSize: DC.ar(20000.0), // in1 = bufferSize
+		grainSize: SinOsc.ar(1/pi).range(1000, 10000), // in2 = grainSize
+		stereoOffset: SinOsc.ar(0.5).range(0, 100), // in3 = stereoOffset
 	);
 	sig * \amp.kr(0.2);
 }).play;
@@ -180,13 +174,13 @@ An example of buffer playback
 CODE::
 ~buffer = Buffer.read(s, path: ExampleFiles.apollo11);
 
-DynGenDef(\buffer, "out0 = bufReadC(in0, in1)").send;
+DynGenDef(\buffer, "out0 = bufReadC(_bufNum, _bufFrame)").send;
 
 (
 Ndef(\p, {
 	DynGen.ar(1, \buffer,
-		~buffer.bufnum, // in0 = bufNum
-		Phasor.ar(rate: SinOscFB.ar(5.3, 1.3) + 1.0, end: ~buffer.numFrames), // in1 = bufFrame
+		bufNum: ~buffer.bufnum, // in0 = bufNum
+		bufFrame: Phasor.ar(rate: SinOscFB.ar(5.3, 1.3) + 1.0, end: ~buffer.numFrames), // in1 = bufFrame
 	);
 }).play;
 )
@@ -267,8 +261,8 @@ writePos = 0;
 // write into our input buffer
 inBuf[writePos] = in0;
 writePos += 1;
-offset = in1;
-spread = in2;
+//offset = in1;
+//spread = in2;
 
 // if we have enough samples in our input buffer,
 // perform a fft step
@@ -281,7 +275,7 @@ writePos >= fftSize ? (
   // shift around some real parts
   i = 0;
   loop(fftSize,
-    outBuf[i] = outBuf[((i)+(offset * (spread)))%fftSize];
+    outBuf[i] = outBuf[((i)+(_offset * (_spread)))%fftSize];
     i+=1;
   );
 
@@ -303,8 +297,8 @@ out0 = outBuf[writepos] / fftSize;
 Ndef(\fft2, {
 	DynGen.ar(1, \fft,
 		PlayBuf.ar(1, ~buffer, \rate.kr(1.0), loop: 1.0),
-		\offset.ar(0.0, spec: [-512, 512]),
-		\spread.ar(1.0, spec: ControlSpec(-4.0, 4.0, step: 1/8)),
+		offset: \offset.ar(0.0, spec: [-512, 512]),
+		sread: \spread.ar(1.0, spec: ControlSpec(-4.0, 4.0, step: 1/8)),
 	).tanh * 0.5.dup;
 }).play.gui;
 )
