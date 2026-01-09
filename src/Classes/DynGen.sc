@@ -5,7 +5,7 @@ DynGenDef {
 	var <>code;
 
 	// private
-	var <>prParams;
+	var <prParams;
 
 	// private
 	classvar counter;
