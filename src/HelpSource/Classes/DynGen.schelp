@@ -65,8 +65,6 @@ Ndef(\x).clear;
 
 It is not just possible to use the pre-defined variables within a script but also declare new ones which allows us to store past values for performing single sample based calulations.
 Instead of passing parameters as input, we can declare them in the script with a pre-pended CODE::_::, which we then can refer to without the pre-fixed name as a keyword argument within DynGen which makes the code clearer.
-While inputs can be multi-channel, parameter variables are always one-dimensional.
-It may be more performant to exclusively rely on inputs though.
 
 CODE::
 (
@@ -93,11 +91,36 @@ y1 = out0;
 (
 Ndef(\z, {
 	DynGen.ar(1, \fbSin,
-		freq: \freq.ar(200.0), // in0
-		feedback: \feedback.ar(0.0, spec: [0.0, 2.0]), // in1
+		freq: \freq.ar(200.0),
+		feedback: \feedback.ar(0.0, spec: [0.0, 2.0]),
 	) ! 2 * \amp.kr(0.2);
 }).play.gui;
 )
+::
+
+NOTE::
+While inputs can be multi-channel, parameter variables are always one-dimensional.
+This allows to write processors which consume an arbitrary amount of channels on a fixed set of parameters, e.g. something like LINK::Classes/PanAz:: which also uses the CODE::in(i):: function to access arbitrary channels.
+
+CODE::
+(
+DynGenDef(\select, "
+out0 = in(_which);
+").send;
+)
+
+(
+Ndef(\select, {
+	DynGen.ar(1, \select,
+		SinOsc.ar(800.0),
+		Saw.ar(400.0),
+		Pulse.ar(1200),
+		which: LFSaw.ar(SinOsc.ar(0.1).exprange(0.2, 2000)).range(0, 3),
+	).dup * 0.2;
+}).play;
+)
+::
+
 ::
 
 Additionally, each variable within EEL2 is already an array which allows us to use it as a delay line.
@@ -137,9 +160,9 @@ Ndef(\g, {
 	var sig = SinOscFB.ar(100, 1.3) * Env.perc(0.01, 0.2).ar(gate: Impulse.ar(4.0));
 	sig = DynGen.ar(2, \granular,
 		sig, // in0 = signal
-		bufferSize: DC.ar(20000.0), // in1 = bufferSize
-		grainSize: SinOsc.ar(1/pi).range(1000, 10000), // in2 = grainSize
-		stereoOffset: SinOsc.ar(0.5).range(0, 100), // in3 = stereoOffset
+		bufferSize: DC.ar(20000.0),
+		grainSize: SinOsc.ar(1/pi).range(1000, 10000),
+		stereoOffset: SinOsc.ar(0.5).range(0, 100),
 	);
 	sig * \amp.kr(0.2);
 }).play;
@@ -179,8 +202,8 @@ DynGenDef(\buffer, "out0 = bufReadC(_bufNum, _bufFrame)").send;
 (
 Ndef(\p, {
 	DynGen.ar(1, \buffer,
-		bufNum: ~buffer.bufnum, // in0 = bufNum
-		bufFrame: Phasor.ar(rate: SinOscFB.ar(5.3, 1.3) + 1.0, end: ~buffer.numFrames), // in1 = bufFrame
+		bufNum: ~buffer.bufnum,
+		bufFrame: Phasor.ar(rate: SinOscFB.ar(5.3, 1.3) + 1.0, end: ~buffer.numFrames),
 	);
 }).play;
 )
@@ -294,11 +317,11 @@ out0 = outBuf[writepos] / fftSize;
 
 ~buffer = Buffer.read(s, ExampleFiles.apollo11);
 (
-Ndef(\fft2, {
+Ndef(\fft, {
 	DynGen.ar(1, \fft,
 		PlayBuf.ar(1, ~buffer, \rate.kr(1.0), loop: 1.0),
 		offset: \offset.ar(0.0, spec: [-512, 512]),
-		sread: \spread.ar(1.0, spec: ControlSpec(-4.0, 4.0, step: 1/8)),
+		spread: \spread.ar(1.0, spec: ControlSpec(-4.0, 4.0, step: 1/8)),
 	).tanh * 0.5.dup;
 }).play.gui;
 )
@@ -316,7 +339,9 @@ The LINK::Classes/DynGenDef:: script which should be used.
 This can either be a LINK::Classes/Symbol:: with the name of the referenced script or a DynGenDef object.
 argument::  ... inputs
 Each input will be made available within the scripts through the variables CODE::in0::, code::in1::, ...
-
+argument:: parameters
+Each keyword argument that is not matched prior will be looked up if it matches the parameter variables of a script, which are variables which are prefixed with a CODE::_:: within DynGen code.
+The keyword argument is written without this prefix.
 
 EXAMPLES::
 
@@ -330,9 +355,9 @@ y1 += 0;
 twoPi = 2*$pi;
 inc += 0;
 
-inc = twoPi * in0 / srate;
+inc = twoPi * _freq / srate;
 
-x = phase + (in1 * y1) + in2;
+x = phase + (_fb * y1) + _phaseMod;
 
 phase += inc;
 // wrap phase
@@ -347,9 +372,9 @@ y1 = out0;
 (
 Ndef(\x, {
 	var sig = DynGen.ar(1, ~sinOscFB,
-		\freq.ar(100.0), // in0 = freq
-		\fb.ar(0.6, spec: [0.0, pi]), // in1 = fb
-		SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),  // in2 = phaseMod
+		freq: \freq.ar(100.0),
+		fb: \fb.ar(0.6, spec: [0.0, pi]),
+		phaseMod: SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),
 	);
 	sig * 0.1;
 }).play.gui;
@@ -361,8 +386,8 @@ Delay line
 CODE::
 (
 ~delayLine = DynGenDef(\delayLine, "
-buf[in1] = in0;
-out0 = buf[in2];
+buf[_writePos] = in0;
+out0 = buf[_readPos];
 ").send;
 )
 
@@ -373,8 +398,8 @@ Ndef(\x, {
 	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
 	var sig = DynGen.ar(1, ~delayLine,
 		SinOsc.ar(100.0),
-		writePos.floor,
-		readPos.floor,
+		writePos: writePos.floor,
+		readPos: readPos.floor,
 	);
 	sig.dup * 0.1;
 }).play;
@@ -391,16 +416,11 @@ twopi = 2*$pi;
 phaseA += 0;
 phaseB += 0;
 
-freqA = in0;
-freqB = in1;
-modIndexA = in2;
-modIndexB = in3;
-
 oversample = 64;
 
 osSrate = srate * oversample;
-incA = freqA / osSrate;
-incB = freqB / osSrate;
+incA = _freqA / osSrate;
+incB = _freqB / osSrate;
 
 sumA = 0;
 sumB = 0;
@@ -414,8 +434,8 @@ loop(oversample,
     phaseB -= floor(phaseB);
 
     // apply cross-phase modulation
-    phaseA = phaseA + modIndexA * sin(twopi * phaseB);
-    phaseB = phaseB + modIndexB * sin(twopi * phaseA);
+    phaseA = phaseA + _modIndexA * sin(twopi * phaseB);
+    phaseB = phaseB + _modIndexB * sin(twopi * phaseA);
 
     // accumulate (for downsampling)
     sumA += sin(twopi * phaseA);
@@ -431,10 +451,10 @@ out1 = sumB / oversample;
 (
 Ndef(\y, {
 	var sig = DynGen.ar(2, ~complex,
-		\freqA.ar(200.0),
-		\freqB.ar(pi*100),
-		\modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
-		\modB.ar(0.0, spec: [-0.1, 0.1]) * 0.05,
+		freqA: \freqA.ar(200.0),
+		freqB: \freqB.ar(pi*100),
+		modIndexA: \modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
+		modIndexB: \modB.ar(0.0, spec: [-0.1, 0.1]) * 0.05,
 	);
 	sig * 0.1;
 }).play.gui;
@@ -444,10 +464,9 @@ Ndef(\y, {
 Multi-channel
 
 CODE::
-~multi = DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").send;
-
 (
-Ndef(\y, {DynGen.ar(2, ~multi,
+Ndef(\y, {DynGen.ar(2,
+	DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").send,
 	SinOscFB.ar(200.0, 1.3), // in0
 	LFPulse.ar(5.2, width: 0.2), // in1
 	LFPulse.ar(3.2, width: 0.3) // in2
