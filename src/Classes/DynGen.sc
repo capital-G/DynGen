@@ -118,7 +118,7 @@ DynGenDef {
 	// extracts variables in code that are prepended with a _
 	// as these are considered parameter variables
 	*prExtractParameters {|code|
-		var regex = "[^(?:A-z|\\_|$|]?(\_(?:[A-z]|[0-9]|_)+)";
+		var regex = "[^(?:A-Za-z|\\_|$|]?(\_(?:[A-Za-z]|[0-9]|_)+)";
 		var params = DynGenDef.prRemoveComments(code).findRegexp(regex);
 		// regex returns match and group - we are only interested in the group
 		params = params.reject({|x, i| i.even});
