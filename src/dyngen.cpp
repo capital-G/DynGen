@@ -53,7 +53,7 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
     next(1);
     return;
   }
-  for (int i = 0; i < mNumParameters; i++) {
+  for (int i = 0; i < mNumDynGenParameters; i++) {
     // parameters come in groups, so only take each 2nd position
     auto paramIndex = static_cast<int>(*mInBuf[4 + mNumDynGenInputs + (2*i)]);
     if (paramIndex < 0 || paramIndex >= mNumParameters) {
