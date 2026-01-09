@@ -63,35 +63,10 @@ Ndef(\x, {DynGen.ar(
 )
 ```
 
-### Modulate parameters
+### Feedback SinOsc
 
-```supercollider
-~modulate = DynGenDef(\modulate, "out0 = in0 * in1;").send;
-
-Ndef(\x, {DynGen.ar(1, ~modulate, SinOscFB.ar(200.0, 1.3), LFPulse.ar(5.2, width: 0.2)) * 0.2}).play;
-```
-
-### Single sample feedback
-
-#### One pole filter
-
-```supercollider
-(
-~onePoleFilter = DynGenDef(\onePoleFilter, "
-y1 += 0; // make the variable persistent across runs
-alpha = 0.95;
-// the one pole filter formula
-out0 = alpha * y1 + (1.0 - alpha) * in0;
-y1 = out0; // write value to history
-").send;
-)
-
-Ndef(\x, {DynGen.ar(1, ~onePoleFilter, Saw.ar(400.0)) * 0.2}).play;
-```
-
-#### Feedback SinOsc
-
-A phase modulatable `SinOscFB`
+One advantage over using plain UGens is the ability to access the prior sample.
+We can use this to, e.g., write a phase modulatable `SinOscFB`
 
 ```supercollider
 (
@@ -101,9 +76,9 @@ y1 += 0;
 twoPi = 2*$pi;
 inc += 0;
 
-inc = twoPi * in0 / srate;
+inc = twoPi * _freq / srate;
 
-x = phase + (in1 * y1) + in2;
+x = phase + (_fb * y1) + _phaseMod;
 
 phase += inc;
 // wrap phase
@@ -118,9 +93,9 @@ y1 = out0;
 (
 Ndef(\x, {
 	var sig = DynGen.ar(1, ~sinOscFB,
-		\freq.ar(100.0), // in0 = freq
-		\fb.ar(0.6, spec: [0.0, pi]), // in1 = fb
-		SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),  // in2 = phaseMod
+		freq: \freq.ar(100.0),
+		fb: \fb.ar(0.6, spec: [0.0, pi]),
+		phaseMod: SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),
 	);
 	sig * 0.1;
 }).play.gui;
@@ -129,13 +104,14 @@ Ndef(\x, {
 
 #### Delay line
 
-Write sample accurate into a modulatable delay line.
+Every DynGen instance also has a dedicated memory region, which allows to write time-based effects.
+We can use this to write e.g. a sample accurate modulatable delay line.
 
 ```supercollider
 (
 ~delayLine = DynGenDef(\delayLine, "
-buf[in1] = in0;
-out0 = buf[in2];
+buf[_writePos] = in0;
+out0 = buf[_readPos];
 ").send;
 )
 
@@ -146,89 +122,15 @@ Ndef(\x, {
 	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
 	var sig = DynGen.ar(1, ~delayLine,
 		SinOsc.ar(100.0),
-		writePos.floor,
-		readPos.floor,
+		writePos: writePos.floor,
+		readPos: readPos.floor,
 	);
 	sig.dup * 0.1;
 }).play;
 )
 ```
 
-#### Complex oscillator
-
-Two cross phase-modulated sine oscillators, 64 times oversampled.
-
-```supercollider
-(
-~complex = DynGenDef(\complex, "
-twopi = 2*$pi;
-
-phaseA += 0;
-phaseB += 0;
-
-freqA = in0;
-freqB = in1;
-modIndexA = in2;
-modIndexB = in3;
-
-oversample = 64;
-
-osSrate = srate * oversample;
-incA = freqA / osSrate;
-incB = freqB / osSrate;
-
-sumA = 0;
-sumB = 0;
-
-// calculate subsaples
-loop(oversample,
-    phaseA += incA;
-    phaseB += incB;
-    // wrap phases between [0, 1)
-    phaseA -= floor(phaseA);
-    phaseB -= floor(phaseB);
-
-    // apply cross-phase modulation
-    phaseA = phaseA + modIndexA * sin(twopi * phaseB);
-    phaseB = phaseB + modIndexB * sin(twopi * phaseA);
-
-    // accumulate (for downsampling)
-    sumA += sin(twopi * phaseA);
-    sumB += sin(twopi * phaseB);
-);
-
-// scale down b/c of os
-out0 = sumA / oversample;
-out1 = sumB / oversample;
-").send;
-)
-
-(
-Ndef(\y, {
-	var sig = DynGen.ar(2, ~complex, 
-		\freqA.ar(200.0),
-		\freqB.ar(pi*100),
-		\modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
-		\modB.ar(0.0, spec: [-0.1, 0.1]) * 0.05,
-	);
-	sig * 0.1;
-}).play.gui;
-)
-```
-
-### Multi-channel
-
-```supercollider
-~multi = DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").send;
-
-(
-Ndef(\y, {DynGen.ar(2, ~multi, 
-	SinOscFB.ar(200.0, 1.3), // in0
-	LFPulse.ar(5.2, width: 0.2), // in1
-	LFPulse.ar(3.2, width: 0.3) // in2
-) * 0.2}).play;
-)
-```
+For further information and examples, look into the docs of `DynGen`. 
 
 ## License
 
