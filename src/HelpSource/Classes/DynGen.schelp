@@ -1,7 +1,7 @@
 TITLE:: DynGen
 summary:: Evaluates dynamic code on the server
 categories:: UGens>Dynamic
-related:: Classes/DynGenDef, Classes/DynGenRT
+related:: Classes/DynGenDef
 
 DESCRIPTION::
 This UGen evaluates LINK::https://www.cockos.com/EEL2/##EEL2:: (expression evaluation library/realtime compiler) code in a VM which runs on the server.
@@ -32,7 +32,7 @@ Ndef(\x, {
 NOTE::
 The first polled value of this example yields MATH::0.0:: instead of MATH::0.5::.
 This is because the initialization of the VM and the compilation of the script is defered to a non-realtime thread in order not to cause audio dropouts in case this process takes too long.
-If you want to run these steps on the realtime audio thread and want to get rid of this delay you can use LINK::Classes/DynGenRT:: instead, but beware of potential dropouts on bigger scripts.
+If you want to run these steps on the realtime audio thread and want to get rid of this delay you can set the parameter CODE::realtime:: to 1.0, but be beware of potential dropouts on bigger scripts.
 ::
 
 It is also possible to update the associated code while the synth is running by replacing it through the associated code::DynGenDef:: definition.
@@ -57,11 +57,18 @@ Ndef(\x, {
 		DynGenDef(\myInput), // reference to the script to use - here by using a DynGenDef object instead of a symbol
 		SinOsc.ar(0.5), // will be made available as in0 within the script
 	).poll;
-});
+}).play;
 )
 
 Ndef(\x).clear;
 ::
+
+NOTE::
+EEL2 works internally with 64 bit floats (also called doubles) instead of SuperColliders 32 bit floats - it therefore can be useful to use DynGen for really slow processes (e.g. a line which goes from 0.0 to 1.0 in 60 minutes) or where high precission is desirable (e.g. when using phase interpolations).
+Since SuperCollider only can work on 32 bit floats on the server side the precission of the floats have to be reduced when outputting them to SuperCollider.
+::
+
+SUBSECTION:: Parameters
 
 It is not just possible to use the pre-defined variables within a script but also declare new ones which allows us to store past values for performing single sample based calulations.
 Instead of passing parameters as input, we can declare them in the script with a pre-pended CODE::_::, which we then can refer to without the pre-fixed name as a keyword argument within DynGen which makes the code clearer.
@@ -98,30 +105,78 @@ Ndef(\z, {
 )
 ::
 
+SUBSECTION:: Multi-channel expansion
+
 NOTE::
-While inputs can be multi-channel, parameter variables are always one-dimensional.
-This allows to write processors which consume an arbitrary amount of channels on a fixed set of parameters, e.g. something like LINK::Classes/PanAz:: which also uses the CODE::in(i):: function to access arbitrary channels.
+Multi-channel expansion is still a field of discussion.
+If you have suggestions or feedback, please get in contact via the forum or the repository.
+::
+
+To clarify if a signal should be perceived as n-dimensional input or it should create n-paralell processes of DynGen, every signal that is EMPHASIS::flat:: will be passed as input to DynGen and every nested signal will create parallel instances of DynGen, where normal multi-channel expansion semantics are applied.
+
+If CODE::inputs:: is a EMPHASIS::flat:: signal, the whole signal will be passed to a single DynGen instance.
 
 CODE::
 (
-DynGenDef(\select, "
-out0 = in(_which);
-").send;
-)
-
-(
-Ndef(\select, {
-	DynGen.ar(1, \select,
-		SinOsc.ar(800.0),
-		Saw.ar(400.0),
-		Pulse.ar(1200),
-		which: LFSaw.ar(SinOsc.ar(0.1).exprange(0.2, 2000)).range(0, 3),
-	).dup * 0.2;
+Ndef(\multiX, {
+	var sig = SinOsc.ar([200, 800]);
+	DynGen.ar(1, DynGenDef(\multi, "out0 = in0").send,
+		inputs: sig.postln,
+	).postln * 0.1;
 }).play;
 )
 ::
 
+If CODE::inputs:: is nested via an array, it will create paralell DynGen instances according to the traditional multi-channel expansion.
+
+CODE::
+(
+Ndef(\multiY, {
+	var sig = SinOsc.ar([200, 800]);
+	DynGen.ar(1, DynGenDef(\multi, "out0 = in0").send,
+		inputs: [sig].postln,
+	).postln * 0.1;
+}).play;
+)
 ::
+
+Since parameters are only available as one-dimensional scalars within DynGen code, any multi-channel parameters will result in multi-channel expanded DynGen instances.
+
+CODE::
+(
+Ndef(\multiParam, {
+	var sig = SinOsc.ar([200, 800]);
+	DynGen.ar(1, DynGenDef(\multiParam, "out0 = in0 * _amp").send,
+		inputs: sig,
+		amp: LFPulse.kr([3.0, 1.0]),
+	).postln * 0.1;
+}).play;
+)
+::
+
+Instead of passing parameter via keyword arguments to DynGen, it is also possible to pass an array of parameters which allows more control over multi-channel expansion.
+
+CODE::
+// creates two DynGens, the first with [ a: 1, b: 2, c: 3 ] and the second with [ d: 4, e: 5, f: 6 ]
+(
+Ndef(\multiParamArr, {
+	var sig = SinOsc.ar([200, 800]);
+	sig = DynGen.ar(2, DynGenDef(\multiParamArr, "out0 = in0 * _amp0; out1 = in1 * _amp1").send,
+		inputs: sig,
+		params: [
+			// params for first instance
+			[amp0: SinOsc.kr(0.3)],
+			// params for second instance
+			[amp1: SinOsc.kr(0.5)],
+		]
+	);
+	// fold down 2x2 to 1x2 using sum
+	sig.sum * 0.2;
+}).play;
+)
+::
+
+SUBSECTION:: Memory
 
 Additionally, each variable within EEL2 is already an array which allows us to use it as a delay line.
 
@@ -169,13 +224,10 @@ Ndef(\g, {
 )
 ::
 
+SUBSECTION:: Oversampling
+
 It is also possible to use for loops to perform oversampling.
 
-
-NOTE::
-EEL2 works internally with 64 bit floats (also called doubles) instead of SuperColliders 32 bit floats - it therefore can be useful to use DynGen for really slow processes (e.g. a line which goes from 0.0 to 1.0 in 60 minutes) or where high precission is desirable (e.g. when using phase interpolations).
-Since SuperCollider only can work on 32 bit floats on the server side the precission of the floats have to be reduced when outputting them to SuperCollider.
-::
 
 SUBSECTION:: DynGen methods
 
@@ -334,12 +386,46 @@ argument:: numOutputs
 The number of outputs which will be output by this UGen.
 The value of each output can be defined by writing a value to the variables CODE::out0::, CODE::out1::, ...
 In case the script does not write to a variable it will output MATH::0.0::.
+
 argument:: script
 The LINK::Classes/DynGenDef:: script which should be used.
 This can either be a LINK::Classes/Symbol:: with the name of the referenced script or a DynGenDef object.
-argument::  ... inputs
+
+argument:: inputs
+An array of input signals.
 Each input will be made available within the scripts through the variables CODE::in0::, code::in1::, ...
-argument:: parameters
+
+argument:: params
+There are two ways to pass parameters to DynGen - either passing them as keyword argument or passing them as an array via the CODE::params:: argument.
+Passing an array has benefits in regards to multi-channel expansion, though passing them as keyword arguments may be more erognomic.
+The content of both, the params array and kwargs, will be merged.
+
+argument:: realtime
+Normally DynGen instances are spawned outside the audio thread to avoid audio dropouts (0.0), yet this introduces also a delay of at least one block size until the instance produces output.
+If sample-precise timing is required from the first sample on, one can activate the realtime mode (1.0) which compiles and creates the DynGen vm in the real-time thread, though this can introduce audio-dropouts.
+NOTE::
+Compare the following versions of the code
+
+CODE::
+DynGenDef(\test, "out0 = 0.5").send;
+::
+
+Non-RT version
+
+CODE::
+{DynGen.ar(1, \test, realtime: 0.0)}.plot(0.1);
+::
+
+RT version
+
+CODE::
+{DynGenRT.ar(1, \test, realtime: 1.0)}.plot(0.1);
+::
+::
+argument:: ... args
+No excessive positional arguments will be captured, this argument is only necessary to capture arbitrary keyword arguments.
+
+argument:: kwargs
 Each keyword argument that is not matched prior will be looked up if it matches the parameter variables of a script, which are variables which are prefixed with a CODE::_:: within DynGen code.
 The keyword argument is written without this prefix.
 
@@ -392,7 +478,7 @@ out0 = buf[_readPos];
 )
 
 (
-Ndef(\x, {
+Ndef(\delay, {
 	var bufSize = SinOsc.ar(4.2).range(1000, 2000);
 	var writePos = LFSaw.ar(2.0, 0.02).range(1, bufSize);
 	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
@@ -458,18 +544,5 @@ Ndef(\y, {
 	);
 	sig * 0.1;
 }).play.gui;
-)
-::
-
-Multi-channel
-
-CODE::
-(
-Ndef(\y, {DynGen.ar(2,
-	DynGenDef(\multi, "out0 = in0 * in1; out1 = in0 * in2").send,
-	SinOscFB.ar(200.0, 1.3), // in0
-	LFPulse.ar(5.2, width: 0.2), // in1
-	LFPulse.ar(3.2, width: 0.3) // in2
-) * 0.2}).play;
 )
 ::

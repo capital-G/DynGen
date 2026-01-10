@@ -130,7 +130,8 @@ DynGenDef {
 
 	// takes an array of [\paramName, signal] which should be
 	// transformed to its numerical representation of the `prParameters`
-	// array. Non existing parameters will be thrown away
+	// array. Non existing parameters will be thrown away,
+	// also only the first occurrence of a parameter will be considered
 	prTranslateParameters {|parameters|
 		var newParameters = [];
 		parameters.pairsDo({|param, value|
@@ -207,23 +208,10 @@ DynGenDef {
 	}
 }
 
-// UGen code
-
-DynGen : MetaDynGen {
-	*ar {|numOutputs, script ... inputs, parameters|
-		^super.ar(numOutputs, script, 0.0, inputs, parameters);
-	}
-}
-
-DynGenRT : MetaDynGen {
-	*ar {|numOutputs, script ...inputs, parameters|
-		^super.ar(numOutputs, script, 1.0, inputs, parameters);
-	}
-}
-
-MetaDynGen : MultiOutUGen {
-	*ar {|numOutputs, script, realTime, inputs, parameters|
+DynGen : MultiOutUGen {
+	*ar {|numOutputs, script, inputs, params, realtime=0.0 ... args,kwargs|
 		var signals;
+		inputs = inputs.asArray;
 
 		script = case
 		{script.isKindOf(DynGenDef)} {script}
@@ -231,17 +219,23 @@ MetaDynGen : MultiOutUGen {
 		{script.isKindOf(Symbol)} {DynGenDef(script)}
 		{Error("Script input needs to be a DynGenDef object or a symbol, found %".format(script.class)).throw};
 
-		parameters = script.prTranslateParameters(parameters);
+		params = if (DynGen.prExpandParams(params), {
+			params.collect({|paramArray|
+				script.prTranslateParameters(paramArray.asArray ++ kwargs);
+			});
+		}, {
+			script.prTranslateParameters(params.asArray ++ kwargs);
+		});
 
-		signals = inputs ++ parameters;
+		signals = inputs ++ params;
 
 		^this.multiNew(
 			'audio',
 			numOutputs,
 			script.hash.asFloat,
-			realTime,
+			realtime,
 			inputs.size,
-			parameters.size/2.0,  // parameters are tuples of [id, value]
+			params.size/2.0,  // parameters are tuples of [id, value]
 			*signals,
 		);
 	}
@@ -256,5 +250,11 @@ MetaDynGen : MultiOutUGen {
 			});
 		});
 		^this.initOutputs(numOutputs, 'audio');
+	}
+
+	*prExpandParams {|params|
+		if(params.asArray.size == 0, {^false;});
+		if(params.any(_.isArray).not, {^false;});
+		^true;
 	}
 }

@@ -1,7 +1,7 @@
 TITLE:: DynGenDef
 summary:: Stores DynGen code on the server
 categories:: UGens>Dynamic
-related:: Classes/DynGen, Classes/DynGenRT, Classes/SynthDef
+related:: Classes/DynGen, Classes/SynthDef
 
 DESCRIPTION::
 
