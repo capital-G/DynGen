@@ -157,7 +157,6 @@ Ndef(\multiParam, {
 Instead of passing parameter via keyword arguments to DynGen, it is also possible to pass an array of parameters which allows more control over multi-channel expansion.
 
 CODE::
-// creates two DynGens, the first with [ a: 1, b: 2, c: 3 ] and the second with [ d: 4, e: 5, f: 6 ]
 (
 Ndef(\multiParamArr, {
 	var sig = SinOsc.ar([200, 800]);
