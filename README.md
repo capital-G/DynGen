@@ -92,11 +92,11 @@ y1 = out0;
 
 (
 Ndef(\x, {
-	var sig = DynGen.ar(1, ~sinOscFB,
+	var sig = DynGen.ar(1, ~sinOscFB, params: [
 		freq: \freq.ar(100.0),
 		fb: \fb.ar(0.6, spec: [0.0, pi]),
 		phaseMod: SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),
-	);
+	]);
 	sig * 0.1;
 }).play.gui;
 )
@@ -122,8 +122,10 @@ Ndef(\x, {
 	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
 	var sig = DynGen.ar(1, ~delayLine,
 		SinOsc.ar(100.0),
-		writePos: writePos.floor,
-		readPos: readPos.floor,
+		params: [
+		    writePos: writePos.floor,
+		    readPos: readPos.floor,
+        ],
 	);
 	sig.dup * 0.1;
 }).play;
