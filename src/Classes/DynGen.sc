@@ -131,7 +131,7 @@ DynGenDef {
 	// takes an array of [\paramName, signal] which should be
 	// transformed to its numerical representation of the `prParameters`
 	// array. Non existing parameters will be thrown away,
-	// also only the first occurrence of a parameter will be considered
+	// also only the first occurence of a parameter will be considered
 	prTranslateParameters {|parameters|
 		var newParameters = [];
 		parameters.pairsDo({|param, value|
