@@ -243,7 +243,6 @@ DynGen : MultiOutUGen {
 			K2A.ar(numInputs),
 			K2A.ar(numParams),
 		] ++ signals;
-		inputs.postln;
 
 		^this.initOutputs(numOutputs, \audio);
 	}
