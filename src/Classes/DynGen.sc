@@ -172,9 +172,8 @@ DynGenDef {
 }
 
 DynGen : MultiOutUGen {
-	*ar {|numOutputs, script, inputs, params, realtime=0.0 ... args,kwargs|
+	*ar {|numOutputs, script, inputs, params, realtime=0.0|
 		var signals;
-		inputs = inputs.asArray;
 
 		script = case
 		{script.isKindOf(DynGenDef)} {script}
@@ -182,13 +181,14 @@ DynGen : MultiOutUGen {
 		{script.isKindOf(Symbol)} {DynGenDef(script)}
 		{Error("Script input needs to be a DynGenDef object or a symbol, found %".format(script.class)).throw};
 
-		params = if (DynGen.prExpandParams(params), {
-			params.collect({|paramArray|
-				script.prTranslateParameters(paramArray.asArray ++ kwargs);
-			});
-		}, {
-			script.prTranslateParameters(params.asArray ++ kwargs);
+		inputs = inputs.asArray;
+		params = params.asArray;
+
+		if(params.size.odd, {
+			Error("Parameters need to be key-value pairs, but found an odd number of elements").throw;
 		});
+
+		params = script.prTranslateParameters(params);
 
 		signals = inputs ++ params;
 
