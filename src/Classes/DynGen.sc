@@ -118,13 +118,17 @@ DynGenDef {
 	// extracts variables in code that are prepended with a _
 	// as these are considered parameter variables
 	*prExtractParameters {|code|
+		var params = [];
 		var regex = "[^(?:A-Za-z|\\_|$|]?(\_(?:[A-Za-z]|[0-9]|_)+)";
-		var params = DynGenDef.prRemoveComments(code).findRegexp(regex);
+		var results = DynGenDef.prRemoveComments(code).findRegexp(regex);
 		// regex returns match and group - we are only interested in the group
-		params = params.reject({|x, i| i.even});
-		// and we are not interested in the position - so we also remove that
-		params = params.collect({|x| x[1].asSymbol});
-		params = DynGenDef.prRemoveDuplicates(params);
+		results.pairsDo({|match, group|
+			var name = group[1].asSymbol;
+			// filter out duplicates
+			if (params.includes(name).not, {
+				params = params.add(name);
+			});
+		});
 		^params;
 	}
 
