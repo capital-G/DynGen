@@ -53,6 +53,11 @@ DynGenDef {
 		}
 	}
 
+	// this function adds the parameters to the
+	// prParams array in an append only manner.
+	// append only is necessary b/c we want to also
+	// update already running instances which expect
+	// a parameter under a given index.
 	prRegisterParams {
 		var params = DynGenDef.prExtractParameters(code);
 		params.do({|param|
