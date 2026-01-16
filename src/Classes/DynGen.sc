@@ -188,14 +188,12 @@ DynGen : MultiOutUGen {
 			Error("Parameters need to be key-value pairs, but found an odd number of elements").throw;
 		});
 
-		params = script.prTranslateParameters(params);
-
 		signals = inputs ++ params;
 
 		^this.multiNew(
 			'audio',
 			numOutputs,
-			script.hash.asFloat,
+			script,
 			realtime,
 			inputs.size,
 			params.size/2.0,  // parameters are tuples of [id, value]
@@ -203,16 +201,42 @@ DynGen : MultiOutUGen {
 		);
 	}
 
-	init { |numOutputs ... theInputs|
-		inputs = theInputs;
-		inputs = inputs.asArray.collect({|input|
-			if(input.rate != \audio, {
-				K2A.ar(input);
+	init { |numOutputs, script, realtime, numInputs, numParams ... signals|
+		var params = signals[numInputs..];
+		// inputs is member variable
+		inputs = signals[..(numInputs-1)];
+
+		params = script.prTranslateParameters(params);
+
+		// signals must be audio rate
+		signals = inputs.collect({|sig|
+			if(sig.rate != \audio, {
+				K2A.ar(sig);
 			}, {
-				input;
+				sig;
 			});
 		});
-		^this.initOutputs(numOutputs, 'audio');
+
+		// parameter values must be audio rate,
+		// but parameter keys should be init rate
+		params.pairsDo({|index, value|
+			if(value.rate != \audio, {
+				value = K2A.ar(value);
+			});
+			// @todo index should not need K2A
+			signals = signals.add(K2A.ar(index)).add(value);
+		});
+
+		// @todo remove K2A - but needs change in server API
+		inputs = [
+			K2A.ar(script.hash.asFloat),
+			K2A.ar(realtime),
+			K2A.ar(numInputs),
+			K2A.ar(numParams),
+		] ++ signals;
+		inputs.postln;
+
+		^this.initOutputs(numOutputs, \audio);
 	}
 
 	*prExpandParams {|params|
