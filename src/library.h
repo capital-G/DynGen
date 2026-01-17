@@ -151,6 +151,16 @@ public:
                                 struct sc_msg_iter *args, void *replyAddr);
 
 private:
+  /*! @brief unified abstraction layer for dynGenAddFileCallback and
+   *  addScriptCallback which preapres the payload for the async callback.
+   */
+  static void buildGenericPayload(World *inWorld, sc_msg_iter *args, bool isFile);
+
+  /*! @brief performs all cleanup procedures in case RT Alloc of the
+   * newLibraryEntry setup fails */
+  static void rtCleanup(World *inWorld, NewDynGenLibraryEntry *newLibraryEntry,
+                        int numRtParameters);
+
   /*! @brief this runs in stage 2 (NRT) and copies the content of the
    *  RT owned code to a NRT owned code
    */

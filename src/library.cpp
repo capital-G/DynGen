@@ -2,11 +2,10 @@
 
 #include <sstream>
 
-void Library::dyngenAddFileCallback(
+void Library::buildGenericPayload(
   World *inWorld,
-  void *inUserData,
   sc_msg_iter *args,
-  void *replyAddr
+  const bool isFile
 ) {
   auto newLibraryEntry = static_cast<NewDynGenLibraryEntry *>(
       RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
@@ -14,21 +13,28 @@ void Library::dyngenAddFileCallback(
     Print("ERROR: Failed to allocate memory for DynGen library entry\n");
     return;
   }
+  // init pointers such that we can use generic cleanup method
+  newLibraryEntry->oscString = nullptr;
+  newLibraryEntry->numParameters = 0;
+  newLibraryEntry->parameterNamesRT = nullptr;
+  newLibraryEntry->oldCode = nullptr;
+  newLibraryEntry->oldParameterNames = nullptr;
+  newLibraryEntry->numOldParameterNames = 0;
+
   newLibraryEntry->hash = args->geti();
+
   if (const char *codePath = args->gets()) {
     auto codePathLength = strlen(codePath) + 1;
     newLibraryEntry->oscString =
         static_cast<char *>(RTAlloc(inWorld, codePathLength));
     if (!newLibraryEntry->oscString) {
       Print("ERROR: Failed to allocate memory for DynGen code library\n");
-      RTFree(inWorld, newLibraryEntry);
-      return;
+      return rtCleanup(inWorld, newLibraryEntry, 0);
     }
     std::copy_n(codePath, codePathLength, newLibraryEntry->oscString);
   } else {
     Print("ERROR: Invalid dyngenfile message\n");
-    RTFree(inWorld, newLibraryEntry);
-    return;
+    return rtCleanup(inWorld, newLibraryEntry, 0);
   }
 
   newLibraryEntry->numParameters = args->geti();
@@ -37,41 +43,56 @@ void Library::dyngenAddFileCallback(
   for (int i = 0; i < newLibraryEntry->numParameters; i++) {
     if (const char *rawParam = args->gets()) {
       auto paramLength = strlen(rawParam) + 1;
-
       auto paramName = static_cast<char *>(RTAlloc(inWorld, paramLength));
       if (!paramName) {
         Print("ERROR: Failed to allocate memory for DynGen parameter names\n");
-        for (int j = 0; j < i; j++) {
-          RTFree(inWorld, newLibraryEntry->parameterNamesRT[j]);
-        }
-        RTFree(inWorld, newLibraryEntry->oscString);
-        RTFree(inWorld, newLibraryEntry);
-        return;
+        return rtCleanup(inWorld, newLibraryEntry, i-1);
       }
       std::copy_n(rawParam, paramLength, paramName);
       newLibraryEntry->parameterNamesRT[i] = paramName;
     } else {
       Print("ERROR: Invalid dyngenscript message of parameters\n");
-      for (int j = 0; j < i; j++) {
-        RTFree(inWorld, newLibraryEntry->parameterNamesRT[j]);
-      }
-      RTFree(inWorld, newLibraryEntry->oscString);
-      RTFree(inWorld, newLibraryEntry);
-      return;
+      return rtCleanup(inWorld, newLibraryEntry, i-1);
     }
   }
 
   auto [completionMsgSize, completionMsg] = getCompletionMsg(args);
 
-  newLibraryEntry->oldCode = nullptr;
-  newLibraryEntry->oldParameterNames = nullptr;
-  newLibraryEntry->numOldParameterNames = 0;
+  ft->fDoAsynchronousCommand(
+    inWorld,
+    nullptr,
+    nullptr,
+    static_cast<void *>(newLibraryEntry),
+    isFile ? loadFileToDynGenLibrary : loadScriptToDynGenLibrary,
+    swapCode,
+    deleteOldCode,
+    pluginCmdCallbackCleanup,
+    completionMsgSize,
+    const_cast<char *>(completionMsg)
+  );
 
-  ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr,
-                             static_cast<void *>(newLibraryEntry),
-                             loadFileToDynGenLibrary, swapCode, deleteOldCode,
-                             pluginCmdCallbackCleanup, completionMsgSize,
-                             const_cast<char *>(completionMsg));
+}
+
+void Library::rtCleanup(World* inWorld, NewDynGenLibraryEntry* newLibraryEntry, const int numRtParameters) {
+  if (newLibraryEntry == nullptr) {
+    return;
+  }
+
+  RTFree(inWorld, newLibraryEntry->oscString);
+  for (int j = 0; j < numRtParameters; j++) {
+    RTFree(inWorld, newLibraryEntry->parameterNamesRT[j]);
+  }
+  RTFree(inWorld, newLibraryEntry->parameterNamesRT);
+  RTFree(inWorld, newLibraryEntry);
+}
+
+void Library::dyngenAddFileCallback(
+  World *inWorld,
+  void *inUserData,
+  sc_msg_iter *args,
+  void *replyAddr
+) {
+  buildGenericPayload(inWorld, args, true);
 }
 
 void Library::addScriptCallback(
@@ -80,69 +101,7 @@ void Library::addScriptCallback(
   sc_msg_iter *args,
   void *replyAddr
 ) {
-  auto newLibraryEntry = static_cast<NewDynGenLibraryEntry *>(
-      RTAlloc(inWorld, sizeof(NewDynGenLibraryEntry)));
-  if (!newLibraryEntry) {
-    Print("ERROR: Failed to allocate memory for DynGen library entry\n");
-    return;
-  }
-  newLibraryEntry->hash = args->geti();
-  if (const char *oscCode = args->gets()) {
-    auto oscCodeLength = strlen(oscCode) + 1;
-    newLibraryEntry->oscString =
-        static_cast<char *>(RTAlloc(inWorld, oscCodeLength));
-    if (!newLibraryEntry->oscString) {
-      Print("ERROR: Failed to allocate memory for DynGen code library\n");
-      RTFree(inWorld, newLibraryEntry);
-      return;
-    }
-    std::copy_n(oscCode, oscCodeLength, newLibraryEntry->oscString);
-  } else {
-    Print("ERROR: Invalid dyngenscript message\n");
-    RTFree(inWorld, newLibraryEntry);
-    return;
-  }
-
-  newLibraryEntry->numParameters = args->geti();
-  newLibraryEntry->parameterNamesRT =
-      static_cast<char **>(RTAlloc(inWorld, newLibraryEntry->numParameters));
-  for (int i = 0; i < newLibraryEntry->numParameters; i++) {
-    if (const char *rawParam = args->gets()) {
-      auto paramLength = strlen(rawParam) + 1;
-
-      auto paramName = static_cast<char *>(RTAlloc(inWorld, paramLength));
-      if (!paramName) {
-        Print("ERROR: Failed to allocate memory for DynGen parameter names\n");
-        for (int j = 0; j < i; j++) {
-          RTFree(inWorld, newLibraryEntry->parameterNamesRT[j]);
-        }
-        RTFree(inWorld, newLibraryEntry->oscString);
-        RTFree(inWorld, newLibraryEntry);
-        return;
-      }
-      std::copy_n(rawParam, paramLength, paramName);
-      newLibraryEntry->parameterNamesRT[i] = paramName;
-    } else {
-      Print("ERROR: Invalid dyngenscript message of parameters\n");
-      for (int j = 0; j < i; j++) {
-        RTFree(inWorld, newLibraryEntry->parameterNamesRT[j]);
-      }
-      RTFree(inWorld, newLibraryEntry->oscString);
-      RTFree(inWorld, newLibraryEntry);
-      return;
-    }
-  }
-  auto [completionMsgSize, completionMsg] = getCompletionMsg(args);
-
-  newLibraryEntry->oldCode = nullptr;
-  newLibraryEntry->oldParameterNames = nullptr;
-  newLibraryEntry->numOldParameterNames = 0;
-
-  ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr,
-                             static_cast<void *>(newLibraryEntry),
-                             loadScriptToDynGenLibrary, swapCode, deleteOldCode,
-                             pluginCmdCallbackCleanup, completionMsgSize,
-                             const_cast<char *>(completionMsg));
+  buildGenericPayload(inWorld, args, false);
 }
 
 bool Library::loadScriptToDynGenLibrary(World *world,
