@@ -216,4 +216,5 @@ EEL2Adapter::~EEL2Adapter() {
     NSEEL_VM_free(mEelState);
   delete[] mInputs;
   delete[] mOutputs;
+  delete[] mParameters;
 }
