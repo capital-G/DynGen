@@ -246,10 +246,4 @@ DynGen : MultiOutUGen {
 
 		^this.initOutputs(numOutputs, \audio);
 	}
-
-	*prExpandParams {|params|
-		if(params.asArray.size == 0, {^false;});
-		if(params.any(_.isArray).not, {^false;});
-		^true;
-	}
 }
