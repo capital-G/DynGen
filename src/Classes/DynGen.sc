@@ -53,6 +53,19 @@ DynGenDef {
 		}
 	}
 
+	sendMsg {|completionMsg|
+		var message = [
+			\cmd,
+			\dyngenscript,
+			hash,
+			code,
+			prParams.size,
+		];
+		message = message ++ prParams;
+		message = message.add(completionMsg);
+		^message;
+	}
+
 	// this function adds the parameters to the
 	// prParams array in an append only manner.
 	// append only is necessary b/c we want to also
@@ -68,16 +81,7 @@ DynGenDef {
 	}
 
 	prSendScript {|server, completionMsg|
-		var message = [
-			\cmd,
-			\dyngenscript,
-			hash,
-			code,
-			prParams.size,
-		];
-		message = message ++ prParams;
-		message = message.add(completionMsg);
-		message = message.asRawOSC;
+		var message = this.sendMsg(completionMsg).asRawOSC;
 		if(message.size < (65535 div: 4), {
 			server.sendRaw(message);
 		}, {
