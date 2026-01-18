@@ -29,12 +29,14 @@ void Library::buildGenericPayload(
         static_cast<char *>(RTAlloc(inWorld, codePathLength));
     if (!newLibraryEntry->oscString) {
       Print("ERROR: Failed to allocate memory for DynGen code library\n");
-      return rtCleanup(inWorld, newLibraryEntry, 0);
+      rtCleanup(inWorld, newLibraryEntry, 0);
+      return;
     }
     std::copy_n(codePath, codePathLength, newLibraryEntry->oscString);
   } else {
     Print("ERROR: Invalid dyngenfile message\n");
-    return rtCleanup(inWorld, newLibraryEntry, 0);
+    rtCleanup(inWorld, newLibraryEntry, 0);
+    return;
   }
 
   newLibraryEntry->numParameters = args->geti();
@@ -46,13 +48,15 @@ void Library::buildGenericPayload(
       auto paramName = static_cast<char *>(RTAlloc(inWorld, paramLength));
       if (!paramName) {
         Print("ERROR: Failed to allocate memory for DynGen parameter names\n");
-        return rtCleanup(inWorld, newLibraryEntry, i-1);
+        rtCleanup(inWorld, newLibraryEntry, i-1);
+        return;
       }
       std::copy_n(rawParam, paramLength, paramName);
       newLibraryEntry->parameterNamesRT[i] = paramName;
     } else {
       Print("ERROR: Invalid dyngenscript message of parameters\n");
-      return rtCleanup(inWorld, newLibraryEntry, i-1);
+      rtCleanup(inWorld, newLibraryEntry, i-1);
+      return;
     }
   }
 
