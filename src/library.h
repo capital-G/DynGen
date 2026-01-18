@@ -48,7 +48,7 @@ struct DynGenStub {
  */
 struct CodeLibrary {
   /*! @brief the next entry in the linked list */
-  CodeLibrary *next;
+  CodeLibrary* next;
   /*! @brief we refer to scripts via ID in order to avoid storing
    *  and sending strings via OSC
    */
@@ -56,7 +56,7 @@ struct CodeLibrary {
   /*! @brief  references the first DynGen - all other instances can be accessed
    *  through the double linked list of DynGen
    */
-  DynGen *dynGen;
+  DynGen* dynGen;
   /*! @brief the eel2 code currently associated with the DynGen instance */
   char* code;
   /*! @brief parameters which need to be exposed by - referenced by the integer
@@ -64,6 +64,12 @@ struct CodeLibrary {
    */
   char** parameters;
   int numParameters;
+
+  /*! @brief register a DynGen unit for this code node */
+  void addUnit(DynGen* unit);
+
+  /*! @brief unregister a DynGen unit from this code node */
+  void removeUnit(DynGen* unit);
 };
 
 /*! @brief A struct to be passed around to update already running dyngen nodes

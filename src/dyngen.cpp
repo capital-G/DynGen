@@ -51,18 +51,9 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
     mParameterIndices[i] = paramIndex;
   }
 
-  // insert ourselves into the linked list of DynGen nodes which are
-  // using the same code such that we can receive code updates
-  auto const head = codeNode->dynGen;
-  if (head) {
-    head->mPrevDynGen = this;
-  }
-  mNextDynGen = head;
-  codeNode->dynGen = this;
-
-  // we may have to re-adjust the entry point of our linked list if we
-  // get cleared, so we store the handle to the library which can not be
-  // deleted.
+  // add ourselves to the code node so we can receive code updates.
+  codeNode->addUnit(this);
+  // we have to unregister ourself when the Unit is freed, see ~DynGen().
   mCodeLibrary = codeNode;
 
   if (useAudioThread) {
@@ -149,18 +140,9 @@ bool DynGen::updateCode(const char* code, char** parameters) const {
   if (mCodeLibrary == nullptr) {
     return;
   }
-  // readjust the head of the linked list of the code library if necessary
-  if (mCodeLibrary->dynGen == this) {
-    mCodeLibrary->dynGen = mNextDynGen;
-  }
 
-  // remove ourselves from the linked list
-  if (mPrevDynGen != nullptr) {
-    mPrevDynGen->mNextDynGen = mNextDynGen;
-  }
-  if (mNextDynGen != nullptr) {
-    mNextDynGen->mPrevDynGen = mPrevDynGen;
-  }
+  // remove ourselves from the code library
+  mCodeLibrary->removeUnit(this);
 
   // free the vm in RT context through async command
   ft->fDoAsynchronousCommand(

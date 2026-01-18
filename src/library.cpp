@@ -3,7 +3,32 @@
 
 #include <sstream>
 
-//--------------- Library ----------------------------//
+//-------------------- CodeLibrary --------------------//
+
+void CodeLibrary::addUnit(DynGen* unit) {
+  // add ourselves to the linked list of DynGen nodes
+  if (dynGen) {
+    dynGen->mPrevDynGen = unit;
+  }
+  unit->mNextDynGen = dynGen;
+  dynGen = unit;
+}
+
+void CodeLibrary::removeUnit(DynGen* unit) {
+  // readjust the head of the linked list of the code library if necessary
+  if (dynGen == unit) {
+    dynGen = unit->mNextDynGen;
+  }
+  // remove ourselves from the linked list
+  if (unit->mPrevDynGen != nullptr) {
+    unit->mPrevDynGen->mNextDynGen = unit->mNextDynGen;
+  }
+  if (unit->mNextDynGen != nullptr) {
+    unit->mNextDynGen->mPrevDynGen = unit->mPrevDynGen;
+  }
+}
+
+//--------------------- Library ----------------------//
 
 // a global linked list which stores the code
 // and its associated running DynGens.
