@@ -94,7 +94,9 @@ out0 = sin(omega);
 y1 = out0;
 ").send;
 )
+::
 
+CODE::
 (
 Ndef(\z, {
 	DynGen.ar(1, \fbSin,
@@ -211,8 +213,9 @@ out0 = buf[readPos];
 out1 = buf[rightReadPos];
 ").send;
 )
+::
 
-
+CODE::
 (
 Ndef(\g, {
 	var sig = SinOscFB.ar(100, 1.3) * Env.perc(0.01, 0.2).ar(gate: Impulse.ar(4.0));
@@ -263,8 +266,9 @@ out0 = phaseA;
 out1 = phaseB;
 ").send;
 )
+::
 
-
+CODE::
 (
 Ndef(\oversample, {
 	DynGen.ar(2, \oversample,
@@ -340,7 +344,9 @@ out1 = y;
 out2 = z;
 ").send;
 )
+::
 
+CODE::
 Ndef(\b, {DynGen.ar(3, \blocks).poll});
 ::
 
@@ -414,7 +420,9 @@ writePos >= fftSize ? (
 out0 = outBuf[writepos] / fftSize;
 ").send;
 )
+::
 
+CODE::
 ~buffer = Buffer.read(s, ExampleFiles.apollo11);
 (
 Ndef(\fft, {
@@ -503,8 +511,9 @@ out0 = sin(x);
 
 y1 = out0;
 ").send;
-)
+)::
 
+CODE::
 (
 Ndef(\x, {
 	var sig = DynGen.ar(1, ~sinOscFB, params: [
@@ -526,7 +535,9 @@ buf[_writePos] = in0;
 out0 = buf[_readPos];
 ").send;
 )
+::
 
+CODE::
 (
 Ndef(\delay, {
 	var bufSize = SinOsc.ar(4.2).range(1000, 2000);
@@ -585,7 +596,9 @@ out0 = sumA / oversample;
 out1 = sumB / oversample;
 ").send;
 )
+::
 
+CODE::
 (
 Ndef(\y, {
 	var sig = DynGen.ar(2, ~complex, params: [
