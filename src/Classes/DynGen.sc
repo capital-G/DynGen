@@ -212,13 +212,21 @@ DynGen : MultiOutUGen {
 
 	init { |numOutputs, script, realtime, numInputs, numParams ... signals|
 		var params = signals[numInputs..];
-		// inputs is member variable
-		inputs = signals[..(numInputs-1)];
+		var audioInputs = signals[..(numInputs-1)];
+
+		params.pairsDo({|key, value|
+			if(key.isKindOf(String).or(key.isKindOf(Symbol)).not, {
+				Error("'%' is not a valid parameter key".format(key)).throw;
+			});
+			if(value.isValidUGenInput.not, {
+				Error("Parameter '%' has invalid value '%'".format(key, value)).throw;
+			});
+		});
 
 		params = script.prTranslateParameters(params);
 
 		// signals must be audio rate
-		signals = inputs.collect({|sig|
+		signals = audioInputs.collect({|sig|
 			if(sig.rate != \audio, {
 				K2A.ar(sig);
 			}, {
@@ -226,9 +234,8 @@ DynGen : MultiOutUGen {
 			});
 		});
 
-		// parameter values must be audio rate,
-		// but parameter keys should be init rate
 		params.pairsDo({|index, value|
+			// parameter values must be audio rate,
 			if(value.rate != \audio, {
 				value = K2A.ar(value);
 			});
@@ -237,6 +244,7 @@ DynGen : MultiOutUGen {
 		});
 
 		// @todo remove K2A - but needs change in server API
+		// inputs is a member variable of UGen
 		inputs = [
 			K2A.ar(script.hash.asFloat),
 			K2A.ar(realtime),
