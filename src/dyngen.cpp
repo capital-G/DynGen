@@ -147,6 +147,8 @@ bool DynGen::updateCode(const char* code, char** parameters) const {
 }
 
  DynGen::~DynGen() {
+  RTFree(mWorld, mParameterIndices);
+
   mStub->mObject = nullptr;
   mStub->mRefCount -= 1;
   if (mStub->mRefCount==0) {
