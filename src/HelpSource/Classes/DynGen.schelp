@@ -63,6 +63,40 @@ Ndef(\x, {
 Ndef(\x).clear;
 ::
 
+The examples here use LINK::Classes/Ndef:: of JITLib for the ease of iterative development, but it is also possible to use LINK::Classes/SynthDef:: and LINK::Classes/Synth::
+
+CODE::
+DynGenDef(\synth, "out0 = in0 * 0.2;").send;
+
+(
+SynthDef(\dynGen, {|out|
+	var sig = DynGen.ar(
+		numOutputs: 1,
+		script: \synth,
+		inputs: SinOsc.ar(200.0),
+	);
+	Out.ar(out, sig);
+}).add;
+)
+
+x = Synth(\dynGen);
+x.free;
+::
+
+or also plain functions using LINK::Classes/Function#-play::, here with declaring the LINK::Classes/DynGenDef:: script EMPHASIS::inline::.
+
+CODE::
+(
+x = {DynGen.ar(
+	numOutputs: 1,
+	script: DynGenDef(\fun, "out0 = in0 * 0.2;").send,
+	inputs: SinOsc.ar(200.0),
+)}.play;
+)
+
+x.free;
+::
+
 NOTE::
 EEL2 works internally with 64 bit floats (also called doubles) instead of SuperColliders 32 bit floats - it therefore can be useful to use DynGen for really slow processes (e.g. a line which goes from 0.0 to 1.0 in 60 minutes) or where high precission is desirable (e.g. when using phase interpolations).
 Since SuperCollider only can work on 32 bit floats on the server side the precission of the floats have to be reduced when outputting them to SuperCollider.
