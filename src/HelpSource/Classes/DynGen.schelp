@@ -217,7 +217,52 @@ Ndef(\multiParamArr, {
 
 SUBSECTION:: Memory
 
-Additionally, each variable within EEL2 is already an array which allows us to use it as a delay line.
+Each DynGen instance has access to STRONG::one:: consecutive block of memory.
+This memory can be accessed through square brackets, where the value left to the square brackets add an offset to the memory address.
+
+An example illustrates this unique feature, which is contrary to how arrays work in sclang!
+
+CODE::
+// writes value 20.0 to location 0!
+buf[0] = 20.0;
+// reads memory of location 0, which has value 20.0!
+out0 = buf2[0];
+::
+
+Since CODE::buf:: and CODE::buf2:: were never declared, they default to CODE::0.0::.
+CODE::buf[0]:: therefore references the memory address CODE::0:: since CODE::buf:: has a value of CODE::0.0:: and has an offset CODE::[0]:: of CODE::0::.
+Similar, CODE::buf2[0]:: references the STRONG::same:: address, since it also refers to the address CODE::0.0:: of CODE::buf2:: (since it was never initialized) with an offset of CODE::0::, which results in the same memory address of CODE::0::.
+
+The value of the variable therefore only acts as an offset to the memory block of the DynGen instance!
+Therefore do not do the following
+
+CODE::
+// DO NOT DO THIS
+bufA[in0] = in1;
+bufB[in2] = in2;
+::
+
+but instead do the following
+
+CODE::
+bufA = 0;
+// create an offset of 1024 for bufB
+// bufA therefore uses the range from 0-1023
+// and bufB from 1024-2047 (or beyond)
+bufB = 1024;
+
+// bufA + (in0%1024) = 0 + (in0%1024)
+bufA[in0%1024] = in1;
+// bufB + (in2%1024) = 1024 + (in2%1024)
+bufB[in2%1024] = in2;
+// note that % only operates on integers in DynGen!
+::
+
+An example where this setup is necessary is shown in the FFT section.
+
+Here is an example of a small granular delay.
+Grain delays normally use an amplitude envelope for each grain, which is omitted here, and therefore results in a clicky sound.
+
 
 CODE::
 (
@@ -240,7 +285,7 @@ buffer[writeIndex] = in0;
 readPos = readOffset + grainIndex;
 readPos -= (readPos >= _bufferSize) * _bufferSize;
 
-rightReadPos = readPos - _stereoOffset;
+rightReadPos = readPos + _stereoOffset;
 rightReadPos -= (rightReadPos >= _bufferSize) * _bufferSize;
 
 out0 = buf[readPos];
@@ -253,15 +298,15 @@ CODE::
 (
 Ndef(\g, {
 	var sig = SinOscFB.ar(100, 1.3) * Env.perc(0.01, 0.2).ar(gate: Impulse.ar(4.0));
-	sig = DynGen.ar(2, \granular,
-		sig, // in0 = signal
+	var delay = DynGen.ar(2, \granular,
+		sig,
 		params: [
-			bufferSize: DC.ar(20000.0),
+			bufferSize: 20000.0,
 			grainSize: SinOsc.ar(1/pi).range(1000, 10000),
-			stereoOffset: SinOsc.ar(0.5).range(0, 100),
+			stereoOffset: SinOsc.ar(0.05).range(0, 100),
 		],
 	);
-	sig * \amp.kr(0.2);
+	SelectX.ar(\wet.kr(0.5, spec: [0, 1.0]), [sig, delay]) * \amp.kr(0.2);
 }).play;
 )
 ::
