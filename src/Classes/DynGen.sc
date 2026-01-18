@@ -239,17 +239,15 @@ DynGen : MultiOutUGen {
 			if(value.rate != \audio, {
 				value = K2A.ar(value);
 			});
-			// @todo index should not need K2A
-			signals = signals.add(K2A.ar(index)).add(value);
+			signals = signals.add(index).add(value);
 		});
 
-		// @todo remove K2A - but needs change in server API
 		// inputs is a member variable of UGen
 		inputs = [
-			K2A.ar(script.hash.asFloat),
-			K2A.ar(realtime),
-			K2A.ar(numInputs),
-			K2A.ar(numParams),
+			script.hash.asFloat,
+			realtime,
+			numInputs,
+			numParams,
 		] ++ signals;
 
 		^this.initOutputs(numOutputs, \audio);

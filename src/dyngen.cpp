@@ -105,7 +105,7 @@ void DynGen::next(int numSamples) {
     }
   } else {
     // skip first 4 channels since those are not signals
-    mVm->process(mInBuf + 4, mInBuf, mNumDynGenParameters, mParameterIndices, numSamples);
+    mVm->process(mInBuf + 4, mOutBuf, mNumDynGenParameters, mParameterIndices, numSamples);
   }
 }
 
