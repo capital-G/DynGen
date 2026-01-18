@@ -73,7 +73,9 @@ DynGen::DynGen() {
     mVm->init(codeNode->code, codeNode->parameters);
   } else {
     // offload VM init to NRT thread
-    ClearUnitIfMemFailed(updateCode(codeNode->code, codeNode->parameters));
+    if (!updateCode(codeNode->code, codeNode->parameters)) {
+      ClearUnitOnMemFailed
+    }
   }
 }
 
