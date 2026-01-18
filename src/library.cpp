@@ -1,6 +1,22 @@
 #include "library.h"
+#include "dyngen.h"
 
 #include <sstream>
+
+//--------------- Library ----------------------------//
+
+// a global linked list which stores the code
+// and its associated running DynGens.
+CodeLibrary *gLibrary = nullptr;
+
+CodeLibrary* Library::findCode(int codeID) {
+  for (auto node = gLibrary; node; node = node->next) {
+    if (node->id == codeID) {
+      return node;
+    }
+  }
+  return nullptr;
+}
 
 void Library::buildGenericPayload(
   World *inWorld,

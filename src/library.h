@@ -1,17 +1,16 @@
 #pragma once
-#include "dyngen.h"
 
 #include <fstream>
 #include <SC_PlugIn.hpp>
 
 // forward declarations
-class DynGen;
 struct CodeLibrary;
+class DynGen;
 struct DynGenStub;
 struct DynGenCallbackData;
+struct EEL2Adapter;
 
 extern InterfaceTable *ft;
-extern CodeLibrary *gLibrary;
 
 /*! @brief Wraps a DynGen with a ref counter.
  *  RT owned
@@ -134,6 +133,9 @@ struct NewDynGenLibraryEntry {
 
 class Library {
 public:
+  /*! @brief find the CodeLibrary for a given code ID */
+    static CodeLibrary* findCode(int codeID);
+
   /*! @brief runs in stage  1 (RT thread)
    *  responds to an osc message on the RT thread - we therefore have to
    *  copy the OSC data to a new struct which then gets passed to another

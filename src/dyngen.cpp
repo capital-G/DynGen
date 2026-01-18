@@ -10,10 +10,6 @@
 
 InterfaceTable *ft;
 
-// a global linked list which stores the code
-// and its associated running DynGens.
-CodeLibrary *gLibrary = nullptr;
-
 
 DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(nullptr), mStub(nullptr) {
   mCodeID = static_cast<int>(in0(0));
@@ -31,16 +27,8 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
   mStub->mRefCount = 1;
 
   // search for codeId within code library linked list
-  auto codeNode = gLibrary;
-  bool found = false;
-  while (codeNode!=nullptr) {
-    if (codeNode->id == mCodeID) {
-      found = true;
-      break;
-    }
-    codeNode = codeNode->next;
-  }
-  if (!found) {
+  auto codeNode = Library::findCode(mCodeID);
+  if (codeNode == nullptr) {
     Print("ERROR: Could not find script with hash %i\n", mCodeID);
     next(1);
     return;
