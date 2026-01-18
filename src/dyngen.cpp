@@ -11,7 +11,7 @@
 InterfaceTable *ft;
 
 
-DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(nullptr), mStub(nullptr) {
+DynGen::DynGen() {
   mCodeID = static_cast<int>(in0(0));
   const bool useAudioThread = in0(1) > 0.5;
   mNumDynGenInputs = static_cast<int>(in0(2));

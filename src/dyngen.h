@@ -27,19 +27,19 @@ public:
    *  is sufficient to link all DynGen instances with the same
    *  code internally
    */
-  DynGen* mPrevDynGen;
-  DynGen* mNextDynGen;
+  DynGen* mPrevDynGen = nullptr;
+  DynGen* mNextDynGen = nullptr;
   /*! @brief we need a reference to the used CodeLibrary b/c in case we get
    *  freed we may have to update the associated linked list
    */
-  CodeLibrary* mCodeLibrary;
+  CodeLibrary* mCodeLibrary = nullptr;
 
-  DynGenStub* mStub;
+  DynGenStub* mStub = nullptr;
 private:
   int mCodeID;
   int mNumDynGenInputs;
   int mNumDynGenParameters;
-  int* mParameterIndices;
+  int* mParameterIndices = nullptr;
   int mNumParameters;
 
   void next(int numSamples);
