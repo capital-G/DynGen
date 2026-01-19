@@ -16,6 +16,7 @@ DynGen::DynGen() {
   const bool useAudioThread = in0(1) > 0.5;
   mNumDynGenInputs = static_cast<int>(in0(2));
   mNumDynGenParameters = static_cast<int>(in0(3));
+  assert(mNumDynGenInputs + mNumDynGenParameters + 4 <= numInputs());
 
   set_calc_function<DynGen, &DynGen::next>();
 
@@ -40,14 +41,9 @@ DynGen::DynGen() {
     next(1);
     return;
   }
-  auto numParameters = codeNode->mScript->mParameters.size();
   for (int i = 0; i < mNumDynGenParameters; i++) {
-    // parameters come in groups, so only take each 2nd position
-    auto paramIndex = static_cast<int>(*mInBuf[4 + mNumDynGenInputs + (2*i)]);
-    if (paramIndex < 0 || paramIndex >= numParameters) {
-      Print("ERROR: Parameter num %d out of range - falling back to param index 0\n", paramIndex);
-      paramIndex = 0;
-    }
+    // parameters come in index-value pairs, so only take each 2nd position
+    auto paramIndex = static_cast<int>(in0(4 + mNumDynGenInputs + (2*i)));
     mParameterIndices[i] = paramIndex;
   }
 
@@ -70,7 +66,7 @@ DynGen::DynGen() {
       mParent
     );
 
-    if (vm->init(*codeNode->mScript)) {
+    if (vm->init(*codeNode->mScript, mParameterIndices, mNumDynGenParameters)) {
         mVm = vm;
     } else {
         delete vm;
@@ -90,24 +86,31 @@ void DynGen::next(int numSamples) {
     }
   } else {
     // skip first 4 channels since those are not signals
-    mVm->process(mInBuf + 4, mOutBuf, mNumDynGenParameters, mParameterIndices, numSamples);
+    mVm->process(mInBuf + 4, mOutBuf, mInBuf + 4 + mNumDynGenInputs, numSamples);
   }
 }
 
 bool DynGen::updateCode(const DynGenScript* script) const {
-  auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
+  // allocate extra space for parameter indices, see DynGenCallbackData.
+  auto payloadSize = sizeof(DynGenCallbackData) + sizeof(int) * mNumDynGenParameters;
+  auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, payloadSize));
 
   // guard in case allocation fails
   if (payload) {
     payload->dynGenStub = mStub;
     payload->numInputChannels = mNumDynGenInputs;
     payload->numOutputChannels = mNumOutputs;
+    payload->numParameters = mNumDynGenParameters;
     payload->sampleRate = static_cast<int>(sampleRate());
     payload->blockSize = mBufLength;
     payload->world = mWorld;
     payload->parent = mParent;
     payload->oldVm = nullptr;
     payload->script = script;
+
+    for (int i = 0; i < mNumDynGenParameters; ++i) {
+      payload->parameterIndices[i] = mParameterIndices[i];
+    }
 
     // increment ref counter before we start the async command
     mStub->mRefCount += 1;
@@ -175,7 +178,9 @@ bool DynGen::createVmAndCompile(World* world, void *rawCallbackData) {
     callbackData->parent
   );
 
-  auto success = callbackData->vm->init(*callbackData->script);
+  auto success = callbackData->vm->init(*callbackData->script,
+                                        callbackData->parameterIndices,
+                                        callbackData->numParameters);
   if (!success) {
     // if not successful, remove vm and do not attempt to replace
     // running vm.

@@ -23,7 +23,7 @@ EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels,
     mSampleRate(sampleRate), mBlockSize(blockSize), mWorld(world), mParent(parent) {}
 
 // this is not RT safe
-bool EEL2Adapter::init(const DynGenScript& script) {
+bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, int numParamIndices) {
   mEelState = static_cast<compileContext*>(NSEEL_VM_alloc());
 
   // obtain handles to input and output variables
@@ -38,15 +38,22 @@ bool EEL2Adapter::init(const DynGenScript& script) {
     std::string name = "out" + std::to_string(i);
     mOutputs[i] = NSEEL_VM_regvar(mEelState, name.c_str());
   }
-  // since parameters are append only, and we can only reference
-  // existing parameters during the init of the synth
-  // it is safe and sufficient to only add references to the number of
-  // parameters that were available during init time.
+  // since the parameter indices are fixed at synth creation time,
+  // we only have to get pointers to the parameters at these indices.
+  // note that parameter indices are stable because parameter names
+  // are append-only.
+  mParameters = std::make_unique<double*[]>(numParamIndices);
+  mNumParameters = numParamIndices;
   auto& parameters = script.mParameters;
-  mNumParameters = parameters.size();
-  mParameters = std::make_unique<double*[]>(mNumParameters);
-  for (int i = 0; i < mNumParameters; i++) {
-    mParameters[i] = NSEEL_VM_regvar(mEelState, parameters[i].c_str());
+  for (int i = 0; i < numParamIndices; i++) {
+    auto paramIndex = parameterIndices[i];
+    if (paramIndex >= 0 && paramIndex < parameters.size()) {
+      mParameters[i] = NSEEL_VM_regvar(mEelState, parameters[paramIndex].c_str());
+    } else {
+      // ignore out-of-range parameter indices
+      Print("ERROR: Parameter index %d out of range\n");
+      mParameters[i] = nullptr;
+    }
   }
 
   // eel2 functions

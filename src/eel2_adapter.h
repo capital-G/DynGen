@@ -25,7 +25,7 @@ public:
   ~EEL2Adapter();
 
   /*! @brief returns true if vm has been compiled successfully */
-  bool init(const DynGenScript& script);
+  bool init(const DynGenScript& script, const int* parameterIndices, int numParamIndices);
 
   static EEL_F eelReadBuf(void* opaque, INT_PTR numParams, EEL_F** params);
   static EEL_F eelReadBufL(void* opaque, INT_PTR numParams, EEL_F** params);
@@ -34,12 +34,10 @@ public:
   static EEL_F* in(void *opaque, EEL_F *channel);
   static EEL_F* out(void *opaque, EEL_F *channel);
 
-  void process(float **inBuf, float **outBuf, int numParameterPairs, int* parameterIndices, int numSamples) {
+  void process(float **inBuf, float **outBuf, float **parameterPairs, int numSamples) {
     if (mBlockCode) {
       NSEEL_code_execute(mBlockCode);
     }
-
-    auto parameterPairs = inBuf + mNumInputChannels;
 
     for (int i = 0; i < numSamples; i++) {
       // copy input buffer to vm - cast to double!
@@ -47,12 +45,14 @@ public:
         *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][i]);
       }
 
-      // update automated parameters
-      for (int paramNum = 0; paramNum < numParameterPairs; paramNum++) {
-        auto paramIndex = parameterIndices[paramNum];
-        auto paramValue = parameterPairs[paramNum * 2 + 1];
-        assert(paramIndex >= 0 && paramIndex < mNumParameters);
-        *mParameters[paramIndex] = static_cast<double>(paramValue[i]);
+      // update automated parameters.
+      // parameter automations come as index-value pairs, so we only take
+      // every second odd element.
+      for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
+        if (mParameters[paramNum] != nullptr) {
+          auto paramValue = parameterPairs[paramNum * 2 + 1];
+          *mParameters[paramNum] = static_cast<double>(paramValue[i]);
+        }
       }
 
       NSEEL_code_execute(mSampleCode);
@@ -72,8 +72,7 @@ private:
 
   int mNumInputChannels = 0;
   int mNumOutputChannels = 0;
-  // total number of exposed parameter variables
-  int mNumParameters = 0;
+  int mNumParameters = 0; // number of automated parameters
 
   double mSampleRate = 0;
   int mBlockSize = 0;

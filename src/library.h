@@ -107,6 +107,7 @@ struct DynGenCallbackData {
   /*! @brief vm init */
   uint32 numInputChannels;
   uint32 numOutputChannels;
+  uint32 numParameters;
 
   int sampleRate;
   int blockSize;
@@ -114,6 +115,13 @@ struct DynGenCallbackData {
   World *world;
   /*! @brief necessary for accessing local buffers */
   Graph *parent;
+
+  /*! @brief since the Unit is not guaranteed to stay alive during an
+   * asynchronous command, so we have to make a temporary copy of the
+   * parameter indices to avoid referencing stale memory. We allocate
+   * the indices as part of the command itself so we only hit the
+   * RT memory allocator once. */
+  int parameterIndices[1];
 };
 
 /*! @brief The callback payload to enter a new entry into the code library,
