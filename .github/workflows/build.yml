@@ -39,7 +39,7 @@ jobs:
         cmake \
             -S . \
             -B build \
-            -DSC_SRC_PATH=./supercollider \
+            -DSC_PATH=./supercollider \
             -DCMAKE_INSTALL_PREFIX=./install
         cmake --build build --config Release
         cmake --install build --config Release
