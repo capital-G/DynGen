@@ -17,14 +17,18 @@ option(SUPERNOVA "Build plugins for supernova" OFF)
 message(STATUS "SUPERNOVA: ${SUPERNOVA}")
 
 # default installation path
-if (WIN32)
-    set(SC_INSTALL_PATH "$ENV{LOCALAPPDATA}/SuperCollider/Extensions/" CACHE PATH "Installation directoy")
-elseif(APPLE)
-    set(SC_INSTALL_PATH "~/Library/Application Support/SuperCollider/Extensions/" CACHE PATH "Installation directoy")
-else()
-    set(SC_INSTALL_PATH "~/.local/share/SuperCollider/Extensions/" CACHE PATH "Installation directoy")
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    if (WIN32)
+        file(TO_CMAKE_PATH "$ENV{LOCALAPPDATA}" _localappdata)
+        set_property(CACHE CMAKE_INSTALL_PREFIX PROPERTY VALUE "${_localappdata}/SuperCollider/Extensions/")
+    elseif(APPLE)
+        set_property(CACHE CMAKE_INSTALL_PREFIX PROPERTY VALUE "$ENV{HOME}/Library/Application Support/SuperCollider/Extensions/")
+    else()
+        set_property(CACHE CMAKE_INSTALL_PREFIX PROPERTY VALUE "$ENV{HOME}/.local/share/SuperCollider/Extensions/")
+    endif()
 endif()
-message(STATUS "SC_INSTALL_PATH: ${SC_INSTALL_PATH}")
+
+message(STATUS "CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
 
 #--------------------- WDL/EEL2 ---------------------------#
 
@@ -138,7 +142,7 @@ endif()
 
 #--------------------- installation ---------------------------#
 
-set(INSTALL_DIR "${SC_INSTALL_PATH}/${PROJECT_NAME}")
+set(INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}")
 
 install(TARGETS DynGen LIBRARY DESTINATION "${INSTALL_DIR}/plugins")
 if (MSVC)
