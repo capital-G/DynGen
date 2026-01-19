@@ -90,7 +90,8 @@ elseif(LINUX)
             COMMAND nasm -D AMD64ABI -f elf64 "${EEL2_ASM_SRC}" -o "${EEL2_ASM_OBJ}"
             COMMENT "Converting EEL2 asm to object using nasm"
         )
-        target_link_libraries(eel2 PRIVATE "${EEL2_ASM_OBJ}")
+        # use target_sources() to create a dependency on the .o file
+        target_sources(eel2 PRIVATE "${EEL2_ASM_OBJ}")
     else()
         message(FATAL_ERROR "Current OS and architecture combination is not supported")
     endif()
