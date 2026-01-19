@@ -71,10 +71,10 @@ DynGenDef {
 		var servers = (server ?? { Server.allBootedServers }).asArray;
 		servers.do({|each|
 			if(each.hasBooted.not, {
-				"Server % not running, could not send DynGenDef.".format(server.name).warn;
+				"Server % not running, could not free DynGenDef.".format(server.name).warn;
 			});
-			each.sendRaw(message).postln;
-		})
+			each.sendRaw(message);
+		});
 	}
 
 	freeMsg {
@@ -82,6 +82,25 @@ DynGenDef {
 			\cmd,
 			\dyngenfree,
 			hash,
+		];
+	}
+
+	*free {|server|
+		var message = DynGenDef.freeMsg.asRawOSC;
+		var servers = (server ?? { Server.allBootedServers }).asArray;
+		servers.do({|each|
+			if(each.hasBooted.not, {
+				"Server % not running, could not free all DynGenDefs.".format(server.name).warn;
+			});
+			each.sendRaw(message);
+		});
+
+	}
+
+	*freeMsg {
+		^[
+			\cmd,
+			\dyngenfreeall,
 		];
 	}
 

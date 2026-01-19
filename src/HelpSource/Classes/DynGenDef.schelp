@@ -33,6 +33,17 @@ Location of the DynGen script.
 METHOD:: all
 Returns all registered DynGenDef instances.
 
+METHOD:: free
+Frees all registered DynGenDef instances on a server.
+See LINK::Classes/DynGenDef#-free::.
+argument:: server
+The server on which all DynGenDef instances should be freed.
+If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
+
+METHOD:: freeMsg
+Returns the OSC message which will be sent to the server to free all scripts from the server.
+This can be used in NRT environments, see LINK::Guides/Non-Realtime-Synthesis::.
+
 PRIVATE:: initClass
 PRIVATE:: prExtractParameters
 PRIVATE:: prRemoveComments

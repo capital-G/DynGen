@@ -320,6 +320,21 @@ void Library::freeScriptCallback(World *inWorld, void *inUserData,
   }
 }
 
+void Library::freeAllScriptsCallback(World *inWorld, void *inUserData,
+                                     sc_msg_iter *args, void *replyAddr) {
+  auto node = gLibrary;
+  CodeLibrary* nextNode = nullptr;
+  while (node != nullptr) {
+    nextNode = node->next;
+    node->shouldBeFreed = true;
+    if (node->dynGen == nullptr) {
+      RTFree(inWorld, node);
+    }
+    node = nextNode;
+  }
+  gLibrary = nullptr;
+}
+
 std::pair<int, const char *> Library::getCompletionMsg(sc_msg_iter *args) {
   auto const completionMsgSize = static_cast<int>(args->getbsize());
   const char *completionMsg = nullptr;

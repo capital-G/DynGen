@@ -67,7 +67,9 @@ struct CodeLibrary {
   int numParameters;
 
   /*! @brief indicates if this library entry has been marked as to be
-   *  freed after all referring instances have been freed
+   *  freed after all associated running DynGen instances have been freed.
+   *  At this point, the library entry has already been removed from the
+   *  linked list gLibrary.
    */
   bool shouldBeFreed;
 };
@@ -161,6 +163,12 @@ public:
    */
   static void freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args,
                                  void* replyAddr);
+
+  /*! @brief unregisters all dyngen scripts from the server. See
+   *  freeScriptCallback for behavior.
+   */
+  static void freeAllScriptsCallback(World *inWorld, void *inUserData,
+                                     sc_msg_iter *args, void *replyAddr);
 
 private:
   /*! @brief unified abstraction layer for dynGenAddFileCallback and
