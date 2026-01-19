@@ -109,6 +109,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const INT_PTR numPar
   if (numParams>=3) {
     chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
   }
+  LOCK_SNDBUF_SHARED(buf);
   return getSample(buf, chanOffset, static_cast<int>(*params[1]));
 }
 
@@ -127,6 +128,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufL(void* opaque, const INT_PTR numPa
   const auto upperIndex = lowerIndex + 1;
   const float frac = static_cast<float>(*params[1]) - static_cast<float>(lowerIndex);
 
+  LOCK_SNDBUF_SHARED(buf);
   return lininterp(
     frac,
     getSample(buf, chanOffset, lowerIndex),
@@ -148,6 +150,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufC(void* opaque, const INT_PTR numPa
   const auto baseIndex = static_cast<int>(*params[1]);
   const float frac = static_cast<float>(*params[1]) - static_cast<float>(baseIndex);
 
+  LOCK_SNDBUF_SHARED(buf);
   return cubicinterp(
     frac,
     getSample(buf, chanOffset, baseIndex-1),
