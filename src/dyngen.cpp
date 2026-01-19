@@ -35,7 +35,7 @@ DynGen::DynGen() {
   }
 
   mNumParameters = codeNode->numParameters;
-  mParameterIndices = static_cast<int*>(RTAlloc(mWorld, mNumParameters));
+  mParameterIndices = static_cast<int*>(RTAlloc(mWorld, sizeof(int) * mNumDynGenParameters));
   if (!mParameterIndices) {
     Print("ERROR: Could not allocate memory for parameter pointers\n");
     next(1);
