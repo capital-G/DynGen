@@ -35,9 +35,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
 set(WDL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external/WDL/WDL")
 set(EEL2_PATH "${WDL_PATH}/eel2")
 
-include_directories(${WDL_PATH} ${EEL2_PATH})
-
-set(EEL2_SOURCES
+add_library(eel2 STATIC
         ${EEL2_PATH}/nseel-caltab.c
         ${EEL2_PATH}/nseel-compiler.c
         ${EEL2_PATH}/nseel-eval.c
@@ -48,39 +46,7 @@ set(EEL2_SOURCES
         ${WDL_PATH}/fft.c
 )
 
-# compile eel2 asm
-if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-    if(LINUX)
-        set(EEL2_ASM_SRC ${EEL2_PATH}/asm-nseel-x64-sse.asm)
-        set(EEL2_ASM_OBJ ${CMAKE_BINARY_DIR}/asm-nseel-x64-sse.o)
-        add_custom_command(
-            OUTPUT ${EEL2_ASM_OBJ}
-            DEPENDS ${EEL2_ASM_SRC}
-            COMMAND nasm -D AMD64ABI -f elf64 ${EEL2_ASM_SRC} -o ${EEL2_ASM_OBJ}
-            COMMENT "Converting EEL2 asm to object using nasm"
-        )
-        list(APPEND EEL2_SOURCES ${EEL2_ASM_OBJ})
-    elseif(APPLE)
-        list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-multi-macho.o)
-    elseif(WIN32)
-        # we already have the necessary .obj file - we will have to link this below
-    else()
-        message(FATAL_ERROR "Current OS and architecture combination is not supported")
-    endif()
-elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
-    if(APPLE)
-        list(APPEND EEL2_SOURCES ${EEL2_PATH}/asm-nseel-multi-macho.o)
-    else()
-        message(FATAL_ERROR "Current OS and architecture combination is not supported")
-    endif()
-endif()
-
-add_library(eel2 STATIC ${EEL2_SOURCES})
 target_include_directories(eel2 PUBLIC ${EEL2_PATH} ${WDL_PATH})
-
-if(WIN32)
-    target_link_libraries(eel2 PRIVATE "${EEL2_PATH}/asm-nseel-x64.obj")
-endif()
 
 target_compile_definitions(eel2 PRIVATE
         WDL_FFT_REALSIZE=8
@@ -100,6 +66,37 @@ if(NOT MSVC)
 endif()
 
 target_compile_features(eel2 PUBLIC cxx_std_17)
+
+# link with eel2 asm
+if(APPLE)
+    # we already have the necessary .o file (universal binary)
+    target_link_libraries(eel2 PRIVATE "${EEL2_PATH}/asm-nseel-multi-macho.o")
+elseif(WIN32)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR
+       CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
+        # we already have the necessary .obj file
+        target_link_libraries(eel2 PRIVATE "${EEL2_PATH}/asm-nseel-x64.obj")
+    else()
+        message(FATAL_ERROR "Current OS and architecture combination is not supported")
+    endif()
+elseif(LINUX)
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        # compile asm with nasm
+        set(EEL2_ASM_SRC ${EEL2_PATH}/asm-nseel-x64-sse.asm)
+        set(EEL2_ASM_OBJ ${CMAKE_BINARY_DIR}/asm-nseel-x64-sse.o)
+        add_custom_command(
+            OUTPUT ${EEL2_ASM_OBJ}
+            DEPENDS ${EEL2_ASM_SRC}
+            COMMAND nasm -D AMD64ABI -f elf64 ${EEL2_ASM_SRC} -o ${EEL2_ASM_OBJ}
+            COMMENT "Converting EEL2 asm to object using nasm"
+        )
+        target_sources(eel2 PRIVATE ${EEL2_ASM_OBJ})
+    else()
+        message(FATAL_ERROR "Current OS and architecture combination is not supported")
+    endif()
+else()
+    message(FATAL_ERROR "This OS is not supported")
+endif()
 
 #--------------------- UGen ---------------------------#
 
