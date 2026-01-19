@@ -1,12 +1,8 @@
-#include "dyngen.h"
-#include "library.h"
+// NOTE: include eel2_adapter.h before dyngen.h to prevent collision
+// with IN and OUT macros on Windows!
+#include "eel2_adapter.h"
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <sstream>
-#include <thread>
-#include <atomic>
+#include "dyngen.h"
 
 InterfaceTable *ft;
 

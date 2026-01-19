@@ -1,11 +1,10 @@
 #pragma once
 
-#include "eel2_adapter.h"
 #include "library.h"
+
 #include <SC_PlugIn.hpp>
 
-struct CodeLibrary;
-struct DynGenStub;
+struct EEL2Adapter;
 
 /*! @class DynGen
  *  @brief The UGen which runs an associated DynGen script from the Library.

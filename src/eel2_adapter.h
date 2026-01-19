@@ -1,9 +1,6 @@
 #pragma once
 
 #include "ns-eel-int.h"
-
-#include <memory>
-
 #include "eel2/ns-eel.h"
 
 #include <SC_Graph.h>
@@ -12,6 +9,7 @@
 
 #include "library.h"
 
+#include <memory>
 
 /*! @class EEL2Adapter
  *  @brief wraps a EEL2 VM and injects special functions and variables

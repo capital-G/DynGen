@@ -1,7 +1,5 @@
 #pragma once
 
-#include <SC_PlugIn.hpp>
-
 #include <string>
 #include <vector>
 
@@ -11,6 +9,9 @@ class DynGen;
 struct DynGenStub;
 struct DynGenCallbackData;
 struct EEL2Adapter;
+struct Graph;
+struct InterfaceTable;
+struct World;
 
 extern InterfaceTable *ft;
 
@@ -105,9 +106,9 @@ struct DynGenCallbackData {
   const DynGenScript* script;
 
   /*! @brief vm init */
-  uint32 numInputChannels;
-  uint32 numOutputChannels;
-  uint32 numParameters;
+  int numInputChannels;
+  int numOutputChannels;
+  int numParameters;
 
   int sampleRate;
   int blockSize;
