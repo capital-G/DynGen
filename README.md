@@ -24,17 +24,17 @@ On x86-64 machines it is necessary to have [nasm](https://www.nasm.us/) installe
 git clone --recursive https://github.com/capital-G/DynGen.git
 cd DynGen
 
-# replace SC_SRC_PATH with the path to your local source code copy of SuperCollider.
+# replace SC_PATH with the path to your local source code copy of SuperCollider.
 cmake \
     -S . \
     -B build \
-    -DSC_SRC_PATH=/Users/scheiba/github/supercollider
+    -DSC_PATH=/Users/scheiba/github/supercollider
 cmake --build build --config Release
 cmake --install build --config Release
 ```
 
 By default, DynGen will be installed to the default SuperCollider extension directory.
-You can override the installation path by setting the `SC_INSTALL_PATH` variable.
+You can override the installation path by setting the `CMAKE_INSTALL_PREFIX` variable.
 
 ## Demo
 
