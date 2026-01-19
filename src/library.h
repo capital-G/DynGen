@@ -65,6 +65,11 @@ struct CodeLibrary {
    */
   char** parameters;
   int numParameters;
+
+  /*! @brief indicates if this library entry has been marked as to be
+   *  freed after all referring instances have been freed
+   */
+  bool shouldBeFreed;
 };
 
 /*! @brief A struct to be passed around to update already running dyngen nodes
@@ -149,6 +154,13 @@ public:
    */
   static void addScriptCallback(World *inWorld, void *inUserData,
                                 struct sc_msg_iter *args, void *replyAddr);
+
+  /*! @brief makes a script unavailable for new instances. Only when all
+   *  running DynGen instances (see DynGenStub) are removed, it will also
+   *  be removed from the Library.
+   */
+  static void freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args,
+                                 void* replyAddr);
 
 private:
   /*! @brief unified abstraction layer for dynGenAddFileCallback and

@@ -181,6 +181,7 @@ bool Library::swapCode(World *world, void *rawCallbackData) {
     newNode->code = entry->code;
     newNode->numParameters = entry->numParameters;
     newNode->parameters = entry->parameterNamesNRT;
+    newNode->shouldBeFreed = false;
     gLibrary = newNode;
   } else {
     // swap code
@@ -290,6 +291,33 @@ void Library::pluginCmdCallbackCleanup(World *world,
   RTFree(world, callBackData->parameterNamesRT);
   RTFree(world, callBackData->oscString);
   RTFree(world, callBackData);
+}
+
+void Library::freeScriptCallback(World *inWorld, void *inUserData,
+                                 sc_msg_iter *args, void *replyAddr) {
+  if (const int hash = args->geti()) {
+    auto node = gLibrary;
+    CodeLibrary* prevNode = nullptr;
+    while (node != nullptr && node->id != hash) {
+      prevNode = node;
+      node = node->next;
+    };
+    if (node != nullptr) {
+      node->shouldBeFreed = true;
+      if (prevNode != nullptr) {
+        prevNode->next = node->next;
+      } else {
+        gLibrary = node->next;
+      }
+      if (node->dynGen == nullptr) {
+        RTFree(inWorld, node);
+      }
+    } else {
+      Print("ERROR: Could not find and free node with hash %d\n", hash);
+    }
+  } else {
+    Print("ERROR: Invalid free DynGen script message\n");
+  }
 }
 
 std::pair<int, const char *> Library::getCompletionMsg(sc_msg_iter *args) {

@@ -147,8 +147,6 @@ bool DynGen::updateCode(const char* code, char** parameters) const {
 }
 
  DynGen::~DynGen() {
-  RTFree(mWorld, mParameterIndices);
-
   mStub->mObject = nullptr;
   mStub->mRefCount -= 1;
   if (mStub->mRefCount==0) {
@@ -161,17 +159,28 @@ bool DynGen::updateCode(const char* code, char** parameters) const {
   if (mCodeLibrary == nullptr) {
     return;
   }
+
+  // free resources that get allocated when code library was available
+  RTFree(mWorld, mParameterIndices);
+
   // readjust the head of the linked list of the code library if necessary
   if (mCodeLibrary->dynGen == this) {
     mCodeLibrary->dynGen = mNextDynGen;
   }
 
+  bool isLastEntry = true;
   // remove ourselves from the linked list
   if (mPrevDynGen != nullptr) {
     mPrevDynGen->mNextDynGen = mNextDynGen;
+    isLastEntry = false;
   }
   if (mNextDynGen != nullptr) {
     mNextDynGen->mPrevDynGen = mPrevDynGen;
+    isLastEntry = false;
+  };
+
+  if (mCodeLibrary->shouldBeFreed && isLastEntry) {
+    RTFree(mWorld, mCodeLibrary);
   }
 
   // free the vm in RT context through async command
@@ -273,4 +282,10 @@ PluginLoad("DynGen") {
   Library::addScriptCallback,
   nullptr
 );
+
+  ft->fDefinePlugInCmd(
+    "dyngenfree",
+    Library::freeScriptCallback,
+    nullptr
+  );
 }
