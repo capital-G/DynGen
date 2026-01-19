@@ -36,14 +36,14 @@ set(WDL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external/WDL/WDL")
 set(EEL2_PATH "${WDL_PATH}/eel2")
 
 add_library(eel2 STATIC
-        ${EEL2_PATH}/nseel-caltab.c
-        ${EEL2_PATH}/nseel-compiler.c
-        ${EEL2_PATH}/nseel-eval.c
-        ${EEL2_PATH}/nseel-lextab.c
-        ${EEL2_PATH}/nseel-ram.c
-        ${EEL2_PATH}/nseel-yylex.c
-        ${EEL2_PATH}/nseel-cfunc.c
-        ${WDL_PATH}/fft.c
+        "${EEL2_PATH}/nseel-caltab.c"
+        "${EEL2_PATH}/nseel-compiler.c"
+        "${EEL2_PATH}/nseel-eval.c"
+        "${EEL2_PATH}/nseel-lextab.c"
+        "${EEL2_PATH}/nseel-ram.c"
+        "${EEL2_PATH}/nseel-yylex.c"
+        "${EEL2_PATH}/nseel-cfunc.c"
+        "${WDL_PATH}/fft.c"
 )
 
 target_include_directories(eel2 PUBLIC ${EEL2_PATH} ${WDL_PATH})
@@ -82,15 +82,15 @@ elseif(WIN32)
 elseif(LINUX)
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         # compile asm with nasm
-        set(EEL2_ASM_SRC ${EEL2_PATH}/asm-nseel-x64-sse.asm)
-        set(EEL2_ASM_OBJ ${CMAKE_BINARY_DIR}/asm-nseel-x64-sse.o)
+        set(EEL2_ASM_SRC "${EEL2_PATH}/asm-nseel-x64-sse.asm")
+        set(EEL2_ASM_OBJ "${CMAKE_BINARY_DIR}/asm-nseel-x64-sse.o")
         add_custom_command(
             OUTPUT ${EEL2_ASM_OBJ}
             DEPENDS ${EEL2_ASM_SRC}
-            COMMAND nasm -D AMD64ABI -f elf64 ${EEL2_ASM_SRC} -o ${EEL2_ASM_OBJ}
+            COMMAND nasm -D AMD64ABI -f elf64 "${EEL2_ASM_SRC}" -o "${EEL2_ASM_OBJ}"
             COMMENT "Converting EEL2 asm to object using nasm"
         )
-        target_sources(eel2 PRIVATE ${EEL2_ASM_OBJ})
+        target_link_libraries(eel2 PRIVATE "${EEL2_ASM_OBJ}")
     else()
         message(FATAL_ERROR "Current OS and architecture combination is not supported")
     endif()
@@ -115,8 +115,8 @@ target_sources(DynGen_common INTERFACE
         src/library.h src/library.cpp
 )
 
-target_include_directories(DynGen_common INTERFACE ${SC_PATH}/include/plugin_interface)
-target_include_directories(DynGen_common INTERFACE ${SC_PATH}/include/common)
+target_include_directories(DynGen_common INTERFACE "${SC_PATH}/include/plugin_interface")
+target_include_directories(DynGen_common INTERFACE "${SC_PATH}/include/common")
 
 target_compile_features(DynGen_common INTERFACE cxx_std_17)
 
