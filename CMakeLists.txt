@@ -5,11 +5,11 @@ set(CMAKE_CXX_STANDARD 17)
 #--------------------- options ---------------------------#
 
 # SuperCollider API:
-set(SC_SRC_PATH "" CACHE PATH "Path to SuperCollider source code")
-if (SC_SRC_PATH)
-    message(STATUS "SC_SRC_PATH: ${SC_SRC_PATH}")
+set(SC_PATH "" CACHE PATH "Path to SuperCollider source code")
+if (SC_PATH)
+    message(STATUS "SC_PATH: ${SC_PATH}")
 else()
-    message(WARNING "SC_SRC_PATH not set")
+    message(WARNING "SC_PATH not set")
 endif()
 
 # build Supernova version?
@@ -114,8 +114,8 @@ target_sources(DynGen_common INTERFACE
         src/library.h src/library.cpp
 )
 
-target_include_directories(DynGen_common INTERFACE ${SC_SRC_PATH}/include/plugin_interface)
-target_include_directories(DynGen_common INTERFACE ${SC_SRC_PATH}/include/common)
+target_include_directories(DynGen_common INTERFACE ${SC_PATH}/include/plugin_interface)
+target_include_directories(DynGen_common INTERFACE ${SC_PATH}/include/common)
 
 target_compile_features(DynGen_common INTERFACE cxx_std_17)
 
