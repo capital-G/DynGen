@@ -34,18 +34,18 @@ DynGen::DynGen() {
     return;
   }
 
-  mNumParameters = codeNode->numParameters;
   mParameterIndices = static_cast<int*>(RTAlloc(mWorld, sizeof(int) * mNumDynGenParameters));
   if (!mParameterIndices) {
     Print("ERROR: Could not allocate memory for parameter pointers\n");
     next(1);
     return;
   }
+  auto numParameters = codeNode->mScript->mParameters.size();
   for (int i = 0; i < mNumDynGenParameters; i++) {
     // parameters come in groups, so only take each 2nd position
     auto paramIndex = static_cast<int>(*mInBuf[4 + mNumDynGenInputs + (2*i)]);
-    if (paramIndex < 0 || paramIndex >= mNumParameters) {
-      Print("ERROR: Parameter num %i out of range - falling back to param index 0\n", paramIndex);
+    if (paramIndex < 0 || paramIndex >= numParameters) {
+      Print("ERROR: Parameter num %d out of range - falling back to param index 0\n", paramIndex);
       paramIndex = 0;
     }
     mParameterIndices[i] = paramIndex;
@@ -61,19 +61,23 @@ DynGen::DynGen() {
     // yet it get rids of one block size delay until the signal appears.
     // Since the VM init seems to be often fast enough we allow the user
     // to decide, yet this is not the default case.
-    mVm = new EEL2Adapter(
+    auto vm = new EEL2Adapter(
       mNumDynGenInputs,
       mNumOutputs,
-      mNumParameters,
       static_cast<int>(sampleRate()),
       mBufLength,
       mWorld,
       mParent
     );
-    mVm->init(codeNode->code, codeNode->parameters);
+
+    if (vm->init(*codeNode->mScript)) {
+        mVm = vm;
+    } else {
+        delete vm;
+    }
   } else {
     // offload VM init to NRT thread
-    if (!updateCode(codeNode->code, codeNode->parameters)) {
+    if (!updateCode(codeNode->mScript)) {
       ClearUnitOnMemFailed
     }
   }
@@ -90,7 +94,7 @@ void DynGen::next(int numSamples) {
   }
 }
 
-bool DynGen::updateCode(const char* code, char** parameters) const {
+bool DynGen::updateCode(const DynGenScript* script) const {
   auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
 
   // guard in case allocation fails
@@ -98,14 +102,12 @@ bool DynGen::updateCode(const char* code, char** parameters) const {
     payload->dynGenStub = mStub;
     payload->numInputChannels = mNumDynGenInputs;
     payload->numOutputChannels = mNumOutputs;
-    payload->numParameters = mNumParameters;
-    payload->parameters = parameters;
     payload->sampleRate = static_cast<int>(sampleRate());
     payload->blockSize = mBufLength;
     payload->world = mWorld;
     payload->parent = mParent;
     payload->oldVm = nullptr;
-    payload->code = code;
+    payload->script = script;
 
     // increment ref counter before we start the async command
     mStub->mRefCount += 1;
@@ -167,21 +169,20 @@ bool DynGen::createVmAndCompile(World* world, void *rawCallbackData) {
   callbackData->vm = new EEL2Adapter(
     callbackData->numInputChannels,
     callbackData->numOutputChannels,
-    callbackData->numParameters,
     callbackData->sampleRate,
     callbackData->blockSize,
     callbackData->world,
     callbackData->parent
   );
 
-  auto success = callbackData->vm->init(callbackData->code, callbackData->parameters);
+  auto success = callbackData->vm->init(*callbackData->script);
   if (!success) {
     // if not successful, remove vm and do not attempt to replace
     // running vm.
     delete callbackData->vm;
     return false;
   }
-  // continue to stage 3
+  // continue with stage 3
   return true;
 }
 

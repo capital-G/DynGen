@@ -9,8 +9,6 @@
 #include <SC_InterfaceTable.h>
 #include <SC_Unit.h>
 
-extern InterfaceTable *ft;
-
 // define symbols for jsfx
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
@@ -19,20 +17,23 @@ extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 // a ptr to an EEL_F such as in and out
 EEL_F nullValue = double{0.0};
 
-// this is not RT safe
-bool EEL2Adapter::init(const std::string &script, char** const parameters) {
-  mScript = new DynGenScript(script);
-  mInputs = new double *[mNumInputChannels]();
-  mOutputs = new double *[mNumOutputChannels]();
-  mParameters = new double *[mNumParameters]();
+EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels,
+                         int sampleRate, int blockSize, World *world, Graph* parent)
+  : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels),
+    mSampleRate(sampleRate), mBlockSize(blockSize), mWorld(world), mParent(parent) {}
 
+// this is not RT safe
+bool EEL2Adapter::init(const DynGenScript& script) {
   mEelState = static_cast<compileContext*>(NSEEL_VM_alloc());
 
   // obtain handles to input and output variables
+  mInputs = std::make_unique<double*[]>(mNumInputChannels);
   for (int i = 0; i < mNumInputChannels; i++) {
     std::string name = "in" + std::to_string(i);
     mInputs[i] = NSEEL_VM_regvar(mEelState, name.c_str());
   }
+
+  mOutputs = std::make_unique<double*[]>(mNumOutputChannels);
   for (int i = 0; i < mNumOutputChannels; i++) {
     std::string name = "out" + std::to_string(i);
     mOutputs[i] = NSEEL_VM_regvar(mEelState, name.c_str());
@@ -41,8 +42,11 @@ bool EEL2Adapter::init(const std::string &script, char** const parameters) {
   // existing parameters during the init of the synth
   // it is safe and sufficient to only add references to the number of
   // parameters that were available during init time.
+  auto& parameters = script.mParameters;
+  mNumParameters = parameters.size();
+  mParameters = std::make_unique<double*[]>(mNumParameters);
   for (int i = 0; i < mNumParameters; i++) {
-    mParameters[i] = NSEEL_VM_regvar(mEelState, parameters[i]);
+    mParameters[i] = NSEEL_VM_regvar(mEelState, parameters[i].c_str());
   }
 
   // eel2 functions
@@ -66,28 +70,28 @@ bool EEL2Adapter::init(const std::string &script, char** const parameters) {
     NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET |
     NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
 
-  if (mScript->sample.empty()) {
+  if (script.mSample.empty()) {
     Print("ERROR: DynGen sample code is missing\n");
     return false;
   }
 
-  if (!mScript->init.empty()) {
-    mInitCode = NSEEL_code_compile_ex(mEelState, mScript->init.c_str(), 0, compileFlags);
+  if (!script.mInit.empty()) {
+    mInitCode = NSEEL_code_compile_ex(mEelState, script.mInit.c_str(), 0, compileFlags);
     if (!mInitCode) {
       Print("ERROR: DynGen init compile error: %s\n", mEelState->last_error_string);
       return false;
     }
   }
 
-  if (!mScript->block.empty()) {
-    mBlockCode = NSEEL_code_compile_ex(mEelState, mScript->block.c_str(), 0, compileFlags);
+  if (!script.mBlock.empty()) {
+    mBlockCode = NSEEL_code_compile_ex(mEelState, script.mBlock.c_str(), 0, compileFlags);
     if (!mBlockCode) {
       Print("ERROR: DynGen block compile error %s\n", mEelState->last_error_string);
       return false;
     }
   }
 
-  mSampleCode = NSEEL_code_compile_ex(mEelState, mScript->sample.c_str(), 0, compileFlags);
+  mSampleCode = NSEEL_code_compile_ex(mEelState, script.mSample.c_str(), 0, compileFlags);
   if (!mSampleCode) {
     Print("ERROR: DynGen sample compile error: %s\n", mEelState->last_error_string);
     return false;
@@ -207,7 +211,6 @@ EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::out(void* opaque, EEL_F *channel) {
 }
 
 EEL2Adapter::~EEL2Adapter() {
-  delete mScript;
   if (mSampleCode)
     NSEEL_code_free(mSampleCode);
   if (mInitCode)
@@ -217,7 +220,4 @@ EEL2Adapter::~EEL2Adapter() {
   if (mEelState)
     // @todo delay this to NRT thread
     NSEEL_VM_free(mEelState);
-  delete[] mInputs;
-  delete[] mOutputs;
-  delete[] mParameters;
 }

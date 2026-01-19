@@ -1,7 +1,9 @@
 #pragma once
 
-#include <fstream>
 #include <SC_PlugIn.hpp>
+
+#include <string>
+#include <vector>
 
 // forward declarations
 struct CodeLibrary;
@@ -11,6 +13,26 @@ struct DynGenCallbackData;
 struct EEL2Adapter;
 
 extern InterfaceTable *ft;
+
+/*! @class DynGenScript
+ *  @brief contains the code sections of an EEL2 script
+ *  plus a list of exposed parameter names.
+ */
+class DynGenScript {
+public:
+  /*! @brief Splits the DynGen scripts into its sections.
+   * non rt safe! does not trim output. */
+  bool parse(std::string_view script);
+
+  std::string mInit;
+  std::string mBlock;
+  std::string mSample;
+
+  /*! @brief parameters which need to be exposed - referenced by the integer
+   *  position within the array
+   */
+  std::vector<std::string> mParameters;
+};
 
 /*! @brief Wraps a DynGen with a ref counter.
  *  RT owned
@@ -48,22 +70,18 @@ struct DynGenStub {
  */
 struct CodeLibrary {
   /*! @brief the next entry in the linked list */
-  CodeLibrary* next;
+  CodeLibrary* mNext;
   /*! @brief we refer to scripts via ID in order to avoid storing
    *  and sending strings via OSC
    */
-  int id;
+  int mID;
   /*! @brief  references the first DynGen - all other instances can be accessed
    *  through the double linked list of DynGen
    */
-  DynGen* dynGen;
+  DynGen* mDynGen;
+
   /*! @brief the eel2 code currently associated with the DynGen instance */
-  char* code;
-  /*! @brief parameters which need to be exposed by - referenced by the integer
-   *  position within the array
-   */
-  char** parameters;
-  int numParameters;
+  DynGenScript* mScript;
 
   /*! @brief register a DynGen unit for this code node */
   void addUnit(DynGen* unit);
@@ -83,14 +101,12 @@ struct DynGenCallbackData {
 
   /*! @brief the running dyngen stub to be updated */
   DynGenStub *dynGenStub;
-  /*! @brief the new code to be used */
-  const char* code;
-  char** parameters;
+  /*! @brief the new script to be used */
+  const DynGenScript* script;
 
   /*! @brief vm init */
   uint32 numInputChannels;
   uint32 numOutputChannels;
-  uint32 numParameters;
 
   int sampleRate;
   int blockSize;
@@ -125,15 +141,11 @@ struct NewDynGenLibraryEntry {
   char** parameterNamesRT;
   int numParameters;
 
-  /*! @brief the newly received code - NRT managed */
-  char* code;
-  /*! @brief the parameters - NRT version */
-  char** parameterNamesNRT;
+  /*! @brief the newly received script - NRT managed */
+  DynGenScript* script;
 
   /*! @brief the code to be replaced and should be deleted - NRT managed */
-  char* oldCode;
-  int numOldParameterNames;
-  char** oldParameterNames;
+  DynGenScript* oldScript;
 };
 
 
@@ -168,6 +180,11 @@ private:
    * newLibraryEntry setup fails */
   static void rtCleanup(World *inWorld, NewDynGenLibraryEntry *newLibraryEntry,
                         int numRtParameters);
+
+  /*! @brief common function for loadScriptToDynGenLibrary() and loadFileToDynGenLibrary()
+   *  which creates and initializes the actual DynGenScript instance.
+   */
+  static bool loadCodeToDynGenLibrary(NewDynGenLibraryEntry *newLibraryEntry, std::string_view code);
 
   /*! @brief this runs in stage 2 (NRT) and copies the content of the
    *  RT owned code to a NRT owned code

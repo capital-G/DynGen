@@ -16,7 +16,7 @@ public:
   /*! @brief updates vm in an async manner.
    *  Returns false in case the allocation of the callback data failed.
    */
-  bool updateCode(const char *code, char** parameters) const;
+  bool updateCode(const DynGenScript* script) const;
   ~DynGen();
 
   /*! @brief the active vm - at the point it is not a null pointer it will
@@ -40,7 +40,6 @@ private:
   int mNumDynGenInputs;
   int mNumDynGenParameters;
   int* mParameterIndices = nullptr;
-  int mNumParameters;
 
   void next(int numSamples);
 
