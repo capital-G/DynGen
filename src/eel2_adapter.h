@@ -9,6 +9,7 @@
 
 #include "library.h"
 
+#include <algorithm>
 #include <memory>
 
 /*! @class EEL2Adapter
