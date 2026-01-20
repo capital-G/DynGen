@@ -40,7 +40,7 @@ jobs:
             -S . \
             -B build \
             -DSC_PATH=./supercollider \
-            -DCMAKE_INSTALL_PREFIX=./install
+            -DSC_INSTALL_DIR=./install
         cmake --build build --config Release
         cmake --install build --config Release
     - name: upload artifacts
