@@ -33,7 +33,7 @@ cmake --build build --config Release
 cmake --install build --config Release
 ```
 
-By default, DynGen will be installed to the default SuperCollider extension directory.
+By default, DynGen will be installed to the default SuperCollider user extension directory which can be located by evaluating `Platform.userExtensionDir;` within sclang.
 You can override the installation path by setting the `CMAKE_INSTALL_PREFIX` variable.
 
 ## Demo
