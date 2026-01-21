@@ -1,25 +1,18 @@
-#include "dyngen.h"
-#include "library.h"
+// NOTE: include eel2_adapter.h before dyngen.h to prevent collision
+// with IN and OUT macros on Windows!
+#include "eel2_adapter.h"
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <sstream>
-#include <thread>
-#include <atomic>
+#include "dyngen.h"
 
 InterfaceTable *ft;
 
-// a global linked list which stores the code
-// and its associated running DynGens.
-CodeLibrary *gLibrary = nullptr;
 
-
-DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(nullptr), mStub(nullptr) {
+DynGen::DynGen() {
   mCodeID = static_cast<int>(in0(0));
   const bool useAudioThread = in0(1) > 0.5;
   mNumDynGenInputs = static_cast<int>(in0(2));
   mNumDynGenParameters = static_cast<int>(in0(3));
+  assert(mNumDynGenInputs + mNumDynGenParameters + 4 <= numInputs());
 
   set_calc_function<DynGen, &DynGen::next>();
 
@@ -31,50 +24,28 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
   mStub->mRefCount = 1;
 
   // search for codeId within code library linked list
-  auto codeNode = gLibrary;
-  bool found = false;
-  while (codeNode!=nullptr) {
-    if (codeNode->id == mCodeID) {
-      found = true;
-      break;
-    }
-    codeNode = codeNode->next;
-  }
-  if (!found) {
+  auto codeNode = Library::findCode(mCodeID);
+  if (codeNode == nullptr) {
     Print("ERROR: Could not find script with hash %i\n", mCodeID);
     next(1);
     return;
   }
 
-  mNumParameters = codeNode->numParameters;
-  mParameterIndices = static_cast<int*>(RTAlloc(mWorld, mNumParameters));
+  mParameterIndices = static_cast<int*>(RTAlloc(mWorld, sizeof(int) * mNumDynGenParameters));
   if (!mParameterIndices) {
     Print("ERROR: Could not allocate memory for parameter pointers\n");
     next(1);
     return;
   }
   for (int i = 0; i < mNumDynGenParameters; i++) {
-    // parameters come in groups, so only take each 2nd position
-    auto paramIndex = static_cast<int>(*mInBuf[4 + mNumDynGenInputs + (2*i)]);
-    if (paramIndex < 0 || paramIndex >= mNumParameters) {
-      Print("ERROR: Parameter num %i out of range - falling back to param index 0\n", paramIndex);
-      paramIndex = 0;
-    }
+    // parameters come in index-value pairs, so only take each 2nd position
+    auto paramIndex = static_cast<int>(in0(4 + mNumDynGenInputs + (2*i)));
     mParameterIndices[i] = paramIndex;
   }
 
-  // insert ourselves into the linked list of DynGen nodes which are
-  // using the same code such that we can receive code updates
-  auto const head = codeNode->dynGen;
-  if (head) {
-    head->mPrevDynGen = this;
-  }
-  mNextDynGen = head;
-  codeNode->dynGen = this;
-
-  // we may have to re-adjust the entry point of our linked list if we
-  // get cleared, so we store the handle to the library which can not be
-  // deleted.
+  // add ourselves to the code node so we can receive code updates.
+  codeNode->addUnit(this);
+  // we have to unregister ourself when the Unit is freed, see ~DynGen().
   mCodeLibrary = codeNode;
 
   if (useAudioThread) {
@@ -82,19 +53,25 @@ DynGen::DynGen() : mPrevDynGen(nullptr), mNextDynGen(nullptr), mCodeLibrary(null
     // yet it get rids of one block size delay until the signal appears.
     // Since the VM init seems to be often fast enough we allow the user
     // to decide, yet this is not the default case.
-    mVm = new EEL2Adapter(
+    auto vm = new EEL2Adapter(
       mNumDynGenInputs,
       mNumOutputs,
-      mNumParameters,
       static_cast<int>(sampleRate()),
       mBufLength,
       mWorld,
       mParent
     );
-    mVm->init(codeNode->code, codeNode->parameters);
+
+    if (vm->init(*codeNode->mScript, mParameterIndices, mNumDynGenParameters)) {
+        mVm = vm;
+    } else {
+        delete vm;
+    }
   } else {
     // offload VM init to NRT thread
-    ClearUnitIfMemFailed(updateCode(codeNode->code, codeNode->parameters));
+    if (!updateCode(codeNode->mScript)) {
+      ClearUnitOnMemFailed
+    }
   }
 }
 
@@ -105,26 +82,31 @@ void DynGen::next(int numSamples) {
     }
   } else {
     // skip first 4 channels since those are not signals
-    mVm->process(mInBuf + 4, mOutBuf, mNumDynGenParameters, mParameterIndices, numSamples);
+    mVm->process(mInBuf + 4, mOutBuf, mInBuf + 4 + mNumDynGenInputs, numSamples);
   }
 }
 
-bool DynGen::updateCode(const char* code, char** parameters) const {
-  auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, sizeof(DynGenCallbackData)));
+bool DynGen::updateCode(const DynGenScript* script) const {
+  // allocate extra space for parameter indices, see DynGenCallbackData.
+  auto payloadSize = sizeof(DynGenCallbackData) + sizeof(int) * mNumDynGenParameters;
+  auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, payloadSize));
 
   // guard in case allocation fails
   if (payload) {
     payload->dynGenStub = mStub;
     payload->numInputChannels = mNumDynGenInputs;
     payload->numOutputChannels = mNumOutputs;
-    payload->numParameters = mNumParameters;
-    payload->parameters = parameters;
+    payload->numParameters = mNumDynGenParameters;
     payload->sampleRate = static_cast<int>(sampleRate());
     payload->blockSize = mBufLength;
     payload->world = mWorld;
     payload->parent = mParent;
     payload->oldVm = nullptr;
-    payload->code = code;
+    payload->script = script;
+
+    for (int i = 0; i < mNumDynGenParameters; ++i) {
+      payload->parameterIndices[i] = mParameterIndices[i];
+    }
 
     // increment ref counter before we start the async command
     mStub->mRefCount += 1;
@@ -161,18 +143,9 @@ bool DynGen::updateCode(const char* code, char** parameters) const {
   if (mCodeLibrary == nullptr) {
     return;
   }
-  // readjust the head of the linked list of the code library if necessary
-  if (mCodeLibrary->dynGen == this) {
-    mCodeLibrary->dynGen = mNextDynGen;
-  }
 
-  // remove ourselves from the linked list
-  if (mPrevDynGen != nullptr) {
-    mPrevDynGen->mNextDynGen = mNextDynGen;
-  }
-  if (mNextDynGen != nullptr) {
-    mNextDynGen->mPrevDynGen = mPrevDynGen;
-  }
+  // remove ourselves from the code library
+  mCodeLibrary->removeUnit(this);
 
   // free the vm in RT context through async command
   ft->fDoAsynchronousCommand(
@@ -195,21 +168,22 @@ bool DynGen::createVmAndCompile(World* world, void *rawCallbackData) {
   callbackData->vm = new EEL2Adapter(
     callbackData->numInputChannels,
     callbackData->numOutputChannels,
-    callbackData->numParameters,
     callbackData->sampleRate,
     callbackData->blockSize,
     callbackData->world,
     callbackData->parent
   );
 
-  auto success = callbackData->vm->init(callbackData->code, callbackData->parameters);
+  auto success = callbackData->vm->init(*callbackData->script,
+                                        callbackData->parameterIndices,
+                                        callbackData->numParameters);
   if (!success) {
     // if not successful, remove vm and do not attempt to replace
     // running vm.
     delete callbackData->vm;
     return false;
   }
-  // continue to stage 3
+  // continue with stage 3
   return true;
 }
 

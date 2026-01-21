@@ -1,6 +1,117 @@
 #include "library.h"
+#include "dyngen.h"
 
-#include <sstream>
+#include <fstream>
+
+//-------------------- DynGenScript -------------------//
+
+namespace {
+
+bool validateBlockOrder(size_t posInit, size_t posBlock, size_t posSample) {
+  size_t lastPos = 0;
+  if (posInit != std::string_view::npos) {
+    lastPos = posInit;
+  }
+  if (posBlock != std::string_view::npos) {
+    if (posBlock < lastPos) {
+      return false;
+    }
+    lastPos = posBlock;
+  }
+  if (posSample != std::string_view::npos) {
+    if (posSample < lastPos) {
+      return false;
+    }
+  }
+  return true;
+}
+
+} // namespace
+
+bool DynGenScript::parse(std::string_view script) {
+  std::string_view init("@init\n");
+  std::string_view block("@block\n");
+  std::string_view sample("@sample\n");
+
+  auto posInit = script.find(init);
+  auto posBlock = script.find(block);
+  auto posSample = script.find(sample);
+
+  // if no blocks given -> use code as sample block
+  if (posInit == std::string_view::npos && posSample == std::string_view::npos
+      && posBlock == std::string_view::npos) {
+    mSample = script;
+    return true;
+  };
+
+  if (posSample == std::string_view::npos) {
+    Print("DynGen script requires a sample section\n");
+    return false;
+  }
+
+  if (!validateBlockOrder(posInit, posBlock, posSample)) {
+    Print("DynGen: Wrong script block order, requires @init, @block, @sample order\n");
+    return false;
+  }
+
+  // skip the matched strings!
+  auto startInit = (posInit != std::string_view::npos) ? posInit + init.size() : std::string_view::npos;
+  auto startBlock = (posBlock != std::string_view::npos) ? posBlock + block.size() : std::string_view::npos;
+  auto startSample = (posSample != std::string_view::npos) ? posSample + sample.size() : std::string_view::npos;
+
+  if (posInit != std::string_view::npos) {
+    const auto endPos = posBlock != std::string_view::npos ? posBlock : posSample;
+    mInit = std::string(script.substr(startInit, endPos - startInit));
+  }
+
+  if (posBlock != std::string_view::npos) {
+    mBlock = std::string(script.substr(startBlock, posSample - startBlock));
+  }
+
+  mSample = std::string(script.substr(startSample));
+
+  return true;
+}
+
+//-------------------- CodeLibrary --------------------//
+
+void CodeLibrary::addUnit(DynGen* unit) {
+  // add ourselves to the linked list of DynGen nodes
+  if (mDynGen) {
+    mDynGen->mPrevDynGen = unit;
+  }
+  unit->mNextDynGen = mDynGen;
+  mDynGen = unit;
+}
+
+void CodeLibrary::removeUnit(DynGen* unit) {
+  // readjust the head of the linked list of the code library if necessary
+  if (mDynGen == unit) {
+    mDynGen = unit->mNextDynGen;
+  }
+  // remove ourselves from the linked list
+  if (unit->mPrevDynGen != nullptr) {
+    unit->mPrevDynGen->mNextDynGen = unit->mNextDynGen;
+  }
+  if (unit->mNextDynGen != nullptr) {
+    unit->mNextDynGen->mPrevDynGen = unit->mPrevDynGen;
+  }
+}
+
+//--------------------- Library ----------------------//
+
+// a global linked list which stores the code
+// and its associated running DynGens.
+CodeLibrary *gLibrary = nullptr;
+
+CodeLibrary* Library::findCode(int codeID) {
+  for (auto node = gLibrary; node; node = node->mNext) {
+    if (node->mID == codeID) {
+      return node;
+    }
+  }
+  return nullptr;
+}
 
 void Library::buildGenericPayload(
   World *inWorld,
@@ -17,13 +128,11 @@ void Library::buildGenericPayload(
   newLibraryEntry->oscString = nullptr;
   newLibraryEntry->numParameters = 0;
   newLibraryEntry->parameterNamesRT = nullptr;
-  newLibraryEntry->oldCode = nullptr;
-  newLibraryEntry->oldParameterNames = nullptr;
-  newLibraryEntry->numOldParameterNames = 0;
+  newLibraryEntry->oldScript = nullptr;
 
   newLibraryEntry->hash = args->geti();
 
-  if (const char *codePath = args->gets()) {
+  if (const char* codePath = args->gets()) {
     auto codePathLength = strlen(codePath) + 1;
     newLibraryEntry->oscString =
         static_cast<char *>(RTAlloc(inWorld, codePathLength));
@@ -77,7 +186,7 @@ void Library::buildGenericPayload(
 
 }
 
-void Library::rtCleanup(World* inWorld, NewDynGenLibraryEntry* newLibraryEntry, const int numRtParameters) {
+void Library::rtCleanup(World* inWorld, NewDynGenLibraryEntry* newLibraryEntry, int numRtParameters) {
   if (newLibraryEntry == nullptr) {
     return;
   }
@@ -108,26 +217,33 @@ void Library::addScriptCallback(
   buildGenericPayload(inWorld, args, false);
 }
 
-bool Library::loadScriptToDynGenLibrary(World *world,
-                                               void *rawCallbackData) {
-  const auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
-  const auto codeLength = strlen(entry->oscString) + 1;
-  auto *codeBuffer = new char[codeLength];
-  std::copy_n(entry->oscString, codeLength, codeBuffer);
-  entry->code = codeBuffer;
+bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry *newLibraryEntry,
+                                      std::string_view code) {
+  auto script = new DynGenScript();
 
-  entry->parameterNamesNRT = new char *[entry->numParameters];
-  for (int i = 0; i < entry->numParameters; i++) {
-    auto paramLength = strlen(entry->parameterNamesRT[i]) + 1;
-    auto *paramBuffer = new char[paramLength];
-    std::copy_n(entry->parameterNamesRT[i], paramLength, paramBuffer);
-    entry->parameterNamesNRT[i] = paramBuffer;
+  if (!script->parse(code)) {
+    delete script;
+    return false;
   }
+
+  // create parameter list
+  for (int i = 0; i < newLibraryEntry->numParameters; i++) {
+    script->mParameters.push_back(newLibraryEntry->parameterNamesRT[i]);
+  }
+
+  newLibraryEntry->script = script;
+
+  // continue with next stage
   return true;
 }
 
-bool Library::loadFileToDynGenLibrary(World *world,
-                                             void *rawCallbackData) {
+bool Library::loadScriptToDynGenLibrary(World *world, void *rawCallbackData) {
+  const auto entry = static_cast<NewDynGenLibraryEntry*>(rawCallbackData);
+
+  return loadCodeToDynGenLibrary(entry, entry->oscString);
+}
+
+bool Library::loadFileToDynGenLibrary(World *world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry *>(rawCallbackData);
 
   auto codeFile = std::ifstream(entry->oscString, std::ios::binary);
@@ -136,38 +252,21 @@ bool Library::loadFileToDynGenLibrary(World *world,
     return false;
   }
 
-  std::stringstream codeStream;
-
   codeFile.seekg(0, std::ios::end);
   const std::streamsize codeSize = codeFile.tellg();
   codeFile.seekg(0);
 
-  // add /0
-  auto *codeBuffer = new char[codeSize + 1];
-  codeFile.read(codeBuffer, codeSize);
-  codeBuffer[codeSize] = '\0';
+  std::string codeBuffer;
+  codeBuffer.resize(codeSize);
+  codeFile.read(codeBuffer.data(), codeSize);
 
-  entry->code = codeBuffer;
-
-  entry->parameterNamesNRT = new char *[entry->numParameters];
-  for (int i = 0; i < entry->numParameters; i++) {
-    auto paramLength = strlen(entry->parameterNamesRT[i]) + 1;
-    auto *paramBuffer = new char[paramLength];
-    std::copy_n(entry->parameterNamesRT[i], paramLength, paramBuffer);
-    entry->parameterNamesNRT[i] = paramBuffer;
-  }
-
-  // continue to next stage
-  return true;
+  return loadCodeToDynGenLibrary(entry, codeBuffer);
 }
 
 bool Library::swapCode(World *world, void *rawCallbackData) {
   const auto entry = static_cast<NewDynGenLibraryEntry *>(rawCallbackData);
 
-  CodeLibrary *node = gLibrary;
-  while (node && node->id != entry->hash) {
-    node = node->next;
-  }
+  CodeLibrary *node = Library::findCode(entry->hash);
 
   if (!node) {
     auto *newNode = static_cast<CodeLibrary *>(RTAlloc(world, sizeof(CodeLibrary)));
@@ -175,25 +274,17 @@ bool Library::swapCode(World *world, void *rawCallbackData) {
       Print("ERROR: Failed to allocate memory for new code library\n");
       return true;
     }
-    newNode->next = gLibrary;
-    newNode->id = entry->hash;
-    newNode->dynGen = nullptr;
-    newNode->code = entry->code;
-    newNode->numParameters = entry->numParameters;
-    newNode->parameters = entry->parameterNamesNRT;
+    newNode->mNext = gLibrary;
+    newNode->mID = entry->hash;
+    newNode->mDynGen = nullptr;
+    newNode->mScript = entry->script;
     gLibrary = newNode;
   } else {
     // swap code
-    entry->oldCode = node->code;
-    entry->numOldParameterNames = node->numParameters;
-    entry->oldParameterNames = node->parameters;
+    entry->oldScript = node->mScript;
+    node->mScript = entry->script;
 
-    node->code = entry->code;
-    node->numParameters = entry->numParameters;
-    node->parameters = entry->parameterNamesNRT;
-
-    auto dynGen = node->dynGen;
-    while (dynGen != nullptr) {
+    for (auto dynGen = node->mDynGen; dynGen != nullptr; dynGen = dynGen->mNextDynGen) {
       // although the code can be updated, the referenced code
       // lives long enough b/c in worst case there is already
       // a new code in the pipeline at stage2 where the old code
@@ -264,8 +355,7 @@ STAGE3_RT -> STAGE4_NRT : deleteOldVm
 ```
 */
       // clang-format on
-      dynGen->updateCode(entry->code, entry->parameterNamesNRT);
-      dynGen = dynGen->mNextDynGen;
+      dynGen->updateCode(entry->script);
     }
   }
   return true;
@@ -273,11 +363,7 @@ STAGE3_RT -> STAGE4_NRT : deleteOldVm
 
 bool Library::deleteOldCode(World *world, void *rawCallbackData) {
   auto entry = static_cast<NewDynGenLibraryEntry *>(rawCallbackData);
-  delete[] entry->oldCode;
-  for (int i = 0; i < entry->numOldParameterNames; i++) {
-    delete[] entry->oldParameterNames[i];
-  }
-  delete[] entry->oldParameterNames;
+  delete entry->oldScript;
   return true;
 }
 

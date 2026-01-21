@@ -1,17 +1,39 @@
 #pragma once
-#include "dyngen.h"
 
-#include <fstream>
-#include <SC_PlugIn.hpp>
+#include <string>
+#include <vector>
 
 // forward declarations
-class DynGen;
 struct CodeLibrary;
+class DynGen;
 struct DynGenStub;
 struct DynGenCallbackData;
+struct EEL2Adapter;
+struct Graph;
+struct InterfaceTable;
+struct World;
 
 extern InterfaceTable *ft;
-extern CodeLibrary *gLibrary;
+
+/*! @class DynGenScript
+ *  @brief contains the code sections of an EEL2 script
+ *  plus a list of exposed parameter names.
+ */
+class DynGenScript {
+public:
+  /*! @brief Splits the DynGen scripts into its sections.
+   *  non rt safe! does not trim output. */
+  bool parse(std::string_view script);
+
+  std::string mInit;
+  std::string mBlock;
+  std::string mSample;
+
+  /*! @brief parameters which need to be exposed - referenced by the integer
+   *  position within the array
+   */
+  std::vector<std::string> mParameters;
+};
 
 /*! @brief Wraps a DynGen with a ref counter.
  *  RT owned
@@ -49,22 +71,24 @@ struct DynGenStub {
  */
 struct CodeLibrary {
   /*! @brief the next entry in the linked list */
-  CodeLibrary *next;
+  CodeLibrary* mNext;
   /*! @brief we refer to scripts via ID in order to avoid storing
    *  and sending strings via OSC
    */
-  int id;
+  int mID;
   /*! @brief  references the first DynGen - all other instances can be accessed
    *  through the double linked list of DynGen
    */
-  DynGen *dynGen;
+  DynGen* mDynGen;
+
   /*! @brief the eel2 code currently associated with the DynGen instance */
-  char* code;
-  /*! @brief parameters which need to be exposed by - referenced by the integer
-   *  position within the array
-   */
-  char** parameters;
-  int numParameters;
+  DynGenScript* mScript;
+
+  /*! @brief register a DynGen unit for this code node */
+  void addUnit(DynGen* unit);
+
+  /*! @brief unregister a DynGen unit from this code node */
+  void removeUnit(DynGen* unit);
 };
 
 /*! @brief A struct to be passed around to update already running dyngen nodes
@@ -78,14 +102,13 @@ struct DynGenCallbackData {
 
   /*! @brief the running dyngen stub to be updated */
   DynGenStub *dynGenStub;
-  /*! @brief the new code to be used */
-  const char* code;
-  char** parameters;
+  /*! @brief the new script to be used */
+  const DynGenScript* script;
 
   /*! @brief vm init */
-  uint32 numInputChannels;
-  uint32 numOutputChannels;
-  uint32 numParameters;
+  int numInputChannels;
+  int numOutputChannels;
+  int numParameters;
 
   int sampleRate;
   int blockSize;
@@ -93,6 +116,13 @@ struct DynGenCallbackData {
   World *world;
   /*! @brief necessary for accessing local buffers */
   Graph *parent;
+
+  /*! @brief since the Unit is not guaranteed to stay alive during an
+   * asynchronous command, so we have to make a temporary copy of the
+   * parameter indices to avoid referencing stale memory. We allocate
+   * the indices as part of the command itself so we only hit the
+   * RT memory allocator once. */
+  int parameterIndices[1];
 };
 
 /*! @brief The callback payload to enter a new entry into the code library,
@@ -120,20 +150,19 @@ struct NewDynGenLibraryEntry {
   char** parameterNamesRT;
   int numParameters;
 
-  /*! @brief the newly received code - NRT managed */
-  char* code;
-  /*! @brief the parameters - NRT version */
-  char** parameterNamesNRT;
+  /*! @brief the newly received script - NRT managed */
+  DynGenScript* script;
 
   /*! @brief the code to be replaced and should be deleted - NRT managed */
-  char* oldCode;
-  int numOldParameterNames;
-  char** oldParameterNames;
+  DynGenScript* oldScript;
 };
 
 
 class Library {
 public:
+  /*! @brief find the CodeLibrary for a given code ID */
+  static CodeLibrary* findCode(int codeID);
+
   /*! @brief runs in stage  1 (RT thread)
    *  responds to an osc message on the RT thread - we therefore have to
    *  copy the OSC data to a new struct which then gets passed to another
@@ -157,9 +186,14 @@ private:
   static void buildGenericPayload(World *inWorld, sc_msg_iter *args, bool isFile);
 
   /*! @brief performs all cleanup procedures in case RT Alloc of the
-   * newLibraryEntry setup fails */
+   *  newLibraryEntry setup fails */
   static void rtCleanup(World *inWorld, NewDynGenLibraryEntry *newLibraryEntry,
                         int numRtParameters);
+
+  /*! @brief common function for loadScriptToDynGenLibrary() and loadFileToDynGenLibrary()
+   *  which creates and initializes the actual DynGenScript instance.
+   */
+  static bool loadCodeToDynGenLibrary(NewDynGenLibraryEntry *newLibraryEntry, std::string_view code);
 
   /*! @brief this runs in stage 2 (NRT) and copies the content of the
    *  RT owned code to a NRT owned code

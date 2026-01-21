@@ -1,11 +1,10 @@
 #pragma once
 
-#include "eel2_adapter.h"
 #include "library.h"
+
 #include <SC_PlugIn.hpp>
 
-struct CodeLibrary;
-struct DynGenStub;
+struct EEL2Adapter;
 
 /*! @class DynGen
  *  @brief The UGen which runs an associated DynGen script from the Library.
@@ -16,7 +15,7 @@ public:
   /*! @brief updates vm in an async manner.
    *  Returns false in case the allocation of the callback data failed.
    */
-  bool updateCode(const char *code, char** parameters) const;
+  bool updateCode(const DynGenScript* script) const;
   ~DynGen();
 
   /*! @brief the active vm - at the point it is not a null pointer it will
@@ -27,20 +26,19 @@ public:
    *  is sufficient to link all DynGen instances with the same
    *  code internally
    */
-  DynGen* mPrevDynGen;
-  DynGen* mNextDynGen;
+  DynGen* mPrevDynGen = nullptr;
+  DynGen* mNextDynGen = nullptr;
   /*! @brief we need a reference to the used CodeLibrary b/c in case we get
    *  freed we may have to update the associated linked list
    */
-  CodeLibrary* mCodeLibrary;
+  CodeLibrary* mCodeLibrary = nullptr;
 
-  DynGenStub* mStub;
+  DynGenStub* mStub = nullptr;
 private:
   int mCodeID;
   int mNumDynGenInputs;
   int mNumDynGenParameters;
-  int* mParameterIndices;
-  int mNumParameters;
+  int* mParameterIndices = nullptr;
 
   void next(int numSamples);
 

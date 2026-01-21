@@ -1,95 +1,16 @@
 #pragma once
 
 #include "ns-eel-int.h"
-
-#include <atomic>
-#include <iostream>
-#include <string>
-
 #include "eel2/ns-eel.h"
 
 #include <SC_Graph.h>
 #include <SC_Unit.h>
 #include <SC_World.h>
 
+#include "library.h"
 
-/*! @class DynGenScript
- *  @brief Splits the DynGen scripts into its sections
- *  non rt safe! does not trim output
- */
-class DynGenScript {
-public:
-  DynGenScript(const std::string &script) {
-    std::string_view stringView(script);
-
-    /*! @brief do not search for \n@init\n b/c the script may start with @init
-     *  which is fine.
-     */
-    auto posInit = stringView.find("@init\n");
-    auto posBlock = stringView.find("@block\n");
-    auto posSample = stringView.find("@sample\n");
-
-    // if no blocks given -> use code as sample block
-    if (posInit == std::string::npos && posSample == std::string::npos && posBlock == std::string::npos) {
-      sample = script;
-      return;
-    };
-
-    if (posSample == std::string::npos) {
-      std::cout << "DynGen script requires a sample section" << std::endl;
-      return;
-    }
-
-    if (!validateBlockOrder(posInit, posBlock, posSample)) {
-      std::cout << "DynGen: Wrong script block order, requires @init, @block, @sample order" << std::endl;
-      return;
-    }
-
-    // + offsets b/c matching e.g. `@init\n` needs to shift by len 5
-    const auto lenInit = 5; // length of string `\n@init\n`
-    const auto lenBlock = 6;
-    const auto lenSample = 7;
-    auto startInit = (posInit != std::string::npos) ? posInit + lenInit : std::string::npos;
-    auto startBlock = (posBlock != std::string::npos) ? posBlock + lenBlock : std::string::npos;
-    auto startSample = (posSample != std::string::npos) ? posSample + lenSample : std::string::npos;
-
-    if (posInit != std::string::npos) {
-      const auto endPos = posBlock != std::string::npos ? posBlock : posSample;
-      init = std::string(stringView.substr(startInit, endPos - startInit));
-    }
-
-    if (posBlock != std::string::npos) {
-      block = std::string(stringView.substr(startBlock, posSample - startBlock));
-    }
-
-    sample = std::string(stringView.substr(startSample));
-  }
-
-  // script sections
-  std::string init;
-  std::string block;
-  std::string sample;
-
-private:
-  static bool validateBlockOrder(size_t posInit, size_t posBlock, size_t posSample) {
-    size_t lastPos = 0;
-    if (posInit != std::string::npos) {
-      lastPos = posInit;
-    }
-    if (posBlock != std::string::npos) {
-      if (posBlock < lastPos) {
-        return false;
-      }
-      lastPos = posBlock;
-    }
-    if (posSample != std::string::npos) {
-      if (posSample < lastPos) {
-        return false;
-      }
-    }
-    return true;
-  }
-};
+#include <algorithm>
+#include <memory>
 
 /*! @class EEL2Adapter
  *  @brief wraps a EEL2 VM and injects special functions and variables
@@ -97,11 +18,14 @@ private:
  */
 class EEL2Adapter {
 public:
-  EEL2Adapter(const uint32 numInputChannels, const uint32 numOutputChannels, const uint32 numParameters, const int sampleRate, const int blockSize, World *world, Graph* parent) : mNumInputChannels(numInputChannels), mNumOutputChannels(numOutputChannels), mNumParameters(numParameters), mSampleRate(sampleRate), mBlockSize(blockSize), mWorld(world), mParent(parent) {};
+  EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels,
+              int sampleRate, int blockSize, World *world, Graph* parent);
+
   ~EEL2Adapter();
 
   /*! @brief returns true if vm has been compiled successfully */
-  bool init(const std::string &script, char **parameters);
+  bool init(const DynGenScript& script, const int* parameterIndices, int numParamIndices);
+
   static EEL_F eelReadBuf(void* opaque, INT_PTR numParams, EEL_F** params);
   static EEL_F eelReadBufL(void* opaque, INT_PTR numParams, EEL_F** params);
   static EEL_F eelReadBufC(void* opaque, INT_PTR numParams, EEL_F** params);
@@ -109,7 +33,7 @@ public:
   static EEL_F* in(void *opaque, EEL_F *channel);
   static EEL_F* out(void *opaque, EEL_F *channel);
 
-  void process(float **inBuf, float **outBuf, int numParameters, int* parameterIndices, int numSamples) {
+  void process(float **inBuf, float **outBuf, float **parameterPairs, int numSamples) {
     if (mBlockCode) {
       NSEEL_code_execute(mBlockCode);
     }
@@ -120,8 +44,14 @@ public:
         *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][i]);
       }
 
-      for (int numParam=0; numParam < numParameters; numParam++) {
-        *mParameters[parameterIndices[numParam]] = static_cast<double>(inBuf[mNumInputChannels + (numParam * 2) + 1][i]);
+      // update automated parameters.
+      // parameter automations come as index-value pairs, so we only take
+      // every second odd element.
+      for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
+        if (mParameters[paramNum] != nullptr) {
+          auto paramValue = parameterPairs[paramNum * 2 + 1];
+          *mParameters[paramNum] = static_cast<double>(paramValue[i]);
+        }
       }
 
       NSEEL_code_execute(mSampleCode);
@@ -141,14 +71,14 @@ private:
 
   int mNumInputChannels = 0;
   int mNumOutputChannels = 0;
-  int mNumParameters = 0;
+  int mNumParameters = 0; // number of automated parameters
 
   double mSampleRate = 0;
   int mBlockSize = 0;
 
-  double **mInputs = nullptr;
-  double **mOutputs = nullptr;
-  double **mParameters = nullptr;
+  std::unique_ptr<double*[]> mInputs;
+  std::unique_ptr<double*[]> mOutputs;
+  std::unique_ptr<double*[]> mParameters;
 
   World *mWorld;
   Graph *mParent;
@@ -158,9 +88,6 @@ private:
    */
   SndBuf *mSndBuf = nullptr;
   int mSndBufNum = -1;
-
-  // @todo make this a RT alloc char* or free this via NRT thread
-  DynGenScript *mScript;
 
   /*! @brief see GET_BUF macro from SC_Unit.h */
   SndBuf* getBuffer(int bufNum) {

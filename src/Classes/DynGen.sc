@@ -228,6 +228,8 @@ DynGen : MultiOutUGen {
 		});
 
 		params = script.prTranslateParameters(params);
+		// update the parameter count because parameters might have been ignored!
+		numParams = params.size.div(2);
 
 		// signals must be audio rate
 		signals = audioInputs.collect({|sig|
