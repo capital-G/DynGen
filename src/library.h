@@ -22,7 +22,7 @@ extern InterfaceTable *ft;
 class DynGenScript {
 public:
   /*! @brief Splits the DynGen scripts into its sections.
-   * non rt safe! does not trim output. */
+   *  non rt safe! does not trim output. */
   bool parse(std::string_view script);
 
   std::string mInit;
@@ -161,7 +161,7 @@ struct NewDynGenLibraryEntry {
 class Library {
 public:
   /*! @brief find the CodeLibrary for a given code ID */
-    static CodeLibrary* findCode(int codeID);
+  static CodeLibrary* findCode(int codeID);
 
   /*! @brief runs in stage  1 (RT thread)
    *  responds to an osc message on the RT thread - we therefore have to
@@ -186,7 +186,7 @@ private:
   static void buildGenericPayload(World *inWorld, sc_msg_iter *args, bool isFile);
 
   /*! @brief performs all cleanup procedures in case RT Alloc of the
-   * newLibraryEntry setup fails */
+   *  newLibraryEntry setup fails */
   static void rtCleanup(World *inWorld, NewDynGenLibraryEntry *newLibraryEntry,
                         int numRtParameters);
 
