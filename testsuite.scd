@@ -5,8 +5,16 @@
 		\testRt,
 		\testUpdate,
 		\testNonExisting,
+		\testDynamicIO,
 		\testParam,
 		\testMultiParam,
+		\testBufRead,
+		\testBufWrite,
+		\testConstants,
+
+		// sclang tests
+		\testRemoveComments,
+		\testExtractParameters,
 	],
 
 	testBasic: {
@@ -71,6 +79,23 @@
 		success;
 	},
 
+	testDynamicIO: {
+		var success = false;
+		var condition = Condition();
+		DynGenDef(\testDynamicIO, "out(0)=0.5;out(1)=in(0);").send;
+		s.sync;
+		{
+			DynGen.ar(2, \testDynamicIO, DC.ar(20.0), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			var left = (sig[0]-0.5).abs < 0.01;
+			var right = (sig[1]-20.0).abs < 0.01;
+			success = left.and(right);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
 	testParam: {
 		var success = false;
 		var condition = Condition();
@@ -103,6 +128,98 @@
 		success;
 	},
 
+	testBufRead: {
+		var success = false;
+		var condition = Condition();
+		var buffer = Buffer.loadCollection(s, FloatArray.fill(100, pi));
+		DynGenDef(\testBufRead, "out0=bufRead(_bufnum, 0)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testBufRead, params: [bufnum: buffer]);
+		}.loadToFloatArray(0.2, action: {|sig|
+			success = sig.any({|x| (x-pi).abs < 0.01;});
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testBufWrite: {
+		var success = false;
+		var condition = Condition();
+		var bufCondition = Condition();
+		var buffer = Buffer.loadCollection(s, FloatArray.fill(100, pi));
+
+		DynGenDef(\testBufWrite, "out0=bufWrite(_bufnum, 0, 0.5)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testBufWrite, params: [bufnum: buffer]);
+		}.loadToFloatArray(0.2, action: {
+			condition.unhang;
+		});
+		condition.hang;
+
+		buffer.get(0, {|x|
+			success = (x-0.5).abs < 0.01;
+			bufCondition.unhang;
+		});
+		bufCondition.hang;
+
+		success;
+	},
+
+	testConstants: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testConstants, "out0=srate;out1=blockSize;").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testConstants, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			var sr = sig[0] > 40000;
+			var block = sig[1] > 4;
+			success = sr.and(block);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	// sclang tests
+
+	testRemoveComments: {
+		var code = "
+hello; //world
+/*
+and nothing
+here
+*/
+you;
+";
+		var extract = DynGenDef.prRemoveComments(code);
+		var inline = extract.contains("world").not;
+		var multiLine = extract.contains("nothing").not;
+		var afterLine = extract.contains("you;");
+		inline.and(multiLine).and(afterLine);
+	},
+
+	testExtractParameters: {
+		var code = "
+out0 = in0*(_gain*_gain);
+/*
+_ignore = _this;
+*/
+out1 = __gain2;
+";
+		var params = DynGenDef.prExtractParameters(code);
+		var gain = params.includes(\_gain);
+		var gain2 = params.includes(\__gain2);
+		var size = params.size == 2;
+		gain.and(gain2).and(size);
+	},
+
+	// meta
 
 	run: {|self, name=nil|
 		var testsToRun = if(name.isNil, {self.allTests}, {name.asArray});
@@ -122,5 +239,7 @@
 	},
 )
 )
+
+s.reboot;
 
 fork{~dynGenTests.run}
