@@ -1,0 +1,10 @@
+repos:
+  -   repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v2.3.0
+      hooks:
+        -   id: check-merge-conflict
+        -   id: check-case-conflict
+  -   repo: https://github.com/pre-commit/mirrors-clang-format
+      rev: 'v14.0.6'  # same as supercollider
+      hooks:
+        -   id: clang-format

@@ -133,6 +133,10 @@ Ndef(\x, {
 
 For further information and examples, look into the docs of `DynGen`. 
 
+## Development
+
+Please install [pre-commit](https://pre-commit.com/) (followed by `pre-commit install`) which will make sure that all commits are formatted according to the clang formatting rules.
+
 ## License
 
 [EEL2](https://www.cockos.com/EEL2/) and [WDL](https://www.cockos.com/wdl/) by [*Cockos*](https://www.cockos.com/) are BSD licensed.
