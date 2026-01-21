@@ -81,8 +81,17 @@ struct CodeLibrary {
      */
     DynGen* mDynGen;
 
-    /*! @brief the eel2 code currently associated with the DynGen instance */
+    /*! @brief the eel2 code currently associated with the DynGen instance.
+     *  NRT managed.
+     */
     DynGenScript* mScript;
+
+    /*! @brief indicates if this library entry has been marked as to be
+     *  freed after all associated running DynGen instances have been freed.
+     *  At this point, the library entry has already been removed from the
+     *  linked list gLibrary.
+     */
+    bool shouldBeFreed;
 
     /*! @brief register a DynGen unit for this code node */
     void addUnit(DynGen* unit);
@@ -162,6 +171,12 @@ public:
     /*! @brief find the CodeLibrary for a given code ID */
     static CodeLibrary* findCode(int codeID);
 
+    /*! @brief removes a node from the linked list.
+     *  At this point, no new instances can see this script
+     *  anymore.
+     */
+    static void unlinkNode(CodeLibrary* node);
+
     /*! @brief runs in stage  1 (RT thread)
      *  responds to an osc message on the RT thread - we therefore have to
      *  copy the OSC data to a new struct which then gets passed to another
@@ -175,6 +190,12 @@ public:
      *  script within the OSC message.
      */
     static void addScriptCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr);
+
+    /*! @brief makes a script unavailable for new unit instances. Only when all
+     *  running DynGen instances (see DynGenStub) are removed, it will also
+     *  be removed from the library
+     */
+    static void freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr);
 
 private:
     /*! @brief unified abstraction layer for dynGenAddFileCallback and
@@ -218,6 +239,12 @@ private:
      *  been allocated within RT thread
      */
     static void pluginCmdCallbackCleanup(World* world, void* rawCallbackData);
+
+    /*! @brief deletes NRT parts of the code node, the script. Runs in stage 2. */
+    static bool deleteLibraryCodeNRT(World* inWorld, void* cmdData);
+
+    /*! @brief delete RT parts of the code node. Runs in stage 3. */
+    static bool deleteLibraryCodeRT(World* in_world, void* cmdData);
 
     /*! @brief a helper method to consume a completion message from the message
      *  stack makes completionMsg either a nullptr (no message) or point

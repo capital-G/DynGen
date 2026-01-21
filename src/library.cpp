@@ -26,6 +26,9 @@ bool validateBlockOrder(size_t posInit, size_t posBlock, size_t posSample) {
     return true;
 }
 
+// necessary for async removal of entries from dyngen library
+void doNothing(World* inWorld, void* cmdData) {}
+
 } // namespace
 
 bool DynGenScript::parse(std::string_view script) {
@@ -107,11 +110,24 @@ CodeLibrary* gLibrary = nullptr;
 
 CodeLibrary* Library::findCode(int codeID) {
     for (auto node = gLibrary; node; node = node->mNext) {
-        if (node->mID == codeID) {
+        if (node->mID == codeID && !node->shouldBeFreed) {
             return node;
         }
     }
     return nullptr;
+}
+void Library::unlinkNode(CodeLibrary* node) {
+    auto curNode = gLibrary;
+    CodeLibrary* prevNode = nullptr;
+    while (curNode != nullptr && curNode->mID != node->mID) {
+        prevNode = node;
+        curNode = curNode->mNext;
+    }
+    if (prevNode != nullptr) {
+        prevNode->mNext = node->mNext;
+    } else {
+        gLibrary = node->mNext;
+    }
 }
 
 void Library::buildGenericPayload(World* inWorld, sc_msg_iter* args, const bool isFile) {
@@ -190,6 +206,25 @@ void Library::dyngenAddFileCallback(World* inWorld, void* inUserData, sc_msg_ite
 void Library::addScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr) {
     buildGenericPayload(inWorld, args, false);
 }
+void Library::freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr) {
+    if (args->nextTag('f') != 'i') {
+        Print("Error: Invalid DynGenFree message\n");
+        return;
+    }
+    const auto codeId = args->geti();
+    const auto code = findCode(codeId);
+    if (code == nullptr) {
+        Print("Error: Could not free DynGen script with ID %d: not found\n", codeId);
+        return;
+    };
+
+    unlinkNode(code);
+    code->shouldBeFreed = true;
+
+    // defer deletion to NRT and RT thread since script is NRT allocated
+    ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr, static_cast<void*>(code), &Library::deleteLibraryCodeNRT,
+                               &Library::deleteLibraryCodeRT, nullptr, doNothing, 0, nullptr);
+}
 
 bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry* newLibraryEntry, std::string_view code) {
     auto script = new DynGenScript();
@@ -251,6 +286,7 @@ bool Library::swapCode(World* world, void* rawCallbackData) {
         newNode->mID = entry->hash;
         newNode->mDynGen = nullptr;
         newNode->mScript = entry->script;
+        newNode->shouldBeFreed = false;
         gLibrary = newNode;
     } else {
         // swap code
@@ -348,6 +384,22 @@ void Library::pluginCmdCallbackCleanup(World* world, void* rawCallbackData) {
     RTFree(world, callBackData->parameterNamesRT);
     RTFree(world, callBackData->oscString);
     RTFree(world, callBackData);
+}
+bool Library::deleteLibraryCodeNRT(World* inWorld, void* cmdData) {
+    const auto code = static_cast<CodeLibrary*>(cmdData);
+    delete code->mScript;
+    return true;
+}
+bool Library::deleteLibraryCodeRT(World* inWorld, void* cmdData) {
+    const auto code = static_cast<CodeLibrary*>(cmdData);
+
+    // if no dyngen instance is associated with this script anymore,
+    // we can safely delete it. This gets also checked in
+    // the destructor of DynGen, so eventually it will be freed.
+    if (code->mDynGen != nullptr) {
+        RTFree(inWorld, code);
+    }
+    return false;
 }
 
 std::pair<int, const char*> Library::getCompletionMsg(sc_msg_iter* args) {
