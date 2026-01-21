@@ -170,18 +170,6 @@ DynGenDef {
 		code = code.replaceRegexp("\\/\\*.*?\\*\\/", "");
 		^code;
 	}
-
-	// removes duplicate mentions w/o changing
-	// order via a set
-	*prRemoveDuplicates {|parameters|
-		var out = [];
-		parameters.do({|p|
-			if(out.includes(p).not, {
-				out = out.add(p);
-			});
-		});
-		^out;
-	}
 }
 
 DynGen : MultiOutUGen {

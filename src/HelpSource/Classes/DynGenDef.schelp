@@ -36,7 +36,6 @@ Returns all registered DynGenDef instances.
 PRIVATE:: initClass
 PRIVATE:: prExtractParameters
 PRIVATE:: prRemoveComments
-PRIVATE:: prRemoveDuplicates
 
 
 INSTANCEMETHODS::
