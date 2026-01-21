@@ -29,12 +29,13 @@ bool validateBlockOrder(size_t posInit, size_t posBlock, size_t posSample) {
 } // namespace
 
 bool DynGenScript::parse(std::string_view script) {
-  /*! @brief do not search for \n@init\n b/c the script may start with @init
-   *  which is fine.
-   */
-  auto posInit = script.find("@init\n");
-  auto posBlock = script.find("@block\n");
-  auto posSample = script.find("@sample\n");
+  std::string_view init("@init\n");
+  std::string_view block("@block\n");
+  std::string_view sample("@sample\n");
+
+  auto posInit = script.find(init);
+  auto posBlock = script.find(block);
+  auto posSample = script.find(sample);
 
   // if no blocks given -> use code as sample block
   if (posInit == std::string_view::npos && posSample == std::string_view::npos
@@ -53,13 +54,10 @@ bool DynGenScript::parse(std::string_view script) {
     return false;
   }
 
-  // + offsets b/c matching e.g. `@init\n` needs to shift by len 5
-  const auto lenInit = 5; // length of string `\n@init\n`
-  const auto lenBlock = 6;
-  const auto lenSample = 7;
-  auto startInit = (posInit != std::string_view::npos) ? posInit + lenInit : std::string_view::npos;
-  auto startBlock = (posBlock != std::string_view::npos) ? posBlock + lenBlock : std::string_view::npos;
-  auto startSample = (posSample != std::string_view::npos) ? posSample + lenSample : std::string_view::npos;
+  // skip the matched strings!
+  auto startInit = (posInit != std::string_view::npos) ? posInit + init.size() : std::string_view::npos;
+  auto startBlock = (posBlock != std::string_view::npos) ? posBlock + block.size() : std::string_view::npos;
+  auto startSample = (posSample != std::string_view::npos) ? posSample + sample.size() : std::string_view::npos;
 
   if (posInit != std::string_view::npos) {
     const auto endPos = posBlock != std::string_view::npos ? posBlock : posSample;
