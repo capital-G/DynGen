@@ -197,6 +197,9 @@ public:
      */
     static void freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr);
 
+    /*! @brief removes all scripts from the server using freeScriptCallback */
+    static void freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr);
+
 private:
     /*! @brief unified abstraction layer for dynGenAddFileCallback and
      *  addScriptCallback which preapres the payload for the async callback.

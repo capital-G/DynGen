@@ -212,4 +212,5 @@ PluginLoad("DynGen") {
     ft->fDefinePlugInCmd("dyngenscript", Library::addScriptCallback, nullptr);
 
     ft->fDefinePlugInCmd("dyngenfree", Library::freeScriptCallback, nullptr);
+    ft->fDefinePlugInCmd("dyngenfreeall", Library::freeAllScriptsCallback, nullptr);
 }

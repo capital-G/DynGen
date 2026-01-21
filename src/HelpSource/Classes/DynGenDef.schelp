@@ -33,6 +33,16 @@ Location of the DynGen script.
 METHOD:: all
 Returns all registered DynGenDef instances.
 
+METHOD:: freeAll
+Unregisters all DynGen scripts from the server via an async command.
+This also resets LINK::Classes/DynGenDef#*all::.
+argument:: server
+The server on which the DynGenDef should be registered.
+If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
+
+METHOD:: freeAllMsg
+Returns the OSC message to unregister all DynGen scripts from a server.
+
 PRIVATE:: initClass
 PRIVATE:: prExtractParameters
 PRIVATE:: prRemoveComments

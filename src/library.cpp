@@ -225,6 +225,16 @@ void Library::freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* 
     ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr, static_cast<void*>(code), &Library::deleteLibraryCodeNRT,
                                &Library::deleteLibraryCodeRT, nullptr, doNothing, 0, nullptr);
 }
+void Library::freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr) {
+    auto node = gLibrary;
+    while (node != nullptr) {
+        unlinkNode(node);
+        node->shouldBeFreed = true;
+        ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr, static_cast<void*>(node), &Library::deleteLibraryCodeNRT,
+                                   &Library::deleteLibraryCodeRT, nullptr, doNothing, 0, nullptr);
+        node = node->mNext;
+    }
+}
 
 bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry* newLibraryEntry, std::string_view code) {
     auto script = new DynGenScript();
