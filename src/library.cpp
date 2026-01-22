@@ -110,7 +110,7 @@ CodeLibrary* gLibrary = nullptr;
 
 CodeLibrary* Library::findCode(int codeID) {
     for (auto node = gLibrary; node; node = node->mNext) {
-        if (node->mID == codeID && !node->shouldBeFreed) {
+        if (node->mID == codeID) {
             return node;
         }
     }
