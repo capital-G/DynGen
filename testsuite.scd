@@ -12,6 +12,7 @@
 		\testBufWrite,
 		\testConstants,
 		\testDelete,
+		\testDeleteWhileRunning,
 
 		// sclang tests
 		\testRemoveComments,
@@ -217,6 +218,45 @@
 		deleteCondition.hang;
 
 		playSuccess.and(deleteSuccess).and(sclangSuccess);
+	},
+
+	testDeleteWhileRunning: {
+		var synth;
+		var bus = Bus.control(s, 1);
+		var playSuccess = false;
+		var deleteSuccess = false;
+
+		var condition = Condition();
+		var deleteCondition = Condition();
+
+		DynGenDef(\testDeleteRunning, "out0=$pi").send;
+		s.sync;
+		synth = {A2K.kr(DynGen.ar(1, \testDeleteRunning, realtime: 1.0))}.play(outbus: bus);
+		s.sync;
+
+		DynGenDef(\testDeleteRunning).free;
+		s.sync;
+
+		{
+			DynGen.ar(1, \testDeleteRunning, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			deleteSuccess = (sig[0]).abs<0.01;
+			deleteCondition.unhang;
+		});
+		deleteCondition.hang;
+
+		s.sync;
+
+		bus.get({|signal|
+			playSuccess = (signal - pi).abs < 0.01;
+			condition.unhang;
+		});
+		condition.hang;
+
+		synth.free;
+		bus.free;
+
+		playSuccess.and(deleteSuccess);
 	},
 
 	// sclang tests
