@@ -38,7 +38,11 @@ DynGenDef {
 	}
 
 	load {|path|
-		code = File.readAllString(path.asAbsolutePath);
+		try {
+			code = File.readAllString(path);
+		} {
+			^Error("DynGenDef: could not open file '%'".format(path)).throw;
+		}
 	}
 
 	send {|server, completionMsg|
