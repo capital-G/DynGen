@@ -53,6 +53,9 @@ In case the script is too big, the script will be saved to a local temp file and
 argument:: server
 The server on which the DynGenDef should be registered.
 If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
+argument:: update
+If code::true::, all running DynGen instances of this DynGenDef will be updated to the new code.
+NOTE::Code updates are always asynchronous.::
 argument:: completionMsg
 An optional OSC message that will be executed by the server after the DynGenDef has been registered on the server.
 
@@ -65,7 +68,9 @@ Location of the DynGen script.
 METHOD:: sendMsg
 Returns the OSC message which will be sent to the server.
 This can be used in NRT environments, see LINK::Guides/Non-Realtime-Synthesis::.
-argument:: completionMsg
+argument:: update
+If code::true::, all running DynGen instances of this DynGenDef will be updated to the new code.
+argument::
 An optional OSC message that will be executed by the server after the DynGenDef has been registered on the server.
 
 PRIVATE:: name

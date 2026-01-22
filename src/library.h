@@ -149,6 +149,7 @@ struct NewDynGenLibraryEntry {
      */
     char** parameterNamesRT;
     int numParameters;
+    bool updateUnits;
 
     /*! @brief the newly received script - NRT managed */
     DynGenScript* script;

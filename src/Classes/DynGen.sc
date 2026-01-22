@@ -45,23 +45,24 @@ DynGenDef {
 		}
 	}
 
-	send {|server, completionMsg|
+	send {|server, update=true, completionMsg|
 		var servers = (server ?? { Server.allBootedServers }).asArray;
 		this.prRegisterParams;
 		servers.do { |each|
 			if(each.hasBooted.not) {
 				"Server % not running, could not send DynGenDef.".format(server.name).warn
 			};
-			this.prSendScript(each, completionMsg);
+			this.prSendScript(each, update, completionMsg);
 		}
 	}
 
-	sendMsg {|completionMsg|
+	sendMsg {|update=true, completionMsg|
 		var message = [
 			\cmd,
 			\dyngenscript,
 			hash,
 			code,
+			update.asInteger,
 			prParams.size,
 		];
 		message = message ++ prParams;
@@ -83,16 +84,16 @@ DynGenDef {
 		});
 	}
 
-	prSendScript {|server, completionMsg|
-		var message = this.sendMsg(completionMsg).asRawOSC;
+	prSendScript {|server, update, completionMsg|
+		var message = this.sendMsg(update, completionMsg).asRawOSC;
 		if(message.size < (65535 div: 4), {
 			server.sendRaw(message);
 		}, {
-			this.prSendFile(server, completionMsg);
+			this.prSendFile(server, update, completionMsg);
 		});
 	}
 
-	prSendFile {|server, completionMsg|
+	prSendFile {|server, update, completionMsg|
 		var message;
 		var tmpFilePath = PathName.tmp +/+ "%_%".format(hash.asString, counter);
 		counter = counter + 1;
@@ -114,6 +115,7 @@ DynGenDef {
 			\dyngenfile,
 			hash,
 			tmpFilePath,
+			update.asInteger,
 			prParams.size,
 		];
 		message = message ++ prParams;

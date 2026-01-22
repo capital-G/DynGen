@@ -143,6 +143,8 @@ void Library::buildGenericPayload(World* inWorld, sc_msg_iter* args, const bool 
         return;
     }
 
+    newLibraryEntry->updateUnits = args->geti();
+
     newLibraryEntry->numParameters = args->geti();
     newLibraryEntry->parameterNamesRT = static_cast<char**>(RTAlloc(inWorld, newLibraryEntry->numParameters));
     for (int i = 0; i < newLibraryEntry->numParameters; i++) {
@@ -328,7 +330,9 @@ STAGE3_RT -> STAGE4_NRT : deleteOldVm
 ```
 */
             // clang-format on
-            dynGen->updateCode(entry->script);
+            if (entry->updateUnits) {
+                dynGen->updateCode(entry->script);
+            }
         }
     }
     return true;
