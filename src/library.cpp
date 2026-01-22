@@ -102,6 +102,8 @@ void CodeLibrary::removeUnit(DynGen* unit) {
     }
 }
 
+bool CodeLibrary::isReadyToBeFreed() const { return mShouldBeFreed && mDynGen == nullptr; }
+
 //--------------------- Library ----------------------//
 
 // a global linked list which stores the code

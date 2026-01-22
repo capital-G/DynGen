@@ -98,6 +98,9 @@ struct CodeLibrary {
 
     /*! @brief unregister a DynGen unit from this code node */
     void removeUnit(DynGen* unit);
+
+    /*! @brief determines if node is not used anymore and can therefore be freed */
+    [[nodiscard]] bool isReadyToBeFreed() const;
 };
 
 /*! @brief A struct to be passed around to update already running dyngen nodes

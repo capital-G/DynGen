@@ -130,7 +130,7 @@ DynGen::~DynGen() {
     // remove ourselves from the code library
     mCodeLibrary->removeUnit(this);
 
-    if (mCodeLibrary->mShouldBeFreed && mCodeLibrary->mDynGen == nullptr) {
+    if (mCodeLibrary->isReadyToBeFreed()) {
         RTFree(mWorld, mCodeLibrary);
     }
 
