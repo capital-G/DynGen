@@ -219,7 +219,7 @@ void Library::freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* 
     };
 
     unlinkNode(code);
-    code->shouldBeFreed = true;
+    code->mShouldBeFreed = true;
 
     // defer deletion to NRT and RT thread since script is NRT allocated
     ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr, static_cast<void*>(code), &Library::deleteLibraryCodeNRT,
@@ -229,7 +229,7 @@ void Library::freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_it
     auto node = gLibrary;
     while (node != nullptr) {
         unlinkNode(node);
-        node->shouldBeFreed = true;
+        node->mShouldBeFreed = true;
         ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr, static_cast<void*>(node), &Library::deleteLibraryCodeNRT,
                                    &Library::deleteLibraryCodeRT, nullptr, doNothing, 0, nullptr);
         node = node->mNext;
@@ -296,7 +296,7 @@ bool Library::swapCode(World* world, void* rawCallbackData) {
         newNode->mID = entry->hash;
         newNode->mDynGen = nullptr;
         newNode->mScript = entry->script;
-        newNode->shouldBeFreed = false;
+        newNode->mShouldBeFreed = false;
         gLibrary = newNode;
     } else {
         // swap code

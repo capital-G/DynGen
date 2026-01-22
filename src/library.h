@@ -91,7 +91,7 @@ struct CodeLibrary {
      *  At this point, the library entry has already been removed from the
      *  linked list gLibrary.
      */
-    bool shouldBeFreed;
+    bool mShouldBeFreed;
 
     /*! @brief register a DynGen unit for this code node */
     void addUnit(DynGen* unit);
