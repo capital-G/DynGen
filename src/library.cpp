@@ -251,6 +251,7 @@ void Library::freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_it
         freeNode(node, inWorld);
         node = next;
     }
+    gLibrary = nullptr;
 }
 
 bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry* newLibraryEntry, std::string_view code) {
