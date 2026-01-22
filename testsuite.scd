@@ -11,6 +11,7 @@
 		\testBufRead,
 		\testBufWrite,
 		\testConstants,
+		\testDelete,
 
 		// sclang tests
 		\testRemoveComments,
@@ -184,6 +185,38 @@
 		});
 		condition.hang;
 		success;
+	},
+
+	testDelete: {
+		var playSuccess = false;
+		var deleteSuccess = false;
+		var sclangSuccess = false;
+
+		var condition = Condition();
+		var deleteCondition = Condition();
+
+		DynGenDef(\testDelete, "out0=$pi").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDelete, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			playSuccess = (sig[0]-pi).abs<0.01;
+			condition.unhang;
+		});
+		condition.hang;
+
+		DynGenDef(\testDelete).free;
+		sclangSuccess = DynGenDef.all.keys.includes(\testDelete).not;
+
+		{
+			DynGen.ar(1, \testDelete, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			deleteSuccess = (sig[0]).abs<0.01;
+			deleteCondition.unhang;
+		});
+		deleteCondition.hang;
+
+		playSuccess.and(deleteSuccess).and(sclangSuccess);
 	},
 
 	// sclang tests
