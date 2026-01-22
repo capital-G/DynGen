@@ -93,6 +93,7 @@ DynGenDef {
 	}
 
 	prSendFile {|server, completionMsg|
+		var message;
 		var tmpFilePath = PathName.tmp +/+ "%_%".format(hash.asString, counter);
 		counter = counter + 1;
 
