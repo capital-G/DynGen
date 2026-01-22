@@ -135,6 +135,9 @@ void Library::freeNode(CodeLibrary* node, World* world) {
 
     // we need to obtain a handle so we can delete it in the NRT thread
     auto script = node->mScript;
+    // avoid a dangling pointer after mScript has been freed
+    // this should not be accessed b/c mShouldbeFreed has been set, but just to be safe
+    node->mScript = nullptr;
 
     // if no dyngen instance is associated with this script anymore,
     // we can safely delete it. This gets also checked in
