@@ -34,8 +34,7 @@ DynGenDef {
 	}
 
 	*load {|name, path|
-		var code = File.readAllString(path.asAbsolutePath);
-		^this.new(name, code);
+		^this.new(name).load(path);
 	}
 
 	load {|path|
