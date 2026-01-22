@@ -7,11 +7,11 @@
 InterfaceTable* ft;
 
 DynGen::DynGen() {
-    mCodeID = static_cast<int>(in0(0));
-    const bool useAudioThread = in0(1) > 0.5;
-    mNumDynGenInputs = static_cast<int>(in0(2));
-    mNumDynGenParameters = static_cast<int>(in0(3));
-    assert(mNumDynGenInputs + mNumDynGenParameters + 4 <= numInputs());
+    mCodeID = static_cast<int>(in0(CodeIDIndex));
+    const bool useAudioThread = in0(RealTimeIndex) > 0.5;
+    mNumDynGenInputs = static_cast<int>(in0(NumInputsIndex));
+    mNumDynGenParameters = static_cast<int>(in0(NumParametersIndex));
+    assert(mNumDynGenInputs + mNumDynGenParameters + InputOffset <= numInputs());
 
     set_calc_function<DynGen, &DynGen::next>();
 
@@ -38,7 +38,7 @@ DynGen::DynGen() {
     }
     for (int i = 0; i < mNumDynGenParameters; i++) {
         // parameters come in index-value pairs, so only take each 2nd position
-        auto paramIndex = static_cast<int>(in0(4 + mNumDynGenInputs + (2 * i)));
+        auto paramIndex = static_cast<int>(in0(InputOffset + mNumDynGenInputs + (2 * i)));
         mParameterIndices[i] = paramIndex;
     }
 
@@ -74,8 +74,7 @@ void DynGen::next(int numSamples) {
             Clear(numSamples, mOutBuf[i]);
         }
     } else {
-        // skip first 4 channels since those are not signals
-        mVm->process(mInBuf + 4, mOutBuf, mInBuf + 4 + mNumDynGenInputs, numSamples);
+        mVm->process(mInBuf + InputOffset, mOutBuf, mInBuf + InputOffset + mNumDynGenInputs, numSamples);
     }
 }
 

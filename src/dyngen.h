@@ -36,6 +36,13 @@ public:
     DynGenStub* mStub = nullptr;
 
 private:
+    enum {
+        CodeIDIndex = 0,
+        RealTimeIndex = 1,
+        NumInputsIndex = 2,
+        NumParametersIndex = 3,
+        InputOffset = 4
+    };
     int mCodeID;
     int mNumDynGenInputs;
     int mNumDynGenParameters;
