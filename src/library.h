@@ -171,12 +171,6 @@ public:
     /*! @brief find the CodeLibrary for a given code ID */
     static CodeLibrary* findCode(int codeID);
 
-    /*! @brief removes a node from the linked list.
-     *  At this point, no new instances can see this script
-     *  anymore.
-     */
-    static void unlinkNode(CodeLibrary* node);
-
     /*! @brief runs in stage  1 (RT thread)
      *  responds to an osc message on the RT thread - we therefore have to
      *  copy the OSC data to a new struct which then gets passed to another
@@ -201,6 +195,12 @@ public:
     static void freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr);
 
 private:
+    /*! @brief removes a node from the linked list.
+     *  At this point, no new instances can see this script
+     *  anymore.
+     */
+    static void unlinkNode(CodeLibrary* node);
+
     /*! @brief unified abstraction layer for dynGenAddFileCallback and
      *  addScriptCallback which preapres the payload for the async callback.
      */
