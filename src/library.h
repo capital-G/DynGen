@@ -195,11 +195,16 @@ public:
     static void freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr);
 
 private:
-    /*! @brief removes a node from the linked list.
+    /*! @brief removes a node from the linked list and checks
+     *  if any associated resources are ready to be freed.
      *  At this point, no new instances can see this script
      *  anymore.
+     *  Since there are still DynGen units associated with
+     *  this node, it is possible that its deletion also need
+     *  to be deferred to the destruction of the last associated
+     *  DynGen unit.
      */
-    static void unlinkNode(CodeLibrary* node);
+    static void freeNode(CodeLibrary* node, World* world);
 
     /*! @brief unified abstraction layer for dynGenAddFileCallback and
      *  addScriptCallback which preapres the payload for the async callback.
@@ -242,12 +247,6 @@ private:
      *  been allocated within RT thread
      */
     static void pluginCmdCallbackCleanup(World* world, void* rawCallbackData);
-
-    /*! @brief deletes NRT parts of the code node, the script. Runs in stage 2. */
-    static bool deleteLibraryCodeNRT(World* inWorld, void* cmdData);
-
-    /*! @brief delete RT parts of the code node. Runs in stage 3. */
-    static bool deleteLibraryCodeRT(World* in_world, void* cmdData);
 
     /*! @brief a helper method to consume a completion message from the message
      *  stack makes completionMsg either a nullptr (no message) or point

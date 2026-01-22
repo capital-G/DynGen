@@ -116,7 +116,7 @@ CodeLibrary* Library::findCode(int codeID) {
     }
     return nullptr;
 }
-void Library::unlinkNode(CodeLibrary* node) {
+void Library::freeNode(CodeLibrary* node, World* world) {
     auto curNode = gLibrary;
     CodeLibrary* prevNode = nullptr;
     while (curNode != nullptr && curNode->mID != node->mID) {
@@ -128,6 +128,28 @@ void Library::unlinkNode(CodeLibrary* node) {
     } else {
         gLibrary = node->mNext;
     }
+
+    node->mShouldBeFreed = true;
+
+    // defer deletion to NRT and RT thread since script is NRT allocated
+    ft->fDoAsynchronousCommand(
+        world, nullptr, nullptr, node,
+        [](World* inWorld, void* cmdData) {
+            const auto code = static_cast<CodeLibrary*>(cmdData);
+            delete code->mScript;
+            return false;
+        },
+        nullptr, nullptr,
+        [](World* inWorld, void* cmdData) {
+            const auto code = static_cast<CodeLibrary*>(cmdData);
+            // if no dyngen instance is associated with this script anymore,
+            // we can safely delete it. This gets also checked in
+            // the destructor of DynGen, so eventually it will be freed.
+            if (code->mDynGen == nullptr) {
+                RTFree(inWorld, code);
+            }
+        },
+        0, nullptr);
 }
 
 void Library::buildGenericPayload(World* inWorld, sc_msg_iter* args, const bool isFile) {
@@ -218,20 +240,12 @@ void Library::freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* 
         return;
     };
 
-    unlinkNode(code);
-    code->mShouldBeFreed = true;
-
-    // defer deletion to NRT and RT thread since script is NRT allocated
-    ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr, static_cast<void*>(code), &Library::deleteLibraryCodeNRT,
-                               &Library::deleteLibraryCodeRT, nullptr, doNothing, 0, nullptr);
+    freeNode(code, inWorld);
 }
 void Library::freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr) {
     auto node = gLibrary;
     while (node != nullptr) {
-        unlinkNode(node);
-        node->mShouldBeFreed = true;
-        ft->fDoAsynchronousCommand(inWorld, nullptr, nullptr, static_cast<void*>(node), &Library::deleteLibraryCodeNRT,
-                                   &Library::deleteLibraryCodeRT, nullptr, doNothing, 0, nullptr);
+        freeNode(node, inWorld);
         node = node->mNext;
     }
 }
@@ -394,22 +408,6 @@ void Library::pluginCmdCallbackCleanup(World* world, void* rawCallbackData) {
     RTFree(world, callBackData->parameterNamesRT);
     RTFree(world, callBackData->oscString);
     RTFree(world, callBackData);
-}
-bool Library::deleteLibraryCodeNRT(World* inWorld, void* cmdData) {
-    const auto code = static_cast<CodeLibrary*>(cmdData);
-    delete code->mScript;
-    return true;
-}
-bool Library::deleteLibraryCodeRT(World* inWorld, void* cmdData) {
-    const auto code = static_cast<CodeLibrary*>(cmdData);
-
-    // if no dyngen instance is associated with this script anymore,
-    // we can safely delete it. This gets also checked in
-    // the destructor of DynGen, so eventually it will be freed.
-    if (code->mDynGen != nullptr) {
-        RTFree(inWorld, code);
-    }
-    return false;
 }
 
 std::pair<int, const char*> Library::getCompletionMsg(sc_msg_iter* args) {
