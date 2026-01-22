@@ -559,12 +559,6 @@ CODE::
 {DynGenRT.ar(1, \test, realtime: 1.0)}.plot(0.1);
 ::
 ::
-argument:: ... args
-No excessive positional arguments will be captured, this argument is only necessary to capture arbitrary keyword arguments.
-
-argument:: kwargs
-Each keyword argument that is not matched prior will be looked up if it matches the parameter variables of a script, which are variables which are prefixed with a CODE::_:: within DynGen code.
-The keyword argument is written without this prefix.
 
 EXAMPLES::
 

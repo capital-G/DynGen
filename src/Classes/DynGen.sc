@@ -34,12 +34,15 @@ DynGenDef {
 	}
 
 	*load {|name, path|
-		var code = File.readAllString(path.asAbsolutePath);
-		^this.new(name, code);
+		^this.new(name).load(path);
 	}
 
 	load {|path|
-		code = File.readAllString(path.asAbsolutePath);
+		try {
+			code = File.readAllString(path);
+		} {
+			^Error("DynGenDef: could not open file '%'".format(path)).throw;
+		}
 	}
 
 	send {|server, completionMsg|
@@ -105,7 +108,16 @@ DynGenDef {
 			f.write(code);
 		});
 
-		server.sendMsg(\cmd, \dyngenfile, hash, tmpFilePath, completionMsg);
+		message = [
+			\cmd,
+			\dyngenfile,
+			hash,
+			tmpFilePath,
+			prParams.size,
+		];
+		message = message ++ prParams;
+		message.add(completionMsg);
+		server.listSendMsg(message);
 
 		fork {
 			var deleteSuccess;
