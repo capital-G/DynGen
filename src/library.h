@@ -200,7 +200,11 @@ public:
 private:
     /*! @brief removes a node from the linked list and checks
      *  if any associated resources are ready to be freed.
-     *  At this point, no new instances can see this script
+     *
+     *  @attention it is not safe to access the passed node
+     *  after the function call anymore!
+     *
+     *  @discussion At this point, no new instances can see this script
      *  anymore.
      *  Since there are still DynGen units associated with
      *  this node, it is possible that its deletion also need
