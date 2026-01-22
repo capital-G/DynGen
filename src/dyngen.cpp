@@ -135,8 +135,9 @@ DynGen::~DynGen() {
     }
 
     // free the vm in RT context through async command
-    ft->fDoAsynchronousCommand(mWorld, nullptr, nullptr, static_cast<void*>(mVm), deleteVmOnSynthDestruction, nullptr,
-                               nullptr, doNothing, 0, nullptr);
+    ft->fDoAsynchronousCommand(
+        mWorld, nullptr, nullptr, static_cast<void*>(mVm), deleteVmOnSynthDestruction, nullptr, nullptr,
+        [](World*, void*) {}, 0, nullptr);
 }
 
 bool DynGen::createVmAndCompile(World* world, void* rawCallbackData) {
