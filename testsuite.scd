@@ -13,6 +13,7 @@
 		\testConstants,
 		\testDelete,
 		\testDeleteWhileRunning,
+		\testDeleteAll,
 
 		// sclang tests
 		\testRemoveComments,
@@ -257,6 +258,41 @@
 		bus.free;
 
 		playSuccess.and(deleteSuccess);
+	},
+
+	testDeleteAll: {
+		var deleteSuccess = false;
+		var playSuccess = false;
+		var sclangSuccess = false;
+
+		var deleteCondition = Condition();
+		var playCondition = Condition();
+
+		DynGenDef(\testDeleteAll, "out0=$pi").send;
+		s.sync;
+		DynGenDef.freeAll;
+		s.sync;
+		{
+			DynGen.ar(1, \testDeleteAll, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			deleteSuccess = (sig[0]).abs<0.01;
+			deleteCondition.unhang;
+		});
+		deleteCondition.hang;
+
+		sclangSuccess = DynGenDef.all.size == 0;
+
+		DynGenDef(\testDeleteAll, "out0=$pi").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDeleteAll, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			playSuccess = (sig[0]-pi).abs<0.01;
+			playCondition.unhang;
+		});
+		playCondition.hang;
+
+		deleteSuccess.and(playSuccess);
 	},
 
 	// sclang tests
