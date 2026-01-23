@@ -53,19 +53,24 @@
 	testUpdate: {
 		var success = false;
 		var condition = Condition();
-		DynGenDef(\testUpdate, "out0=0.5;").send;
-		s.sync;
-		fork{
-			0.1.wait;
-			DynGenDef(\testUpdate, "out0=$pi;").send;
+		var checkUpdate = { |shouldUpdate|
+			var wasUpdated = false;
+			DynGenDef(\testUpdate, "out0=0.5;").send;
+			s.sync;
+			fork{
+				0.1.wait;
+				DynGenDef(\testUpdate, "out0=$pi;").send;
+			};
+			{
+				DynGen.ar(1, \testUpdate, update: shouldUpdate);
+			}.loadToFloatArray(0.4, action: {|sig|
+				wasUpdated = sig.any({|x| (x-pi).abs < 0.01});
+				condition.unhang;
+			});
+			condition.hang;
+			wasUpdated;
 		};
-		{
-			DynGen.ar(1, \testUpdate);
-		}.loadToFloatArray(0.4, action: {|sig|
-			success = sig.any({|x| (x-pi).abs < 0.01});
-			condition.unhang;
-		});
-		condition.hang;
+		success = checkUpdate.(true) and: { checkUpdate.(false).not };
 		success;
 	},
 
@@ -364,4 +369,4 @@ out1 = __gain2;
 
 s.reboot;
 
-fork{~dynGenTests.run}
+fork{~dynGenTests.run};
