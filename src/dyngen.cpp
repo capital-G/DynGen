@@ -8,7 +8,7 @@ InterfaceTable* ft;
 
 DynGen::DynGen() {
     mCodeID = static_cast<int>(in0(CodeIDIndex));
-    const bool useAudioThread = in0(RealTimeIndex) > 0.5;
+    const bool useAudioThread = in0(RealTimeIndex) != 0.0;
     mNumDynGenInputs = static_cast<int>(in0(NumInputsIndex));
     mNumDynGenParameters = static_cast<int>(in0(NumParametersIndex));
     assert(mNumDynGenInputs + mNumDynGenParameters + InputOffset <= numInputs());
