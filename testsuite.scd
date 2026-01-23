@@ -78,7 +78,7 @@
 			condition.hang;
 			wasUpdated;
 		};
-		success = checkUpdate.(true) and: { checkUpdate.(false).not };
+		success = checkUpdate.(1.0) and: { checkUpdate.(0.0).not };
 		success;
 	},
 
