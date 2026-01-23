@@ -103,6 +103,10 @@ if(APPLE OR WIN32)
     set(CMAKE_SHARED_MODULE_SUFFIX ".scx")
 endif()
 
+if(MSVC)
+    add_compile_definitions(NOMINMAX)
+endif()
+
 # common properties for scsynth and Supernova UGen
 add_library(DynGen_common INTERFACE)
 
