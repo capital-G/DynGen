@@ -56,6 +56,10 @@ METHOD:: send
 Registers the DynGenDef on a server via an async command.
 It is therefore necessary to use LINK::Classes/Server#-sync:: in case the registered DynGen code needs to be accessed within the same code block.
 This behaves similar to LINK::Classes/SynthDef#-send:: or LINK::Classes/Buffer#-read::.
+
+Associated LINK::Classes/DynGen:: instances may automatically update their code.
+This is controlled with the CODE::update:: argument for LINK::Classes/DynGen#*ar::.
+
 NOTE::
 By default the associated DynGen code will be transferred to the server directly via osc using the CODE::/dyngenscript:: plugin command.
 In case the script is too big, the script will be saved to a local temp file and its path will be sent to the server via the CODE::/dyngenfile:: plugin command.
