@@ -193,9 +193,11 @@
 		var playSuccess = false;
 		var deleteSuccess = false;
 		var sclangSuccess = false;
+		var reAddSuccess = false;
 
 		var condition = Condition();
 		var deleteCondition = Condition();
+		var reAddCondition = Condition();
 
 		DynGenDef(\testDelete, "out0=$pi").send;
 		s.sync;
@@ -208,7 +210,7 @@
 		condition.hang;
 
 		DynGenDef(\testDelete).free;
-		sclangSuccess = DynGenDef.all.keys.includes(\testDelete).not;
+		sclangSuccess = DynGenDef.all.includesKey(\testDelete).not;
 
 		{
 			DynGen.ar(1, \testDelete, realtime: 1.0);
@@ -218,7 +220,18 @@
 		});
 		deleteCondition.hang;
 
-		playSuccess.and(deleteSuccess).and(sclangSuccess);
+		// now add same dyngen code again
+		DynGenDef(\testDelete, "out0=$pi").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDelete, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			reAddSuccess = (sig[0]-pi).abs<0.01;
+			reAddCondition.unhang;
+		});
+		reAddCondition.hang;
+
+		playSuccess.and(deleteSuccess).and(sclangSuccess).and(reAddSuccess);
 	},
 
 	testDeleteWhileRunning: {
