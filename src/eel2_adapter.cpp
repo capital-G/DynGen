@@ -6,6 +6,7 @@
 #include "ns-eel-addfuncs.h"
 #include "ns-eel-int.h"
 
+#include <SC_InlineBinaryOp.h>
 #include <SC_InterfaceTable.h>
 #include <SC_Unit.h>
 
@@ -67,6 +68,15 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
     NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
     NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
+
+    // signal functions
+    NSEEL_addfunc_varparm("clip", 2, NSEEL_PProc_THIS, &eelClip);
+    NSEEL_addfunc_varparm("wrap", 2, NSEEL_PProc_THIS, &eelWrap);
+    NSEEL_addfunc_varparm("fold", 2, NSEEL_PProc_THIS, &eelFold);
+    NSEEL_addfunc_retval("mod", 2, NSEEL_PProc_THIS, &eelMod);
+    NSEEL_addfunc_retval("lin", 3, NSEEL_PProc_THIS, &eelLininterp);
+    NSEEL_addfunc_varparm("cubic", 5, NSEEL_PProc_THIS, &eelCubicinterp);
+
     NSEEL_addfunc_retptr("in", 1, NSEEL_PProc_THIS, &in);
     NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &out);
 
@@ -209,6 +219,43 @@ EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::out(void* opaque, EEL_F* channel) {
     numChannel = std::clamp(numChannel, 0, eel2Adapter->mNumOutputChannels - 1);
     return eel2Adapter->mOutputs[numChannel];
 }
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelClip(void*, const INT_PTR numParams, EEL_F** params) {
+    if (numParams == 2) {
+        return sc_clip2(*params[0], *params[1]);
+    }
+    return sc_clip(*params[0], *params[1], *params[2]);
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWrap(void*, const INT_PTR numParams, EEL_F** params) {
+    if (numParams == 2) {
+        return sc_wrap2(*params[0], *params[1]);
+    }
+    return sc_wrap(*params[0], *params[1], *params[2]);
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelFold(void*, const INT_PTR numParams, EEL_F** params) {
+    if (numParams == 2) {
+        return sc_fold2(*params[0], *params[1]);
+    }
+    return sc_fold(*params[0], *params[1], *params[2]);
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelMod(void*, EEL_F* in, EEL_F* hi) { return sc_mod(*in, *hi); }
+
+// from SC_SndBuf but adjusted for doubles - added eel_ prefix to avoid clashes from SC_SndBuf
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelLininterp(void*, EEL_F* x, EEL_F* a, EEL_F* b) { return *a + *x * (*b - *a); }
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelCubicinterp(void*, const INT_PTR numParams, EEL_F** params) {
+    // 4-point, 3rd-order Hermite (x-form)
+    EEL_F c0 = *params[2];
+    EEL_F c1 = 0.5f * (*params[3] - *params[1]);
+    EEL_F c2 = *params[1] - 2.5f * *params[2] + 2.f * *params[3] - 0.5f * *params[4];
+    EEL_F c3 = 0.5f * (*params[4] - *params[1]) + 1.5f * (*params[2] - *params[3]);
+
+    return ((c3 * *params[0] + c2) * *params[0] + c1) * *params[0] + c0;
+}
+
 
 EEL2Adapter::~EEL2Adapter() {
     if (mSampleCode)

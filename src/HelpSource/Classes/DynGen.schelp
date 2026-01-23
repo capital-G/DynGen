@@ -373,6 +373,12 @@ TABLE::
 ## bufReadL(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses linear interpolation.
 ## bufReadC(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses cubic interpolation.
 ## bufWrite(bufNum, bufFrame, bufVal, [bufChan]) || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. If the buffer does not exist or bufFrame is out of bounds it will not write to the buffer. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
+## clip(in, lo, [hi]) || Clips the signal, see LINK::Classes/Float#-clip::. If only two arguments are provided, LINK::Classes/Float#-clip2:: will be applied.
+## wrap(in, lo, [hi]) || Wraps the signal, see LINK::Classes/Float#-wrap::. If only two arguments are provided, LINK::Classes/Float#-wrap2:: will be applied.
+## fold(in, lo, [hi]) || Folds the signal, see LINK::Classes/Float#-fold::. If only two arguments are provided, LINK::Classes/Float#-fold2:: will be applied.
+## mod(in, hi) || Mod of a float signal, see LINK::Classes/SimpleNumber#-mod::. EEL2's internal CODE::%:: only operates on an integer level.
+## lin(x, a, b) || Linear interpolation between values a and b using MATH::a + x(b - a)::.
+## cubic(x, a, b, c, d) || A 4-point, 3rd-order Hermite interpolation at position x.
 ::
 
 An example of buffer playback

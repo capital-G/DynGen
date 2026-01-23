@@ -15,6 +15,14 @@
 		\testDeleteWhileRunning,
 		\testDeleteAll,
 
+		// signal function tests
+		\testClip,
+		\testWrap,
+		\testFold,
+		\testMod,
+		\testLin,
+		\testCubic,
+
 		// sclang tests
 		\testRemoveComments,
 		\testExtractParameters,
@@ -311,6 +319,189 @@
 		playCondition.hang;
 
 		deleteSuccess.and(playSuccess);
+	},
+
+	// signal function tests
+
+	testClip: {
+		var successClip = false;
+		var successClip2 = false;
+
+		var clipCondition = Condition();
+		var clip2Condition = Condition();
+
+		var data = (-3, -2.9 .. 3.0);
+		var buffer = Buffer.loadCollection(s, data);
+		DynGenDef(\testClip2, "out0=clip(in0, 1/$pi)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testClip2, PlayBuf.ar(1, buffer, doneAction: Done.freeSelf), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			successClip2 = data.collect({|x, i|
+				(sig[i]-(x.clip2(1/pi))).abs < 0.001;
+			}).every(_==true);
+			clip2Condition.unhang;
+		});
+		clip2Condition.hang;
+
+		DynGenDef(\testClip, "out0=clip(in0, 1/$pi, 0.5)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testClip, PlayBuf.ar(1, buffer, doneAction: Done.freeSelf), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			successClip = data.collect({|x, i|
+				(sig[i]-(x.clip(1/pi, 0.5))).abs < 0.001;
+			}).every(_==true);
+			clipCondition.unhang;
+		});
+		clipCondition.hang;
+
+		buffer.free;
+
+		successClip.and(successClip2);
+	},
+
+	testWrap: {
+		var successWrap = false;
+		var successWrap2 = false;
+
+		var wrapCondition = Condition();
+		var wrap2Condition = Condition();
+
+		var data = (-3, -2.9 .. 3.0);
+		var buffer = Buffer.loadCollection(s, data);
+		DynGenDef(\testWrap2, "out0=wrap(in0, 1/$pi)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testWrap2, PlayBuf.ar(1, buffer, doneAction: Done.freeSelf), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			successWrap2 = data.collect({|x, i|
+				(sig[i]-(x.wrap2(1/pi))).abs < 0.001;
+			}).every(_==true);
+			wrap2Condition.unhang;
+		});
+		wrap2Condition.hang;
+
+		DynGenDef(\testWrap, "out0=wrap(in0, 1/$pi, 0.5)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testWrap, PlayBuf.ar(1, buffer, doneAction: Done.freeSelf), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			successWrap = data.collect({|x, i|
+				(sig[i]-(x.wrap(1/pi, 0.5))).abs < 0.001;
+			}).every(_==true);
+			wrapCondition.unhang;
+		});
+		wrapCondition.hang;
+
+		buffer.free;
+
+		successWrap.and(successWrap2);
+	},
+
+	testFold: {
+		var successFold = false;
+		var successFold2 = false;
+
+		var foldCondition = Condition();
+		var fold2Condition = Condition();
+
+		var data = (-3, -2.9 .. 3.0);
+		var buffer = Buffer.loadCollection(s, data);
+		DynGenDef(\testFold2, "out0=fold(in0, 1/$pi)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testFold2, PlayBuf.ar(1, buffer, doneAction: Done.freeSelf), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			successFold2 = data.collect({|x, i|
+				(sig[i]-(x.fold2(1/pi))).abs < 0.001;
+			}).every(_==true);
+			fold2Condition.unhang;
+		});
+		fold2Condition.hang;
+
+		DynGenDef(\testFold, "out0=fold(in0, 1/$pi, 0.5)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testFold, PlayBuf.ar(1, buffer, doneAction: Done.freeSelf), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			successFold = data.collect({|x, i|
+				(sig[i]-(x.fold(1/pi, 0.5))).abs < 0.001;
+			}).every(_==true);
+			foldCondition.unhang;
+		});
+		foldCondition.hang;
+
+		buffer.free;
+
+		successFold.and(successFold2);
+	},
+
+	testMod: {
+		var success = false;
+
+		var condition = Condition();
+
+		var data = (-3, -2.9 .. 3.0);
+		var buffer = Buffer.loadCollection(s, data);
+		DynGenDef(\testMod, "out0=mod(in0, 1/$pi)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testMod, PlayBuf.ar(1, buffer, doneAction: Done.freeSelf), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			success = data.collect({|x, i|
+				(sig[i]-(x.mod(1/pi))).abs < 0.001;
+			}).every(_==true);
+			condition.unhang;
+		});
+		condition.hang;
+
+		buffer.free;
+
+		success;
+	},
+
+	testLin: {
+		var lin = {|x, a, b| a + (x*(b-a));};
+		var success = false;
+
+		var condition = Condition();
+
+		var data = (-3, -2.9 .. 3.0);
+		var buffer = Buffer.loadCollection(s, data);
+		DynGenDef(\testLin, "out0=lin(0.5, in0, 3.0)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testLin, PlayBuf.ar(1, buffer, doneAction: Done.freeSelf), realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			success = data.collect({|x, i|
+				(sig[i]-lin.(0.5, x, 3.0)).abs < 0.1;
+			}).every(_==true);
+			condition.unhang;
+		});
+		condition.hang;
+
+		buffer.free;
+
+		success;
+	},
+
+	testCubic: {
+		var success = false;
+
+		var condition = Condition();
+
+		DynGenDef(\testCubic, "out0=cubic(0.33, 1.0, 2.0, 3.0, 4.0, 5.0)").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testCubic, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			success = (sig.first - 2.3299999237061) < 0.01;
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
 	},
 
 	// sclang tests
