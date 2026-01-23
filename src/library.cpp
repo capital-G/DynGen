@@ -26,9 +26,6 @@ bool validateBlockOrder(size_t posInit, size_t posBlock, size_t posSample) {
     return true;
 }
 
-// necessary for async removal of entries from dyngen library
-void doNothing(World* inWorld, void* cmdData) {}
-
 } // namespace
 
 bool DynGenScript::parse(std::string_view script) {
