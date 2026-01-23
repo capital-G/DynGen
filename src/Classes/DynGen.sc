@@ -69,6 +69,45 @@ DynGenDef {
 		^message;
 	}
 
+	free {|server|
+		var message = this.freeMsg.asRawOSC;
+		var servers = (server ?? { Server.allBootedServers }).asArray;
+		servers.do({|each|
+			if(each.hasBooted.not, {
+				"Server % not running, can not free DynGenDef %.".format(server.name, name).warn;
+			});
+			each.sendRaw(message);
+		});
+		all[name] = nil;
+	}
+
+	freeMsg {
+		^[
+			\cmd,
+			\dyngenfree,
+			hash.asInteger,
+		];
+	}
+
+	*freeAll {|server|
+		var message = DynGenDef.freeAllMsg.asRawOSC;
+		var servers = (server ?? { Server.allBootedServers }).asArray;
+		servers.do({|each|
+			if(each.hasBooted.not, {
+				"Server % not running, can not free DynGenDef %.".format(server.name, name).warn;
+			});
+			each.sendRaw(message);
+		});
+		all = IdentityDictionary();
+	}
+
+	*freeAllMsg {
+		^[
+			\cmd,
+			\dyngenfreeall,
+		];
+	}
+
 	// this function adds the parameters to the
 	// prParams array in an append only manner.
 	// append only is necessary b/c we want to also

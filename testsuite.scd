@@ -11,6 +11,9 @@
 		\testBufRead,
 		\testBufWrite,
 		\testConstants,
+		\testDelete,
+		\testDeleteWhileRunning,
+		\testDeleteAll,
 
 		// sclang tests
 		\testRemoveComments,
@@ -184,6 +187,125 @@
 		});
 		condition.hang;
 		success;
+	},
+
+	testDelete: {
+		var playSuccess = false;
+		var deleteSuccess = false;
+		var sclangSuccess = false;
+		var reAddSuccess = false;
+
+		var condition = Condition();
+		var deleteCondition = Condition();
+		var reAddCondition = Condition();
+
+		DynGenDef(\testDelete, "out0=$pi").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDelete, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			playSuccess = (sig[0]-pi).abs<0.01;
+			condition.unhang;
+		});
+		condition.hang;
+
+		DynGenDef(\testDelete).free;
+		sclangSuccess = DynGenDef.all.includesKey(\testDelete).not;
+
+		{
+			DynGen.ar(1, \testDelete, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			deleteSuccess = (sig[0]).abs<0.01;
+			deleteCondition.unhang;
+		});
+		deleteCondition.hang;
+
+		// now add same dyngen code again
+		DynGenDef(\testDelete, "out0=$pi").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDelete, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			reAddSuccess = (sig[0]-pi).abs<0.01;
+			reAddCondition.unhang;
+		});
+		reAddCondition.hang;
+
+		playSuccess.and(deleteSuccess).and(sclangSuccess).and(reAddSuccess);
+	},
+
+	testDeleteWhileRunning: {
+		var synth;
+		var bus = Bus.control(s, 1);
+		var playSuccess = false;
+		var deleteSuccess = false;
+
+		var condition = Condition();
+		var deleteCondition = Condition();
+
+		DynGenDef(\testDeleteRunning, "out0=$pi").send;
+		s.sync;
+		synth = {A2K.kr(DynGen.ar(1, \testDeleteRunning, realtime: 1.0))}.play(outbus: bus);
+		s.sync;
+
+		DynGenDef(\testDeleteRunning).free;
+		s.sync;
+
+		{
+			DynGen.ar(1, \testDeleteRunning, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			deleteSuccess = (sig[0]).abs<0.01;
+			deleteCondition.unhang;
+		});
+		deleteCondition.hang;
+
+		s.sync;
+
+		bus.get({|signal|
+			playSuccess = (signal - pi).abs < 0.01;
+			condition.unhang;
+		});
+		condition.hang;
+
+		synth.free;
+		bus.free;
+
+		playSuccess.and(deleteSuccess);
+	},
+
+	testDeleteAll: {
+		var deleteSuccess = false;
+		var playSuccess = false;
+		var sclangSuccess = false;
+
+		var deleteCondition = Condition();
+		var playCondition = Condition();
+
+		DynGenDef(\testDeleteAll, "out0=$pi").send;
+		s.sync;
+		DynGenDef.freeAll;
+		s.sync;
+		{
+			DynGen.ar(1, \testDeleteAll, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			deleteSuccess = (sig[0]).abs<0.01;
+			deleteCondition.unhang;
+		});
+		deleteCondition.hang;
+
+		sclangSuccess = DynGenDef.all.size == 0;
+
+		DynGenDef(\testDeleteAll, "out0=$pi").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDeleteAll, realtime: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			playSuccess = (sig[0]-pi).abs<0.01;
+			playCondition.unhang;
+		});
+		playCondition.hang;
+
+		deleteSuccess.and(playSuccess);
 	},
 
 	// sclang tests

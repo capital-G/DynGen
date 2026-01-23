@@ -130,9 +130,14 @@ DynGen::~DynGen() {
     // remove ourselves from the code library
     mCodeLibrary->removeUnit(this);
 
+    if (mCodeLibrary->isReadyToBeFreed()) {
+        RTFree(mWorld, mCodeLibrary);
+    }
+
     // free the vm in RT context through async command
-    ft->fDoAsynchronousCommand(mWorld, nullptr, nullptr, static_cast<void*>(mVm), deleteVmOnSynthDestruction, nullptr,
-                               nullptr, doNothing, 0, nullptr);
+    ft->fDoAsynchronousCommand(
+        mWorld, nullptr, nullptr, static_cast<void*>(mVm), deleteVmOnSynthDestruction, nullptr, nullptr,
+        [](World*, void*) {}, 0, nullptr);
 }
 
 bool DynGen::createVmAndCompile(World* world, void* rawCallbackData) {
@@ -206,4 +211,7 @@ PluginLoad("DynGen") {
     ft->fDefinePlugInCmd("dyngenfile", Library::dyngenAddFileCallback, nullptr);
 
     ft->fDefinePlugInCmd("dyngenscript", Library::addScriptCallback, nullptr);
+
+    ft->fDefinePlugInCmd("dyngenfree", Library::freeScriptCallback, nullptr);
+    ft->fDefinePlugInCmd("dyngenfreeall", Library::freeAllScriptsCallback, nullptr);
 }

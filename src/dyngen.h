@@ -58,9 +58,4 @@ private:
     static bool deleteOldVm(World* world, void* rawCallbackData);
     /*! @brief cleanup - RT */
     static void dynGenInitCallbackCleanup(World* world, void* rawCallbackData);
-
-    /*! @brief dummy task b/c we are already deleting the vm above which
-     *  is the pointer we pass around
-     */
-    static void doNothing(World* world, void* rawCallbackData) {}
 };

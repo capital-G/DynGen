@@ -33,6 +33,16 @@ Location of the DynGen script.
 METHOD:: all
 Returns all registered DynGenDef instances.
 
+METHOD:: freeAll
+Unregisters all DynGen scripts from the server via an async command.
+This also resets LINK::Classes/DynGenDef#*all::.
+argument:: server
+The server on which the DynGenDef should be registered.
+If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
+
+METHOD:: freeAllMsg
+Returns the OSC message to unregister all DynGen scripts from a server.
+
 PRIVATE:: initClass
 PRIVATE:: prExtractParameters
 PRIVATE:: prRemoveComments
@@ -62,11 +72,22 @@ If the file does not exist or can not be read, it will throw an exception.
 argument:: path
 Location of the DynGen script.
 
+METHOD:: free
+Unregisters a DynGen script from the server via an async command.
+This also removes the script from the registered scripts LINK::Classes/DynGenDef#*all::.
+argument:: server
+The server on which the DynGenDef should be registered.
+If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
+
 METHOD:: sendMsg
 Returns the OSC message which will be sent to the server.
 This can be used in NRT environments, see LINK::Guides/Non-Realtime-Synthesis::.
 argument:: completionMsg
 An optional OSC message that will be executed by the server after the DynGenDef has been registered on the server.
+
+METHOD:: freeMsg
+Returns the OSC message to unregister a DynGen script.
+This can be used in NRT environments, see LINK::Guides/Non-Realtime-Synthesis::.
 
 PRIVATE:: name
 PRIVATE:: code

@@ -81,14 +81,26 @@ struct CodeLibrary {
      */
     DynGen* mDynGen;
 
-    /*! @brief the eel2 code currently associated with the DynGen instance */
+    /*! @brief the eel2 code currently associated with the DynGen instance.
+     *  NRT managed.
+     */
     DynGenScript* mScript;
+
+    /*! @brief indicates if this library entry has been marked as to be
+     *  freed after all associated running DynGen instances have been freed.
+     *  At this point, the library entry has already been removed from the
+     *  linked list gLibrary.
+     */
+    bool mShouldBeFreed;
 
     /*! @brief register a DynGen unit for this code node */
     void addUnit(DynGen* unit);
 
     /*! @brief unregister a DynGen unit from this code node */
     void removeUnit(DynGen* unit);
+
+    /*! @brief determines if node is not used anymore and can therefore be freed */
+    [[nodiscard]] bool isReadyToBeFreed() const;
 };
 
 /*! @brief A struct to be passed around to update already running dyngen nodes
@@ -176,7 +188,31 @@ public:
      */
     static void addScriptCallback(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr);
 
+    /*! @brief makes a script unavailable for new unit instances. Only when all
+     *  running DynGen instances (see DynGenStub) are removed, it will also
+     *  be removed from the library
+     */
+    static void freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr);
+
+    /*! @brief removes all scripts from the server using freeScriptCallback */
+    static void freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr);
+
 private:
+    /*! @brief removes a node from the linked list and checks
+     *  if any associated resources are ready to be freed.
+     *
+     *  @attention it is not safe to access the passed node
+     *  after the function call anymore!
+     *
+     *  @discussion At this point, no new instances can see this script
+     *  anymore.
+     *  Since there are still DynGen units associated with
+     *  this node, it is possible that its deletion also need
+     *  to be deferred to the destruction of the last associated
+     *  DynGen unit.
+     */
+    static void freeNode(CodeLibrary* node, World* world);
+
     /*! @brief unified abstraction layer for dynGenAddFileCallback and
      *  addScriptCallback which preapres the payload for the async callback.
      */
