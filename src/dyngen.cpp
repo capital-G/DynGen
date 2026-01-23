@@ -79,6 +79,15 @@ void DynGen::next(int numSamples) {
 }
 
 bool DynGen::updateCode(const DynGenScript* script) const {
+    // If we already have a VM, our code is being updated.
+    // In this case, the input at UpdateIndex controls the update behavior.
+    if (mVm != nullptr) {
+        bool shouldUpdate = in0(UpdateIndex) != 0.0;
+        if (!shouldUpdate) {
+            return true;
+        }
+    }
+
     // allocate extra space for parameter indices, see DynGenCallbackData.
     auto payloadSize = sizeof(DynGenCallbackData) + sizeof(int) * mNumDynGenParameters;
     auto payload = static_cast<DynGenCallbackData*>(RTAlloc(mWorld, payloadSize));

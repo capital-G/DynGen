@@ -38,10 +38,11 @@ public:
 private:
     enum {
         CodeIDIndex = 0,
-        RealTimeIndex = 1,
-        NumInputsIndex = 2,
-        NumParametersIndex = 3,
-        InputOffset = 4
+        UpdateIndex = 1,
+        RealTimeIndex = 2,
+        NumInputsIndex = 3,
+        NumParametersIndex = 4,
+        InputOffset = 5
     };
     int mCodeID;
     int mNumDynGenInputs;

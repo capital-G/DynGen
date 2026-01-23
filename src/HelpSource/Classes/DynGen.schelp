@@ -537,6 +537,10 @@ There are two ways to pass parameters to DynGen - either passing them as keyword
 Passing an array has benefits in regards to multi-channel expansion, though passing them as keyword arguments may be more erognomic.
 The content of both, the params array and kwargs, will be merged.
 
+argument:: update
+If true (1.0), the UGen will automatically adapt to DynGen code changes, see LINK::Classes/DynGenDef#-send::. If false (0.0), it keeps the current code. The value can be changed at control rate.
+NOTE::Code updates are always asynchronous.::
+
 argument:: realtime
 Normally DynGen instances are spawned outside the audio thread to avoid audio dropouts (0.0), yet this introduces also a delay of at least one block size until the instance produces output.
 If sample-precise timing is required from the first sample on, one can activate the realtime mode (1.0) which compiles and creates the DynGen vm in the real-time thread, though this can introduce audio-dropouts.
