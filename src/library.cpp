@@ -119,7 +119,7 @@ void Library::freeNode(CodeLibrary* node, World* world) {
     auto curNode = gLibrary;
     CodeLibrary* prevNode = nullptr;
     while (curNode != nullptr && curNode->mID != node->mID) {
-        prevNode = node;
+        prevNode = curNode;
         curNode = curNode->mNext;
     }
     if (prevNode != nullptr) {
