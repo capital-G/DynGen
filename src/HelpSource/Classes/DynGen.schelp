@@ -568,7 +568,7 @@ CODE::
 Sync version
 
 CODE::
-{DynGenRT.ar(1, \test, sync: 1.0)}.plot(0.1);
+{DynGen.ar(1, \test, sync: 1.0)}.plot(0.1);
 ::
 ::
 
