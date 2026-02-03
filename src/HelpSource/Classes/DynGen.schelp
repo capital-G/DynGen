@@ -360,6 +360,19 @@ Ndef(\oversample, {
 )
 ::
 
+SUBSECTION:: DynGen constants
+
+DynGen provides some constants which are accessible like normal variables.
+There is no const protection, so pay attention to not overwrite them.
+
+TABLE::
+## STRONG::variable name:: || STRONG::comment::
+## srate || same as LINK::Classes/ServerOptions#-sampleRate::
+## blockSize || same as LINK::Classes/ServerOptions#-blockSize::
+## nin || the number of input channels
+## nout || the number of output channels
+::
+
 SUBSECTION:: DynGen methods
 
 DynGen also offers some internal methods to interact with SuperCollider resources.
@@ -433,17 +446,6 @@ out2 = z;
 
 CODE::
 Ndef(\b, {DynGen.ar(3, \blocks).poll});
-::
-
-SUBSECTION:: DynGen constants
-
-DynGen provides some constants which are accessible like normal variables.
-There is no const protection, so pay attention to not overwrite them.
-
-TABLE::
-## STRONG::variable name:: || STRONG::comment::
-## srate || same as LINK::Classes/ServerOptions#-sampleRate::
-## blockSize || same as LINK::Classes/ServerOptions#-blockSize::
 ::
 
 SUBSECTION:: FFT
