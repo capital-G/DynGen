@@ -103,10 +103,6 @@ if(APPLE OR WIN32)
     set(CMAKE_SHARED_MODULE_SUFFIX ".scx")
 endif()
 
-if(MSVC)
-    add_compile_definitions(NOMINMAX)
-endif()
-
 # common properties for scsynth and Supernova UGen
 add_library(DynGen_common INTERFACE)
 
@@ -119,9 +115,21 @@ target_sources(DynGen_common INTERFACE
 target_include_directories(DynGen_common INTERFACE "${SC_PATH}/include/plugin_interface")
 target_include_directories(DynGen_common INTERFACE "${SC_PATH}/include/common")
 
+if(MSVC)
+    target_compile_definitions(DynGen_common INTERFACE NOMINMAX)
+endif()
+
 target_compile_features(DynGen_common INTERFACE cxx_std_17)
 
 target_link_libraries(DynGen_common INTERFACE eel2)
+
+if(MINGW)
+    # link with static runtime libraries
+    target_link_options(DynGen_common INTERFACE
+            -static-libstdc++
+            -static-libgcc
+    )
+endif()
 
 # the scsynth UGen
 add_library(DynGen MODULE)
