@@ -150,7 +150,7 @@ Multi-channel expansion is still a field of discussion.
 If you have suggestions or feedback, please get in contact via the forum or the repository.
 ::
 
-To clarify if a signal should be perceived as n-dimensional input or it should create n-paralell processes of DynGen, every signal that is EMPHASIS::flat:: will be passed as input to DynGen and every nested signal will create parallel instances of DynGen, where normal multi-channel expansion semantics are applied.
+To clarify if a signal should be perceived as n-dimensional input or it should create n-parallel processes of DynGen, every signal that is EMPHASIS::flat:: will be passed as input to DynGen and every nested signal will create parallel instances of DynGen, where normal multi-channel expansion semantics are applied.
 
 If CODE::inputs:: is a EMPHASIS::flat:: signal, the whole signal will be passed to a single DynGen instance.
 
@@ -165,7 +165,7 @@ Ndef(\multiX, {
 )
 ::
 
-If CODE::inputs:: is nested via an array, it will create paralell DynGen instances according to the traditional multi-channel expansion.
+If CODE::inputs:: is nested via an array, it will create parallel DynGen instances according to the traditional multi-channel expansion.
 
 CODE::
 (
