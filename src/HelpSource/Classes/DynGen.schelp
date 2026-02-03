@@ -619,7 +619,7 @@ A phase modulatable version of LINK::Classes/SinOscFB::.
 
 CODE::
 (
-~sinOscFB = DynGenDef(\sinOscFB, "
+DynGenDef(\sinOscFB, "
 phase += 0;
 y1 += 0;
 twoPi = 2*$pi;
@@ -642,7 +642,7 @@ y1 = out0;
 CODE::
 (
 Ndef(\x, {
-	var sig = DynGen.ar(1, ~sinOscFB, params: [
+	var sig = DynGen.ar(1, \sinOscFB, params: [
 		freq: \freq.ar(100.0),
 		fb: \fb.ar(0.6, spec: [0.0, pi]),
 		phaseMod: SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),
@@ -656,7 +656,7 @@ Delay line
 
 CODE::
 (
-~delayLine = DynGenDef(\delayLine, "
+DynGenDef(\delayLine, "
 buf[_writePos] = in0;
 out0 = buf[_readPos];
 ").send;
@@ -669,7 +669,7 @@ Ndef(\delay, {
 	var bufSize = SinOsc.ar(4.2).range(1000, 2000);
 	var writePos = LFSaw.ar(2.0, 0.02).range(1, bufSize);
 	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
-	var sig = DynGen.ar(1, ~delayLine,
+	var sig = DynGen.ar(1, \delayLine,
 		SinOsc.ar(100.0),
 		params: [
 			writePos: writePos.floor,
@@ -685,7 +685,7 @@ Two cross phase-modulated sine oscillators, 64 times oversampled.
 
 CODE::
 (
-~complex = DynGenDef(\complex, "
+DynGenDef(\complex, "
 twopi = 2*$pi;
 
 phaseA += 0;
@@ -727,7 +727,7 @@ out1 = sumB / oversample;
 CODE::
 (
 Ndef(\y, {
-	var sig = DynGen.ar(2, ~complex, params: [
+	var sig = DynGen.ar(2, \complex, params: [
 		freqA: \freqA.ar(200.0),
 		freqB: \freqB.ar(pi*100),
 		modIndexA: \modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
