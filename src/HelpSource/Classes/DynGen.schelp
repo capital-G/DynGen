@@ -576,6 +576,45 @@ CODE::
 
 EXAMPLES::
 
+A multi-channel gain:
+
+CODE::
+// The following code works for any number of input and output channels:
+(
+DynGenDef(\mcGain, "
+@init
+buf = 0;
+
+@sample
+// inputs may alias outputs so we have to make a copy!
+chan = 0;
+loop(nin,
+    buf[chan] = in(chan);
+    chan += 1;
+);
+// read from buffer and apply gain
+chan = 0;
+loop(nout,
+    out(chan) = buf[chan] * _gain;
+    chan += 1;
+);
+").send;
+)
+::
+
+CODE::
+(
+// change the number of channels and re-evaluate
+~numChannels = 4;
+Ndef(\mc, {
+	var sig = DynGen.ar(~numChannels, \mcGain,
+		inputs: SinOsc.ar(220 * (1..~numChannels)),
+		params: [ gain: \gain.ar(1.0, spec: [0.0, 2.0]) ]);
+	sig * 0.1;
+}).reshaping_(\elastic).play.gui;
+)
+::
+
 A phase modulatable version of LINK::Classes/SinOscFB::.
 
 CODE::
