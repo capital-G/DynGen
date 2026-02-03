@@ -115,13 +115,19 @@ CodeLibrary* Library::findCode(int codeID) {
     }
     return nullptr;
 }
-void Library::freeNode(CodeLibrary* node, World* world) {
+
+void Library::freeNode(CodeLibrary* node, bool async) {
+    World* world = node->mWorld;
+
+    // remove node from linked list
+    assert(gLibrary != nullptr);
     auto curNode = gLibrary;
     CodeLibrary* prevNode = nullptr;
-    while (curNode != nullptr && curNode->mID != node->mID) {
+    while (curNode != nullptr && curNode != node) {
         prevNode = curNode;
         curNode = curNode->mNext;
     }
+    assert(curNode == node);
     if (prevNode != nullptr) {
         prevNode->mNext = node->mNext;
     } else {
@@ -143,15 +149,19 @@ void Library::freeNode(CodeLibrary* node, World* world) {
         RTFree(world, node);
     }
 
-    // defer deletion to NRT and RT thread since script is NRT allocated
-    ft->fDoAsynchronousCommand(
-        world, nullptr, nullptr, script,
-        [](World*, void* data) {
-            auto script = static_cast<DynGenScript*>(data);
-            delete script;
-            return false;
-        },
-        nullptr, nullptr, [](World* inWorld, void*) {}, 0, nullptr);
+    if (async) {
+        // defer deletion to NRT and RT thread since script is NRT allocated
+        ft->fDoAsynchronousCommand(
+            world, nullptr, nullptr, script,
+            [](World*, void* data) {
+                auto script = static_cast<DynGenScript*>(data);
+                delete script;
+                return false;
+            },
+            nullptr, nullptr, [](World* inWorld, void*) {}, 0, nullptr);
+    } else {
+        delete script;
+    }
 }
 
 void Library::buildGenericPayload(World* inWorld, sc_msg_iter* args, const bool isFile) {
@@ -230,6 +240,7 @@ void Library::dyngenAddFileCallback(World* inWorld, void* inUserData, sc_msg_ite
 void Library::addScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr) {
     buildGenericPayload(inWorld, args, false);
 }
+
 void Library::freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr) {
     if (args->nextTag('f') != 'i') {
         Print("Error: Invalid DynGenFree message\n");
@@ -242,16 +253,25 @@ void Library::freeScriptCallback(World* inWorld, void* inUserData, sc_msg_iter* 
         return;
     };
 
-    freeNode(code, inWorld);
+    freeNode(code, true);
 }
+
 void Library::freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr) {
-    auto node = gLibrary;
-    while (node != nullptr) {
-        auto next = node->mNext;
-        freeNode(node, inWorld);
-        node = next;
+    while (gLibrary != nullptr) {
+        freeNode(gLibrary, true);
     }
-    gLibrary = nullptr;
+}
+
+void Library::cleanup() {
+    // NOTE: we reuse the logic from freeNode() because it is actually not defined
+    // *when* the plugin's unload function is called. In fact, as of SC 3.14 it is
+    // called *before* all Graphs are destroyed! (This can be considered a bug and
+    // and should be fixed in SC 3.15.) If we just destroy the list, the remaining
+    // DynGen units would try to access a stale pointer and crash!
+    while (gLibrary != nullptr) {
+        // free synchronously!
+        freeNode(gLibrary, false);
+    }
 }
 
 bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry* newLibraryEntry, std::string_view code) {
@@ -305,12 +325,14 @@ bool Library::swapCode(World* world, void* rawCallbackData) {
     CodeLibrary* node = Library::findCode(entry->hash);
 
     if (!node) {
+        // create new code node
         auto* newNode = static_cast<CodeLibrary*>(RTAlloc(world, sizeof(CodeLibrary)));
         if (!newNode) {
             Print("ERROR: Failed to allocate memory for new code library\n");
             return true;
         }
         newNode->mNext = gLibrary;
+        newNode->mWorld = world;
         newNode->mID = entry->hash;
         newNode->mDynGen = nullptr;
         newNode->mScript = entry->script;

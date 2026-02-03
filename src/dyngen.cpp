@@ -223,3 +223,9 @@ PluginLoad("DynGen") {
     ft->fDefinePlugInCmd("dyngenfree", Library::freeScriptCallback, nullptr);
     ft->fDefinePlugInCmd("dyngenfreeall", Library::freeAllScriptsCallback, nullptr);
 }
+
+PluginUnload("DynGen") {
+    Library::cleanup();
+
+    NSEEL_quit();
+}

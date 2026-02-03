@@ -12,11 +12,13 @@ struct EEL2Adapter;
 class DynGen : public SCUnit {
 public:
     DynGen();
+
+    ~DynGen();
+
     /*! @brief updates vm in an async manner.
      *  Returns false in case the allocation of the callback data failed.
      */
     bool updateCode(const DynGenScript* script) const;
-    ~DynGen();
 
     /*! @brief the active vm - at the point it is not a null pointer it will
      *  be consumed. Owned by NRT thread.

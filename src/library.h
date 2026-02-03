@@ -72,6 +72,8 @@ struct DynGenStub {
 struct CodeLibrary {
     /*! @brief the next entry in the linked list */
     CodeLibrary* mNext;
+    /*! @brief the World instance */
+    World* mWorld;
     /*! @brief we refer to scripts via ID in order to avoid storing
      *  and sending strings via OSC
      */
@@ -197,6 +199,9 @@ public:
     /*! @brief removes all scripts from the server using freeScriptCallback */
     static void freeAllScriptsCallback(World* inWorld, void* inUserData, sc_msg_iter* args, void* replyAddr);
 
+    /*! @brief called in the plugin unload function to free all remaining code nodes */
+    static void cleanup();
+
 private:
     /*! @brief removes a node from the linked list and checks
      *  if any associated resources are ready to be freed.
@@ -211,7 +216,7 @@ private:
      *  to be deferred to the destruction of the last associated
      *  DynGen unit.
      */
-    static void freeNode(CodeLibrary* node, World* world);
+    static void freeNode(CodeLibrary* node, bool async);
 
     /*! @brief unified abstraction layer for dynGenAddFileCallback and
      *  addScriptCallback which preapres the payload for the async callback.
