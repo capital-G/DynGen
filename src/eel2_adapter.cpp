@@ -83,8 +83,8 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     // eel2 variables
     *NSEEL_VM_regvar(mEelState, "srate") = mSampleRate;
     *NSEEL_VM_regvar(mEelState, "blockSize") = mBlockSize;
-    *NSEEL_VM_regvar(mEelState, "nin") = mNumInputChannels;
-    *NSEEL_VM_regvar(mEelState, "nout") = mNumOutputChannels;
+    *NSEEL_VM_regvar(mEelState, "numIn") = mNumInputChannels;
+    *NSEEL_VM_regvar(mEelState, "numOut") = mNumOutputChannels;
 
     auto compileFlags = NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS | NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET
         | NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
