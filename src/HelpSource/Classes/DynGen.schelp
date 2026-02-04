@@ -45,7 +45,7 @@ DynGenDef(\example, "out0 = 0.1;").send;
 Ndef(\x).clear;
 ::
 
-It is also possible to process external input in a script by using the variables CODE::in0::, CODE::IN1::, ... and provide input signals at the invocation of the UGen.
+It is also possible to process external input in a script by using the variables CODE::in0::, CODE::in1::, ... and provide input signals at the invocation of the UGen.
 
 CODE::
 DynGenDef(\myInput, "out0 = in0 * 0.1;").send;
@@ -575,6 +575,20 @@ CODE::
 ::
 
 EXAMPLES::
+
+Symbol vs. DynGenDef:
+
+CODE::
+// Instead of passing the name of the DynGenDef as a Symbol, you can also pass the DynGenDef directly, e.g. via an environment variable.
+// This can be handy at times:
+
+// 1. evaluate one of the two lines:
+~def = DynGenDef(\example1, "out0 = 0.5;").send;
+~def = DynGenDef(\example2, "out0 = 1.0;").send;
+
+// 2. the DynGenDef will be selected programmatically - no need for hardcoding the name!
+{ DynGen.ar(1, ~def).poll; }.play;
+::
 
 A multi-channel gain:
 
