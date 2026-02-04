@@ -45,7 +45,7 @@ DynGenDef(\example, "out0 = 0.1;").send;
 Ndef(\x).clear;
 ::
 
-It is also possible to process external input in a script by using the variables CODE::in0::, CODE::IN1::, ... and provide input signals at the invocation of the UGen.
+It is also possible to process external input in a script by using the variables CODE::in0::, CODE::in1::, ... and provide input signals at the invocation of the UGen.
 
 CODE::
 DynGenDef(\myInput, "out0 = in0 * 0.1;").send;
@@ -150,7 +150,7 @@ Multi-channel expansion is still a field of discussion.
 If you have suggestions or feedback, please get in contact via the forum or the repository.
 ::
 
-To clarify if a signal should be perceived as n-dimensional input or it should create n-paralell processes of DynGen, every signal that is EMPHASIS::flat:: will be passed as input to DynGen and every nested signal will create parallel instances of DynGen, where normal multi-channel expansion semantics are applied.
+To clarify if a signal should be perceived as n-dimensional input or it should create n-parallel processes of DynGen, every signal that is EMPHASIS::flat:: will be passed as input to DynGen and every nested signal will create parallel instances of DynGen, where normal multi-channel expansion semantics are applied.
 
 If CODE::inputs:: is a EMPHASIS::flat:: signal, the whole signal will be passed to a single DynGen instance.
 
@@ -165,7 +165,7 @@ Ndef(\multiX, {
 )
 ::
 
-If CODE::inputs:: is nested via an array, it will create paralell DynGen instances according to the traditional multi-channel expansion.
+If CODE::inputs:: is nested via an array, it will create parallel DynGen instances according to the traditional multi-channel expansion.
 
 CODE::
 (
@@ -360,6 +360,19 @@ Ndef(\oversample, {
 )
 ::
 
+SUBSECTION:: DynGen constants
+
+DynGen provides some constants which are accessible like normal variables.
+There is no const protection, so pay attention to not overwrite them.
+
+TABLE::
+## STRONG::variable name:: || STRONG::comment::
+## srate || same as LINK::Classes/ServerOptions#-sampleRate::
+## blockSize || same as LINK::Classes/ServerOptions#-blockSize::
+## numIn || the number of input channels
+## numOut || the number of output channels
+::
+
 SUBSECTION:: DynGen methods
 
 DynGen also offers some internal methods to interact with SuperCollider resources.
@@ -433,17 +446,6 @@ out2 = z;
 
 CODE::
 Ndef(\b, {DynGen.ar(3, \blocks).poll});
-::
-
-SUBSECTION:: DynGen constants
-
-DynGen provides some constants which are accessible like normal variables.
-There is no const protection, so pay attention to not overwrite them.
-
-TABLE::
-## STRONG::variable name:: || STRONG::comment::
-## srate || same as LINK::Classes/ServerOptions#-sampleRate::
-## blockSize || same as LINK::Classes/ServerOptions#-blockSize::
 ::
 
 SUBSECTION:: FFT
@@ -574,11 +576,64 @@ CODE::
 
 EXAMPLES::
 
+Symbol vs. DynGenDef:
+
+CODE::
+// Instead of passing the name of the DynGenDef as a Symbol, you can also pass the DynGenDef directly, e.g. via an environment variable.
+// This can be handy at times:
+
+// 1. evaluate one of the two lines:
+~def = DynGenDef(\example1, "out0 = 0.5;").send;
+~def = DynGenDef(\example2, "out0 = 1.0;").send;
+
+// 2. the DynGenDef will be selected programmatically - no need for hardcoding the name!
+{ DynGen.ar(1, ~def).poll; }.play;
+::
+
+A multi-channel gain:
+
+CODE::
+// The following code works for any number of input and output channels:
+(
+DynGenDef(\mcGain, "
+@init
+buf = 0;
+
+@sample
+// inputs may alias outputs so we have to make a copy!
+chan = 0;
+loop(numIn,
+    buf[chan] = in(chan);
+    chan += 1;
+);
+// read from buffer and apply gain
+chan = 0;
+loop(numOut,
+    out(chan) = buf[chan] * _gain;
+    chan += 1;
+);
+").send;
+)
+::
+
+CODE::
+(
+// change the number of channels and re-evaluate
+~numChannels = 4;
+Ndef(\mc, {
+	var sig = DynGen.ar(~numChannels, \mcGain,
+		inputs: SinOsc.ar(220 * (1..~numChannels)),
+		params: [ gain: \gain.ar(1.0, spec: [0.0, 2.0]) ]);
+	sig * 0.1;
+}).reshaping_(\elastic).play.gui;
+)
+::
+
 A phase modulatable version of LINK::Classes/SinOscFB::.
 
 CODE::
 (
-~sinOscFB = DynGenDef(\sinOscFB, "
+DynGenDef(\sinOscFB, "
 phase += 0;
 y1 += 0;
 twoPi = 2*$pi;
@@ -601,7 +656,7 @@ y1 = out0;
 CODE::
 (
 Ndef(\x, {
-	var sig = DynGen.ar(1, ~sinOscFB, params: [
+	var sig = DynGen.ar(1, \sinOscFB, params: [
 		freq: \freq.ar(100.0),
 		fb: \fb.ar(0.6, spec: [0.0, pi]),
 		phaseMod: SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),
@@ -615,7 +670,7 @@ Delay line
 
 CODE::
 (
-~delayLine = DynGenDef(\delayLine, "
+DynGenDef(\delayLine, "
 buf[_writePos] = in0;
 out0 = buf[_readPos];
 ").send;
@@ -628,7 +683,7 @@ Ndef(\delay, {
 	var bufSize = SinOsc.ar(4.2).range(1000, 2000);
 	var writePos = LFSaw.ar(2.0, 0.02).range(1, bufSize);
 	var readPos = LFSaw.ar(pi, 0.0).range(1, bufSize);
-	var sig = DynGen.ar(1, ~delayLine,
+	var sig = DynGen.ar(1, \delayLine,
 		SinOsc.ar(100.0),
 		params: [
 			writePos: writePos.floor,
@@ -644,7 +699,7 @@ Two cross phase-modulated sine oscillators, 64 times oversampled.
 
 CODE::
 (
-~complex = DynGenDef(\complex, "
+DynGenDef(\complex, "
 twopi = 2*$pi;
 
 phaseA += 0;
@@ -686,7 +741,7 @@ out1 = sumB / oversample;
 CODE::
 (
 Ndef(\y, {
-	var sig = DynGen.ar(2, ~complex, params: [
+	var sig = DynGen.ar(2, \complex, params: [
 		freqA: \freqA.ar(200.0),
 		freqB: \freqB.ar(pi*100),
 		modIndexA: \modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
