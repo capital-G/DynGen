@@ -104,16 +104,19 @@ Since SuperCollider only can work on 32 bit floats on the server side the precis
 
 SUBSECTION:: Parameters
 
-It is not just possible to use the pre-defined variables within a script but also declare new ones which allows us to store past values for performing single sample based calulations.
-Instead of passing parameters as input, we can declare them in the script with a pre-pended CODE::_::, which we then can refer to without the pre-fixed name as a keyword argument within DynGen which makes the code clearer.
+If you want to control the value of a variable from the outside, you can make it a EMPHASIS::parameter:: by prefixing the name with an underscore ( CODE::_:: ).
+The parameter can then be accessed through the CODE::params:: argument to the LINK::#*ar:: method. CODE::params:: is an Array of key-value pairs;
+the key is the parameter name as a Symbol (without the underscore!), the value can be any UGen input.
 
 CODE::
 (
 DynGenDef(\fbSin, "
-// make variables persistent across invocations
-phase += 0;
-y1 += 0;
+@init
+phase = 0;
+y1 = 0;
 
+// _feedback and _freq are parameters
+@sample
 omega = phase + (_feedback * y1);
 
 // phase increment of normal sin osc
@@ -135,8 +138,10 @@ CODE::
 Ndef(\z, {
 	DynGen.ar(1, \fbSin,
 		params: [
-			freq: \freq.ar(200.0),
-			feedback: \feedback.ar(0.0, spec: [0.0, 2.0]),
+			// _freq is modulated with an audio-rate UGen
+			freq: (SinOsc.ar(0.25) * 50) + \freq.kr(200.0),
+			// _feedback is set with a Synth control
+			feedback: \feedback.kr(0.0, spec: [0.0, 2.0]),
 		]
 	) ! 2 * \amp.kr(0.2);
 }).play.gui;
@@ -518,8 +523,8 @@ Ndef(\fft, {
 	DynGen.ar(1, \fft,
 		PlayBuf.ar(1, ~buffer, \rate.kr(1.0), loop: 1.0),
 		params: [
-			offset: \offset.ar(0.0, spec: [-512, 512]),
-			spread: \spread.ar(1.0, spec: ControlSpec(-4.0, 4.0, step: 1/8)),
+			offset: \offset.kr(0.0, spec: [-512, 512]),
+			spread: \spread.kr(1.0, spec: ControlSpec(-4.0, 4.0, step: 1/8)),
 		],
 	).tanh * 0.5.dup;
 }).play.gui;
@@ -543,9 +548,9 @@ An array of input signals.
 Each input will be made available within the scripts through the variables CODE::in0::, code::in1::, ...
 
 argument:: params
-There are two ways to pass parameters to DynGen - either passing them as keyword argument or passing them as an array via the CODE::params:: argument.
-Passing an array has benefits in regards to multi-channel expansion, though passing them as keyword arguments may be more erognomic.
-The content of both, the params array and kwargs, will be merged.
+An Array of key-value pairs that is used to control script parameters, see LINK::#Parameters::.
+The key is the parameter name as a Symbol (without the leading underscore!), the value can be any UGen input.
+Parameters can be modulated at any rate!
 
 argument:: update
 If CODE::true:: or 1.0, the UGen will automatically adapt to DynGen code changes, see LINK::Classes/DynGenDef#-send::.
@@ -614,7 +619,7 @@ CODE::
 Ndef(\mc, {
 	var sig = DynGen.ar(~numChannels, \mcGain,
 		inputs: SinOsc.ar(220 * (1..~numChannels)),
-		params: [ gain: \gain.ar(1.0, spec: [0.0, 2.0]) ]);
+		params: [ gain: \gain.kr(1.0, spec: [0.0, 2.0]) ]);
 	sig * 0.1;
 }).reshaping_(\elastic).play.gui;
 )
@@ -648,9 +653,9 @@ CODE::
 (
 Ndef(\x, {
 	var sig = DynGen.ar(1, \sinOscFB, params: [
-		freq: \freq.ar(100.0),
-		fb: \fb.ar(0.6, spec: [0.0, pi]),
-		phaseMod: SinOsc.ar(\phaseModFreq.ar(1000.0 * pi)) * \modAmt.ar(0.0, spec:[0.0, 1000.0]),
+		freq: \freq.kr(100.0),
+		fb: \fb.kr(0.6, spec: [0.0, pi]),
+		phaseMod: SinOsc.ar(\phaseModFreq.kr(1000.0 * pi)) * \modAmt.kr(0.0, spec:[0.0, 1000.0]),
 	]);
 	sig * 0.1;
 }).play.gui;
@@ -733,10 +738,10 @@ CODE::
 (
 Ndef(\y, {
 	var sig = DynGen.ar(2, \complex, params: [
-		freqA: \freqA.ar(200.0),
-		freqB: \freqB.ar(pi*100),
-		modIndexA: \modA.ar(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
-		modIndexB: \modB.ar(0.0, spec: [-0.1, 0.1]) * 0.05,
+		freqA: \freqA.kr(200.0),
+		freqB: \freqB.kr(pi*100),
+		modIndexA: \modA.kr(0.02, spec: [-0.1, 0.1]) * 0.05 * Env.perc(releaseTime: \releaseTime.kr(0.2)).ar(gate: Impulse.ar(\offsetKick.kr(4.0))),
+		modIndexB: \modB.kr(0.0, spec: [-0.1, 0.1]) * 0.05,
 	]);
 	sig * 0.1;
 }).play.gui;
