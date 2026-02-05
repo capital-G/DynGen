@@ -52,10 +52,11 @@ public:
 
     void process(float** inBuf, float** outBuf, Wire** parameterPairs, int numSamples) {
         if (mFirstBlock) {
-            // initialize parameters!
-            // parameter automations come as index-value pairs, so we only take
-            // every second odd element.
+            // initialize parameters! We do this even without an @init section because
+            // we have to initialize the parameter cache for control-rate parameters.
             for (int i = 0; i < mNumParameters; ++i) {
+                // Parameter automations come as index-value pairs, so we only take
+                // every second odd element.
                 Wire* wire = parameterPairs[i * 2 + 1];
                 double value = static_cast<double>(wire->mBuffer[0]);
                 *mParameters[i] = value;
@@ -70,6 +71,19 @@ public:
         }
 
         if (mBlockCode) {
+            // update parameters, but do not update the cache!
+            // NOTE: the behavior of control-rate parameters slightly differs
+            // between the @block section and the @sample section:
+            // The @block section always shows the new value whereas the @sample
+            // section starts with the *previous* value because of the interpolation.
+            // This shouldn't be a problem because the very reason for using a
+            // parameter in the @block section is to avoid repeated calculations
+            // in the @sample section.
+            for (int i = 0; i < mNumParameters; ++i) {
+                Wire* wire = parameterPairs[i * 2 + 1];
+                *mParameters[i] = static_cast<double>(wire->mBuffer[0]);
+            }
+
             NSEEL_code_execute(mBlockCode);
         }
 
@@ -87,9 +101,7 @@ public:
                 *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][i]);
             }
 
-            // update automated parameters.
-            // parameter automations come as index-value pairs, so we only take
-            // every second odd element.
+            // update automated parameters
             for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
                 if (mParameters[paramNum] != nullptr) {
                     Wire* wire = parameterPairs[paramNum * 2 + 1];
