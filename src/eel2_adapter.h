@@ -166,30 +166,27 @@ private:
     SndBuf* getBuffer(int bufNum) {
         if (bufNum < 0) {
             return nullptr;
-        };
-        if (bufNum == mSndBufNum && mSndBuf != nullptr) {
+        }
+
+        if (bufNum == mSndBufNum) {
             return mSndBuf;
         }
 
-        // de-validate cache
+        // invalidate cache
         mSndBuf = nullptr;
         mSndBufNum = bufNum;
 
         if (bufNum < mWorld->mNumSndBufs) {
             mSndBuf = mWorld->mSndBufs + bufNum;
-            return mSndBuf;
-        };
-
-        // looking for a matching localbuf
-        int localBufNum = bufNum - mWorld->mNumSndBufs;
-        if (localBufNum <= mParent->localBufNum) {
-            mSndBuf = mParent->mLocalSndBufs + localBufNum;
-            return mSndBuf;
+        } else {
+            // looking for a matching localbuf
+            int localBufNum = bufNum - mWorld->mNumSndBufs;
+            if (localBufNum <= mParent->localBufNum) {
+                mSndBuf = mParent->mLocalSndBufs + localBufNum;
+            }
         }
 
-        // no buffer found
-        mSndBuf = nullptr;
-        return nullptr;
+        return mSndBuf;
     }
 
     /*! @brief Assumes that chan is within bounds */
