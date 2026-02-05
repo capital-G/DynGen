@@ -256,8 +256,8 @@ DynGen : MultiOutUGen {
 	}
 
 	init { |numOutputs, script, update, sync, numInputs, numParams ... signals|
-		var params = signals[numInputs..];
 		var audioInputs = signals[..(numInputs-1)];
+		var params = signals[numInputs..];
 
 		params.pairsDo({|key, value|
 			if(key.isKindOf(String).or(key.isKindOf(Symbol)).not, {
@@ -273,20 +273,12 @@ DynGen : MultiOutUGen {
 		numParams = params.size.div(2);
 
 		// signals must be audio rate
-		signals = audioInputs.collect({|sig|
+		audioInputs = audioInputs.collect({|sig|
 			if(sig.rate != \audio, {
 				K2A.ar(sig);
 			}, {
 				sig;
 			});
-		});
-
-		params.pairsDo({|index, value|
-			// parameter values must be audio rate,
-			if(value.rate != \audio, {
-				value = K2A.ar(value);
-			});
-			signals = signals.add(index).add(value);
 		});
 
 		// inputs is a member variable of UGen
@@ -296,7 +288,7 @@ DynGen : MultiOutUGen {
 			sync,
 			numInputs,
 			numParams,
-		] ++ signals;
+		] ++ audioInputs ++ params;
 
 		^this.initOutputs(numOutputs, \audio);
 	}

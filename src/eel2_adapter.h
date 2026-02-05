@@ -3,6 +3,7 @@
 #include "eel2/ns-eel.h"
 #include "ns-eel-int.h"
 
+#include <SC_Alloca.h>
 #include <SC_Graph.h>
 #include <SC_Unit.h>
 #include <SC_Wire.h>
@@ -50,6 +51,7 @@ public:
                 Wire* wire = parameterPairs[i * 2 + 1];
                 double value = static_cast<double>(wire->mBuffer[0]);
                 *mParameters[i] = value;
+                mPrevParamValues[i] = value;
             }
 
             if (mInitCode) {
@@ -63,8 +65,16 @@ public:
             NSEEL_code_execute(mBlockCode);
         }
 
+        double slopeFactor = 1.0 / static_cast<double>(numSamples);
+        double* prevParamValues = nullptr;
+        if (mNumParameters > 0) {
+            // copy previous parameter values on the stack so we don't have to reload them from memory.
+            prevParamValues = static_cast<double*>(alloca(mNumParameters * sizeof(double)));
+            std::copy_n(mPrevParamValues.get(), mNumParameters, prevParamValues);
+        }
+
         for (int i = 0; i < numSamples; i++) {
-            // copy input buffer to vm - cast to double!
+            // copy input buffer to vm
             for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
                 *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][i]);
             }
@@ -74,9 +84,36 @@ public:
             // every second odd element.
             for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
                 if (mParameters[paramNum] != nullptr) {
-                    auto paramValue = parameterPairs[paramNum * 2 + 1];
-                    *mParameters[paramNum] = static_cast<double>(paramValue[i]);
+                    Wire* wire = parameterPairs[paramNum * 2 + 1];
+                    double* param = mParameters[paramNum];
+                    if (wire->mCalcRate == calc_FullRate) {
+                        // audio rate
+                        *param = static_cast<double>(wire->mBuffer[i]);
+                    } else if (wire->mCalcRate == calc_BufRate) {
+                        // control rate
+                        double* param = mParameters[paramNum];
+                        double newValue = static_cast<double>(wire->mBuffer[0]);
+                        double curValue = prevParamValues[paramNum];
+                        if (newValue != curValue) {
+                            // ramp to new value
+                            double slope = (newValue - curValue) * slopeFactor;
+                            *param = curValue + slope * i;
+                            if (i == (numSamples - 1)) {
+                                // set to the exact new value!
+                                prevParamValues[paramNum] = newValue;
+                            }
+                        } else {
+                            // set to current value, otherwise a ramp would not finish!
+                            *param = curValue;
+                        }
+                    }
+                    // don't need to do anything for init rate
                 }
+            }
+
+            // update parameter value cache
+            if (prevParamValues != nullptr) {
+                std::copy_n(prevParamValues, mNumParameters, mPrevParamValues.get());
             }
 
             NSEEL_code_execute(mSampleCode);
@@ -106,6 +143,7 @@ private:
     std::unique_ptr<double*[]> mInputs;
     std::unique_ptr<double*[]> mOutputs;
     std::unique_ptr<double*[]> mParameters;
+    std::unique_ptr<double[]> mPrevParamValues;
 
     World* mWorld;
     Graph* mParent;
