@@ -156,9 +156,6 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
         return false;
     }
 
-    if (mInitCode) {
-        NSEEL_code_execute(mInitCode);
-    }
     return true;
 }
 

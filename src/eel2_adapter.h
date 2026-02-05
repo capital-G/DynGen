@@ -4,6 +4,7 @@
 
 #include <SC_Graph.h>
 #include <SC_Unit.h>
+#include <SC_Wire.h>
 #include <SC_World.h>
 
 #include "library.h"
@@ -48,7 +49,24 @@ public:
     static EEL_F eelPrint(void*, INT_PTR numParams, EEL_F** params);
     static EEL_F_PTR eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length);
 
-    void process(float** inBuf, float** outBuf, float** parameterPairs, int numSamples) {
+    void process(float** inBuf, float** outBuf, Wire** parameterPairs, int numSamples) {
+        if (mFirstBlock) {
+            // initialize parameters!
+            // parameter automations come as index-value pairs, so we only take
+            // every second odd element.
+            for (int i = 0; i < mNumParameters; ++i) {
+                Wire* wire = parameterPairs[i * 2 + 1];
+                double value = static_cast<double>(wire->mBuffer[0]);
+                *mParameters[i] = value;
+            }
+
+            if (mInitCode) {
+                NSEEL_code_execute(mInitCode);
+            }
+
+            mFirstBlock = false;
+        }
+
         if (mBlockCode) {
             NSEEL_code_execute(mBlockCode);
         }
@@ -64,8 +82,8 @@ public:
             // every second odd element.
             for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
                 if (mParameters[paramNum] != nullptr) {
-                    auto paramValue = parameterPairs[paramNum * 2 + 1];
-                    *mParameters[paramNum] = static_cast<double>(paramValue[i]);
+                    Wire* wire = parameterPairs[paramNum * 2 + 1];
+                    *mParameters[paramNum] = static_cast<double>(wire->mBuffer[i]);
                 }
             }
 
@@ -91,6 +109,7 @@ private:
 
     double mSampleRate = 0;
     int mBlockSize = 0;
+    bool mFirstBlock = true;
 
     std::unique_ptr<double*[]> mInputs;
     std::unique_ptr<double*[]> mOutputs;
