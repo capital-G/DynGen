@@ -51,23 +51,41 @@ public:
     static EEL_F_PTR eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length);
 
     void process(float** inBuf, float** outBuf, Wire** parameterPairs, int numSamples) {
-        if (mFirstBlock) {
-            // initialize parameters! We do this even without an @init section because
-            // we have to initialize the parameter cache for control-rate parameters.
+        double* newParamValues = nullptr;
+        if (mNumParameters > 0) {
+            // copy new parameter values to the stack. Let's do this for *all* parameters, not only
+            // for control-rate parameters, because we might need them in the @init and @block sections.
+            newParamValues = static_cast<double*>(alloca(mNumParameters * sizeof(double)));
             for (int i = 0; i < mNumParameters; ++i) {
-                // Parameter automations come as index-value pairs, so we only take
-                // every second odd element.
+                // Parameter automations come as index-value pairs, so we only take every second odd element.
                 Wire* wire = parameterPairs[i * 2 + 1];
-                double value = static_cast<double>(wire->mBuffer[0]);
-                *mParameters[i] = value;
-                mPrevParamValues[i] = value;
+                newParamValues[i] = static_cast<double>(wire->mBuffer[0]);
             }
+        }
+
+        if (mFirstBlock) {
+            // initialize parameter cache!
+            std::copy_n(newParamValues, mNumParameters, mPrevParamValues.get());
 
             if (mInitCode) {
+                // initialize parameters!
+                for (int i = 0; i < mNumParameters; ++i) {
+                    if (double* param = mParameters[i]) {
+                        *param = newParamValues[i];
+                    }
+                }
                 NSEEL_code_execute(mInitCode);
             }
 
             mFirstBlock = false;
+        }
+
+        double* prevParamValues = nullptr;
+        if (mNumParameters > 0) {
+            // copy previous parameter values on the stack so they are not reloaded from memory.
+            // IMPORTANT: do this *after* we have initialized the cache on the first block!
+            prevParamValues = static_cast<double*>(alloca(mNumParameters * sizeof(double)));
+            std::copy_n(mPrevParamValues.get(), mNumParameters, prevParamValues);
         }
 
         if (mBlockCode) {
@@ -76,24 +94,20 @@ public:
             // between the @block section and the @sample section:
             // The @block section always shows the new value whereas the @sample
             // section starts with the *previous* value because of the interpolation.
-            // This shouldn't be a problem because the very reason for using a
-            // parameter in the @block section is to avoid repeated calculations
-            // in the @sample section.
+            // This shouldn't be a problem because you would use the parameter in
+            // either the @block section *or* the @sample section, but not in both.
+            // Sometimes it is even necessary to capture the parameter in the @block
+            // section to avoid any interpolation. A good example are buffer numbers!
             for (int i = 0; i < mNumParameters; ++i) {
-                Wire* wire = parameterPairs[i * 2 + 1];
-                *mParameters[i] = static_cast<double>(wire->mBuffer[0]);
+                if (double* param = mParameters[i]) {
+                    *param = newParamValues[i];
+                }
             }
 
             NSEEL_code_execute(mBlockCode);
         }
 
         double slopeFactor = 1.0 / static_cast<double>(numSamples);
-        double* prevParamValues = nullptr;
-        if (mNumParameters > 0) {
-            // copy previous parameter values on the stack so we don't have to reload them from memory.
-            prevParamValues = static_cast<double*>(alloca(mNumParameters * sizeof(double)));
-            std::copy_n(mPrevParamValues.get(), mNumParameters, prevParamValues);
-        }
 
         for (int i = 0; i < numSamples; i++) {
             // copy input buffer to vm
@@ -103,37 +117,24 @@ public:
 
             // update automated parameters
             for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
-                if (mParameters[paramNum] != nullptr) {
+                if (double* param = mParameters[paramNum]) {
                     Wire* wire = parameterPairs[paramNum * 2 + 1];
-                    double* param = mParameters[paramNum];
                     if (wire->mCalcRate == calc_FullRate) {
                         // audio rate
                         *param = static_cast<double>(wire->mBuffer[i]);
                     } else if (wire->mCalcRate == calc_BufRate) {
                         // control rate
-                        double* param = mParameters[paramNum];
-                        double newValue = static_cast<double>(wire->mBuffer[0]);
+                        double newValue = newParamValues[paramNum];
                         double curValue = prevParamValues[paramNum];
                         if (newValue != curValue) {
-                            // ramp to new value
+                            // the value has changed -> ramp to new value
                             double slope = (newValue - curValue) * slopeFactor;
                             *param = curValue + slope * i;
-                            if (i == (numSamples - 1)) {
-                                // set to the exact new value!
-                                prevParamValues[paramNum] = newValue;
-                            }
-                        } else {
-                            // set to current value, otherwise a ramp would not finish!
-                            *param = curValue;
                         }
+                        // otherwise just keep the previous value
                     }
                     // don't need to do anything for init rate
                 }
-            }
-
-            // update parameter value cache
-            if (prevParamValues != nullptr) {
-                std::copy_n(prevParamValues, mNumParameters, mPrevParamValues.get());
             }
 
             NSEEL_code_execute(mSampleCode);
@@ -141,6 +142,15 @@ public:
             // read output buffer from vm
             for (int outChannel = 0; outChannel < mNumOutputChannels; outChannel++) {
                 outBuf[outChannel][i] = static_cast<float>(*mOutputs[outChannel]);
+            }
+        }
+
+        // update all parameters (including the cache!) to the new value.
+        // Let's do this for *all* parameters because it simplifies the code and avoids some branching.
+        for (int i = 0; i < mNumParameters; i++) {
+            if (double* param = mParameters[i]) {
+                *param = newParamValues[i];
+                mPrevParamValues[i] = newParamValues[i];
             }
         }
     }
