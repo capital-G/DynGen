@@ -596,20 +596,9 @@ CODE::
 // The following code works for any number of input and output channels:
 (
 DynGenDef(\mcGain, "
-@init
-buf = 0;
-
-@sample
-// inputs may alias outputs so we have to make a copy!
-chan = 0;
-loop(numIn,
-    buf[chan] = in(chan);
-    chan += 1;
-);
-// read from buffer and apply gain
 chan = 0;
 loop(numOut,
-    out(chan) = buf[chan] * _gain;
+    out(chan) = in(chan) * _gain;
     chan += 1;
 );
 ").send;
