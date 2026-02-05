@@ -5,6 +5,7 @@
 
 #include <SC_Graph.h>
 #include <SC_Unit.h>
+#include <SC_Wire.h>
 #include <SC_World.h>
 
 #include "library.h"
@@ -40,7 +41,24 @@ public:
     static EEL_F eelLininterp(void*, EEL_F* x, EEL_F* a, EEL_F* b);
     static EEL_F eelCubicinterp(void*, INT_PTR numParams, EEL_F** params);
 
-    void process(float** inBuf, float** outBuf, float** parameterPairs, int numSamples) {
+    void process(float** inBuf, float** outBuf, Wire** parameterPairs, int numSamples) {
+        if (mFirstBlock) {
+            // initialize parameters!
+            // parameter automations come as index-value pairs, so we only take
+            // every second odd element.
+            for (int i = 0; i < mNumParameters; ++i) {
+                Wire* wire = parameterPairs[i * 2 + 1];
+                double value = static_cast<double>(wire->mBuffer[0]);
+                *mParameters[i] = value;
+            }
+
+            if (mInitCode) {
+                NSEEL_code_execute(mInitCode);
+            }
+
+            mFirstBlock = false;
+        }
+
         if (mBlockCode) {
             NSEEL_code_execute(mBlockCode);
         }
@@ -83,6 +101,7 @@ private:
 
     double mSampleRate = 0;
     int mBlockSize = 0;
+    bool mFirstBlock = true;
 
     std::unique_ptr<double*[]> mInputs;
     std::unique_ptr<double*[]> mOutputs;
