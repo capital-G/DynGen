@@ -426,11 +426,14 @@ This allows to address MATH::2^{53}:: samples accurately, which translates to ar
 SUBSECTION:: DynGen sections
 
 If no section block is given, the whole script will be evaluated for each sample.
-It is also possible to indicate a section of the script which only gets evaluated during the initaliziation of the script by prefxinig the section with CODE::@init::.
-A section which is prefixed with CODE::@block:: gets evaluated each block, see LINK::Classes/ServerOptions#-blockSize:: (aka the rate that CODE::.kr:: is running at).
-If any of those two sections is provided, it is necessary to also provide a header for the per-sample script via CODE::@sample::.
 
-The blocks need to be in order CODE::@init::, CODE::@block::, CODE::@sample::, where each of these blocks is optional except sample.
+A section that starts with the CODE::@init:: header is only evaluated once during initialization.
+
+A section that starts with CODE::@block:: is evaluated before each block, see LINK::Classes/ServerOptions#-blockSize:: (aka the rate that CODE::.kr:: is running at).
+
+If any of these two sections is provided, it is necessary to mark the per-sample script with the CODE::@sample:: header.
+
+The sections need to be in the order CODE::@init::, CODE::@block::, CODE::@sample::, where each section is optional except for CODE::@sample::.
 
 CODE::
 (
@@ -453,6 +456,26 @@ out2 = z;
 
 CODE::
 Ndef(\b, {DynGen.ar(3, \blocks).poll});
+::
+
+The CODE::@init:: section is typically used to initialize variables or to allocate memory regions (see LINK::#Memory::).
+
+The CODE::@block:: section is very useful for caching parameters that are not supposed to change during the CODE::@sample:: block.
+It is also necessary if you want to avoid interpolation with control-rate parameters.
+For example, you really don't want to interpolate buffer numbers!
+
+CODE::
+(
+DynGenDef(\bufRead, "
+@block
+// cache the buffer number to avoid interpolation!
+buf = _buf;
+
+@sample
+// The _amp parameter, however, should be interpolated.
+out0 = bufReadC(buf, in0) * _amp;
+").send;
+)
 ::
 
 SUBSECTION:: FFT
@@ -550,7 +573,9 @@ Each input will be made available within the scripts through the variables CODE:
 argument:: params
 An Array of key-value pairs that is used to control script parameters, see LINK::#Parameters::.
 The key is the parameter name as a Symbol (without the leading underscore!), the value can be any UGen input.
-Parameters can be modulated at any rate!
+
+Parameters can be modulated at any rate. In the CODE::@sample:: section, control-rate parameters always ramp to their new value over the duration of one block, just like LINK::Classes/K2A::.
+If you want to avoid interpolation, you can simply capture the parameter in the CODE::@block:: section. See LINK::#DynGen sections:: for an example.
 
 argument:: update
 If CODE::true:: or 1.0, the UGen will automatically adapt to DynGen code changes, see LINK::Classes/DynGenDef#-send::.
