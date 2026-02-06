@@ -43,6 +43,7 @@ void EEL2Adapter::setup() {
 
     // misc
     NSEEL_addfunc_varparm("print", 0, NSEEL_PProc_THIS, &eelPrint);
+    NSEEL_addfunc_retptr("printMem", 2, NSEEL_PProc_RAM, &eelPrintMem);
 }
 
 EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
@@ -312,6 +313,50 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_
     Print("%s\n", buffer.data());
 
     return 0.0;
+}
+
+EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length) {
+    // this is EEL's way of converting a double to an index/offset...
+    const int offset = static_cast<int>(*start + 0.0001);
+    const int size = static_cast<int>(*length + 0.0001);
+
+    if (offset < 0 || size < 0) {
+        return start;
+    }
+
+    // check to make sure we don't cross a boundary
+    if ((offset / NSEEL_RAM_ITEMSPERBLOCK) != ((offset + size - 1) / NSEEL_RAM_ITEMSPERBLOCK)) {
+        return start;
+    }
+
+    EEL_F* data = __NSEEL_RAMAlloc(blocks, offset);
+    if (!data || data == &nseel_ramalloc_onfail) {
+        return start;
+    }
+
+    std::array<char, 2048> buffer;
+
+    auto it = buffer.data();
+    auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
+    for (int i = 0; i < size && it != end; ++i) {
+        if (i > 0) {
+            // prepend whitespace
+            *it = ' ';
+            ++it;
+        }
+        auto [ptr, ec] = std::to_chars(it, end, data[i]);
+        if (ec == std::errc()) {
+            it = ptr;
+        } else {
+            break;
+        }
+    }
+    // add null terminator!
+    *it = '\0';
+
+    Print("%s\n", buffer.data());
+
+    return start;
 }
 
 EEL2Adapter::~EEL2Adapter() {
