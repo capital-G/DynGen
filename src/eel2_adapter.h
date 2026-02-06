@@ -45,6 +45,8 @@ public:
     static EEL_F eelLininterp(void*, EEL_F* x, EEL_F* a, EEL_F* b);
     static EEL_F eelCubicinterp(void*, INT_PTR numParams, EEL_F** params);
 
+    static EEL_F eelPrint(void*, INT_PTR numParams, EEL_F** params);
+
     void process(float** inBuf, float** outBuf, float** parameterPairs, int numSamples) {
         if (mBlockCode) {
             NSEEL_code_execute(mBlockCode);
