@@ -46,6 +46,7 @@ public:
     static EEL_F eelCubicinterp(void*, INT_PTR numParams, EEL_F** params);
 
     static EEL_F eelPrint(void*, INT_PTR numParams, EEL_F** params);
+    static EEL_F_PTR eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length);
 
     void process(float** inBuf, float** outBuf, float** parameterPairs, int numSamples) {
         if (mBlockCode) {

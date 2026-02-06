@@ -392,6 +392,7 @@ TABLE::
 ## CODE::lin(x, a, b):: || Linear interpolation between values a and b using MATH::a + x(b - a)::.
 ## CODE::cubic(x, a, b, c, d):: || A 4-point, 3rd-order Hermite interpolation at position x.
 ## CODE::print(...):: || Print one or more numbers to the console. This is useful for debugging.
+## CODE::printMem(startIndex, size):: || Print the contents of a memory block. This is useful for debugging.
 ::
 
 An example of buffer playback
