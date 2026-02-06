@@ -34,7 +34,7 @@ void EEL2Adapter::setup() {
     NSEEL_addfunc_varparm("cubic", 5, NSEEL_PProc_THIS, &eelCubicinterp);
 
     // inputs and outputs
-    NSEEL_addfunc_retptr("in", 1, NSEEL_PProc_THIS, &eelIn);
+    NSEEL_addfunc_retval("in", 1, NSEEL_PProc_THIS, &eelIn);
     NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &eelOut);
 }
 
@@ -224,14 +224,13 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufWrite(void* opaque, INT_PTR numParams, 
     return *params[2];
 }
 
-EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelIn(void* opaque, EEL_F* param) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelIn(void* opaque, EEL_F* param) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const int channel = static_cast<int>(*param);
     if (channel >= 0 && channel < eel2Adapter->mNumInputChannels) {
-        return eel2Adapter->mInputs[channel];
+        return *eel2Adapter->mInputs[channel];
     } else {
-        static double nullInput = 0.0;
-        return &nullInput;
+        return 0.0;
     };
 }
 
