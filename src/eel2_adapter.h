@@ -138,11 +138,4 @@ private:
         sampleNum = std::clamp<int>(sampleNum, 0, buf->samples - 1);
         return buf->data[buf->channels * sampleNum + chan];
     }
-
-    static int getChannelOffset(const SndBuf* buf, int chanNum) {
-        if (chanNum >= buf->channels || chanNum < 0) {
-            return 0;
-        }
-        return chanNum;
-    }
 };
