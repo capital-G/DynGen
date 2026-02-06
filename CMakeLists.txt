@@ -140,6 +140,8 @@ target_link_libraries(DynGen PRIVATE DynGen_common)
 if (SUPERNOVA)
     add_library(DynGen_supernova MODULE)
 
+    target_compile_definitions(DynGen_supernova PRIVATE SUPERNOVA)
+
     target_link_libraries(DynGen_supernova PRIVATE DynGen_common)
 
     set_target_properties(DynGen_supernova PROPERTIES
