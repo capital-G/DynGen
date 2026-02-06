@@ -1,6 +1,9 @@
+// NOTE: include eel2_adapter.h before dyngen.h to prevent collision
+// with IN and OUT macros on Windows!
+#include "eel2_adapter.h"
+
 #include "library.h"
 #include "dyngen.h"
-#include "eel2_adapter.h"
 
 #include <fstream>
 #include <memory>
