@@ -213,6 +213,8 @@ PluginLoad("DynGen") {
 
     NSEEL_init();
 
+    EEL2Adapter::setup();
+
     registerUnit<DynGen>(inTable, "DynGen", false);
     registerUnit<DynGen>(inTable, "DynGenRT", false);
 
