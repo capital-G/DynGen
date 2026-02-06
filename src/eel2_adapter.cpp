@@ -12,11 +12,39 @@
 #include <SC_Unit.h>
 
 #include <array>
+#include <atomic>
 #include <charconv>
 
-// These can be empty because we do not execute code on the same VM in multiple threads.
-extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
-extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
+// The following is copied from SC_SndBuf.h
+#if defined(_MSC_VER) // Visual Studio Intel/ARM64
+static void pauseCpu() { YieldProcessor(); }
+#elif defined(__SSE2__) // all modern Intel processors
+#    include <immintrin.h>
+static void pauseCpu() { _mm_pause(); }
+#elif defined(__aarch64__) // 64-bit ARM
+static void pauseCpu() { __asm__ __volatile__("isb"); }
+#elif defined(__arm__) // 32-bit ARM
+static void pauseCpu() { __asm__ __volatile__("yield"); }
+#else
+#    warning "unknown architecture: fall back to busy-waiting"
+static void pauseCpu() {}
+#endif
+
+// Some EEL functions internally use global state that must be protected from
+// concurrent access! Even without Supernova we call into EEL2 from different
+// threads (the RT and the NRT thread), so we better play it safe and implement
+// NSEEL_HOSTSTUB_EnterMutex() and NSEEL_HOSTSTUB_LeaveMutex().
+static std::atomic<uint32_t> g_spinlock { 0 };
+
+extern "C" void NSEEL_HOSTSTUB_EnterMutex() {
+    // optimize for non-contended case
+    while (g_spinlock.exchange(1, std::memory_order_acquire) != 0) {
+        while (g_spinlock.load(std::memory_order_relaxed) != 0)
+            pauseCpu();
+    }
+}
+
+extern "C" void NSEEL_HOSTSTUB_LeaveMutex() { g_spinlock.store(0, std::memory_order_release); }
 
 
 void EEL2Adapter::setup() {
