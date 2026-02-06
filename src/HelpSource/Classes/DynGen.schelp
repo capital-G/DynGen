@@ -382,10 +382,10 @@ TABLE::
 ## STRONG::function:: || STRONG::comment::
 ## in(numChannel) || reads the n-th input channel - index gets clamped
 ## out(numChannel) || writes to the n-th output channel - index gets clamped
-## bufRead(bufNum, bufFrame, [bufChan]) || reads the frame of a LINK::Classes/Buffer:: on the server. If the buffer does not exist or bufFrame is out of bounds it will return 0.0. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
+## bufRead(bufNum, bufFrame, [bufChan]) || reads the frame of a LINK::Classes/Buffer:: on the server. The bufChan parameter is optional and defaults to the 0-th channel. If the buffer does not exist or bufFrame/bufChan is out-of-bounds it will return 0.0.
 ## bufReadL(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses linear interpolation.
 ## bufReadC(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses cubic interpolation.
-## bufWrite(bufNum, bufFrame, bufVal, [bufChan]) || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. If the buffer does not exist or bufFrame is out of bounds it will not write to the buffer. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
+## bufWrite(bufNum, bufFrame, bufVal, [bufChan]) || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. The bufChan parameter is optional and defaults to the 0-th channel. If the buffer does not exist or bufFrame/bufChan is out-of-bounds it will not write to the buffer.
 ## clip(in, lo, [hi]) || Clips the signal, see LINK::Classes/Float#-clip::. If only two arguments are provided, LINK::Classes/Float#-clip2:: will be applied.
 ## wrap(in, lo, [hi]) || Wraps the signal, see LINK::Classes/Float#-wrap::. If only two arguments are provided, LINK::Classes/Float#-wrap2:: will be applied.
 ## fold(in, lo, [hi]) || Folds the signal, see LINK::Classes/Float#-fold::. If only two arguments are provided, LINK::Classes/Float#-fold2:: will be applied.

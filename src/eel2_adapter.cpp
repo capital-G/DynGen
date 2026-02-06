@@ -134,11 +134,18 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufRead(void* opaque, const INT_PTR numPar
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (!buf) {
         return 0.0f;
-    };
-    int chanOffset = 0;
-    if (numParams >= 3) {
-        chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
     }
+
+    int chanOffset;
+    if (numParams >= 3) {
+        chanOffset = static_cast<int>(*params[2]);
+        if (chanOffset < 0 || chanOffset >= buf->channels) {
+            return 0.0f;
+        }
+    } else {
+        chanOffset = 0;
+    }
+
     LOCK_SNDBUF_SHARED(buf);
     return getSample(buf, chanOffset, static_cast<int>(*params[1]));
 }
@@ -148,10 +155,16 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufReadL(void* opaque, const INT_PTR numPa
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
         return 0.0f;
-    };
-    int chanOffset = 0;
+    }
+
+    int chanOffset;
     if (numParams >= 3) {
-        chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
+        chanOffset = static_cast<int>(*params[2]);
+        if (chanOffset < 0 || chanOffset >= buf->channels) {
+            return 0.0f;
+        }
+    } else {
+        chanOffset = 0;
     }
 
     const auto lowerIndex = static_cast<int>(*params[1]);
@@ -167,10 +180,16 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufReadC(void* opaque, const INT_PTR numPa
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
         return 0.0f;
-    };
-    int chanOffset = 0;
+    }
+
+    int chanOffset;
     if (numParams >= 3) {
-        chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
+        chanOffset = static_cast<int>(*params[2]);
+        if (chanOffset < 0 || chanOffset >= buf->channels) {
+            return 0.0f;
+        }
+    } else {
+        chanOffset = 0;
     }
 
     const auto baseIndex = static_cast<int>(*params[1]);
