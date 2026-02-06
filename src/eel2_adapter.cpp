@@ -11,6 +11,9 @@
 #include <SC_InterfaceTable.h>
 #include <SC_Unit.h>
 
+#include <array>
+#include <charconv>
+
 // These can be empty because we do not execute code on the same VM in multiple threads.
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
@@ -20,6 +23,7 @@ void EEL2Adapter::setup() {
     EEL_fft_register();
     EEL_mdct_register();
 
+    // buffer access
     NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelBufRead);
     NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelBufReadL);
     NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelBufReadC);
@@ -36,6 +40,9 @@ void EEL2Adapter::setup() {
     // inputs and outputs
     NSEEL_addfunc_retval("in", 1, NSEEL_PProc_THIS, &eelIn);
     NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &eelOut);
+
+    // misc
+    NSEEL_addfunc_varparm("print", 0, NSEEL_PProc_THIS, &eelPrint);
 }
 
 EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
@@ -281,6 +288,31 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelCubicinterp(void*, const INT_PTR numParams
     return ((c3 * *params[0] + c2) * *params[0] + c1) * *params[0] + c0;
 }
 
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_F** params) {
+    std::array<char, 2048> buffer;
+
+    auto it = buffer.data();
+    auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
+    for (int i = 0; i < numParams && it != end; ++i) {
+        if (i > 0) {
+            // prepend whitespace
+            *it = ' ';
+            ++it;
+        }
+        auto [ptr, ec] = std::to_chars(it, end, *params[i]);
+        if (ec == std::errc()) {
+            it = ptr;
+        } else {
+            break;
+        }
+    }
+    // add null terminator!
+    *it = '\0';
+
+    Print("%s\n", buffer.data());
+
+    return 0.0;
+}
 
 EEL2Adapter::~EEL2Adapter() {
     if (mSampleCode)
