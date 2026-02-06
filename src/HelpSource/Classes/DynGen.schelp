@@ -373,9 +373,9 @@ TABLE::
 ## numOut || the number of output channels
 ::
 
-SUBSECTION:: DynGen methods
+SUBSECTION:: DynGen functions
 
-DynGen provides the following utility methods:
+DynGen provides the following utility functions:
 
 TABLE::
 ## STRONG::function:: || STRONG::comment::
