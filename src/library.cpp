@@ -1,7 +1,9 @@
 #include "library.h"
 #include "dyngen.h"
+#include "eel2_adapter.h"
 
 #include <fstream>
+#include <memory>
 
 //-------------------- DynGenScript -------------------//
 
@@ -72,6 +74,11 @@ bool DynGenScript::parse(std::string_view script) {
     mSample = std::string(script.substr(startSample));
 
     return true;
+}
+
+bool DynGenScript::tryCompile() {
+    EEL2Adapter state(0, 0, 0, 0, nullptr, nullptr);
+    return state.init(*this, nullptr, 0);
 }
 
 //-------------------- CodeLibrary --------------------//
@@ -275,19 +282,25 @@ void Library::cleanup() {
 }
 
 bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry* newLibraryEntry, std::string_view code) {
-    auto script = new DynGenScript();
+    auto script = std::make_unique<DynGenScript>();
 
     if (!script->parse(code)) {
-        delete script;
         return false;
     }
+
+#if 1
+    // already try to compile before creating/updating any DynGen instances.
+    if (!script->tryCompile()) {
+        return false;
+    }
+#endif
 
     // create parameter list
     for (int i = 0; i < newLibraryEntry->numParameters; i++) {
         script->mParameters.push_back(newLibraryEntry->parameterNamesRT[i]);
     }
 
-    newLibraryEntry->script = script;
+    newLibraryEntry->script = script.release();
 
     // continue with next stage
     return true;
