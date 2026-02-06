@@ -22,8 +22,11 @@ extern InterfaceTable* ft;
 class DynGenScript {
 public:
     /*! @brief Splits the DynGen scripts into its sections.
-     *  non rt safe! does not trim output. */
+     *  non rt safe! */
     bool parse(std::string_view script);
+    /*! @brief Try to compile the code sections; print error on failure.
+     *  non rt safe! */
+    bool tryCompile();
 
     std::string mInit;
     std::string mBlock;
