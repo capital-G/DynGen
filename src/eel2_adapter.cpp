@@ -188,15 +188,15 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, INT_PTR numParams, 
         return 0.0f;
     };
     const int sampleNum = static_cast<int>(*params[1]);
-    if (sampleNum >= buf->frames || sampleNum < 0) {
+    if (sampleNum < 0 || sampleNum >= buf->frames) {
         return 0.0f;
     }
 
     int chanOffset;
     if (numParams >= 4) {
         chanOffset = static_cast<int>(*params[3]);
-        if (chanOffset > buf->channels || chanOffset < 0) {
-            chanOffset = 0;
+        if (chanOffset < 0 || chanOffset >= buf->channels) {
+            return 0.0f;
         }
     } else {
         chanOffset = 0;
