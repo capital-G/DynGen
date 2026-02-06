@@ -30,10 +30,11 @@ public:
     /*! @brief returns true if vm has been compiled successfully */
     bool init(const DynGenScript& script, const int* parameterIndices, int numParamIndices);
 
-    static EEL_F eelReadBuf(void* opaque, INT_PTR numParams, EEL_F** params);
-    static EEL_F eelReadBufL(void* opaque, INT_PTR numParams, EEL_F** params);
-    static EEL_F eelReadBufC(void* opaque, INT_PTR numParams, EEL_F** params);
-    static EEL_F eelWriteBuf(void* opaque, INT_PTR numParams, EEL_F** param);
+    static EEL_F eelBufRead(void* opaque, INT_PTR numParams, EEL_F** params);
+    static EEL_F eelBufReadL(void* opaque, INT_PTR numParams, EEL_F** params);
+    static EEL_F eelBufReadC(void* opaque, INT_PTR numParams, EEL_F** params);
+    static EEL_F eelBufWrite(void* opaque, INT_PTR numParams, EEL_F** param);
+
     static EEL_F* in(void* opaque, EEL_F* channel);
     static EEL_F* out(void* opaque, EEL_F* channel);
 

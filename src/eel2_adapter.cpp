@@ -23,10 +23,10 @@ void EEL2Adapter::setup() {
     EEL_fft_register();
     EEL_mdct_register();
 
-    NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelReadBuf);
-    NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
-    NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
-    NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
+    NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelBufRead);
+    NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelBufReadL);
+    NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelBufReadC);
+    NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelBufWrite);
 
     // signal functions
     NSEEL_addfunc_varparm("clip", 2, NSEEL_PProc_THIS, &eelClip);
@@ -129,7 +129,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     return true;
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const INT_PTR numParams, EEL_F** params) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufRead(void* opaque, const INT_PTR numParams, EEL_F** params) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (!buf) {
@@ -143,7 +143,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const INT_PTR numPar
     return getSample(buf, chanOffset, static_cast<int>(*params[1]));
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufL(void* opaque, const INT_PTR numParams, EEL_F** params) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufReadL(void* opaque, const INT_PTR numParams, EEL_F** params) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
@@ -162,7 +162,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufL(void* opaque, const INT_PTR numPa
     return lininterp(frac, getSample(buf, chanOffset, lowerIndex), getSample(buf, chanOffset, upperIndex));
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufC(void* opaque, const INT_PTR numParams, EEL_F** params) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufReadC(void* opaque, const INT_PTR numParams, EEL_F** params) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
@@ -181,7 +181,7 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufC(void* opaque, const INT_PTR numPa
                        getSample(buf, chanOffset, baseIndex + 1), getSample(buf, chanOffset, baseIndex + 2));
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, INT_PTR numParams, EEL_F** params) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufWrite(void* opaque, INT_PTR numParams, EEL_F** params) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
