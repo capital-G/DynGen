@@ -2,21 +2,44 @@
 
 #include "eel2_adapter.h"
 
-#include "eel_fft.h"
 #include "ns-eel-addfuncs.h"
 #include "ns-eel-int.h"
+#include "eel_fft.h"
+#include "eel_mdct.h"
 
 #include <SC_InlineBinaryOp.h>
 #include <SC_InterfaceTable.h>
 #include <SC_Unit.h>
 
-// define symbols for jsfx
+// These can be empty because we do not execute code on the same VM in multiple threads.
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
 // fallback value for functions which return
 // a ptr to an EEL_F such as in and out
 EEL_F nullValue = double { 0.0 };
+
+void EEL2Adapter::setup() {
+    EEL_fft_register();
+    EEL_mdct_register();
+
+    NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelReadBuf);
+    NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
+    NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
+    NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
+
+    // signal functions
+    NSEEL_addfunc_varparm("clip", 2, NSEEL_PProc_THIS, &eelClip);
+    NSEEL_addfunc_varparm("wrap", 2, NSEEL_PProc_THIS, &eelWrap);
+    NSEEL_addfunc_varparm("fold", 2, NSEEL_PProc_THIS, &eelFold);
+    NSEEL_addfunc_retval("mod", 2, NSEEL_PProc_THIS, &eelMod);
+    NSEEL_addfunc_retval("lin", 3, NSEEL_PProc_THIS, &eelLininterp);
+    NSEEL_addfunc_varparm("cubic", 5, NSEEL_PProc_THIS, &eelCubicinterp);
+
+    // inputs and outputs
+    NSEEL_addfunc_retptr("in", 1, NSEEL_PProc_THIS, &in);
+    NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &out);
+}
 
 EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
                          Graph* parent):
@@ -61,26 +84,10 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
         }
     }
 
-    // eel2 functions
+    // set 'this' pointer for custom functions
     NSEEL_VM_SetCustomFuncThis(mEelState, this);
-    EEL_fft_register();
-    NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelReadBuf);
-    NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
-    NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
-    NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
 
-    // signal functions
-    NSEEL_addfunc_varparm("clip", 2, NSEEL_PProc_THIS, &eelClip);
-    NSEEL_addfunc_varparm("wrap", 2, NSEEL_PProc_THIS, &eelWrap);
-    NSEEL_addfunc_varparm("fold", 2, NSEEL_PProc_THIS, &eelFold);
-    NSEEL_addfunc_retval("mod", 2, NSEEL_PProc_THIS, &eelMod);
-    NSEEL_addfunc_retval("lin", 3, NSEEL_PProc_THIS, &eelLininterp);
-    NSEEL_addfunc_varparm("cubic", 5, NSEEL_PProc_THIS, &eelCubicinterp);
-
-    NSEEL_addfunc_retptr("in", 1, NSEEL_PProc_THIS, &in);
-    NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &out);
-
-    // eel2 variables
+    // set our script variables
     *NSEEL_VM_regvar(mEelState, "srate") = mSampleRate;
     *NSEEL_VM_regvar(mEelState, "blockSize") = mBlockSize;
     *NSEEL_VM_regvar(mEelState, "numIn") = mNumInputChannels;
@@ -265,6 +272,5 @@ EEL2Adapter::~EEL2Adapter() {
     if (mBlockCode)
         NSEEL_code_free(mBlockCode);
     if (mEelState)
-        // @todo delay this to NRT thread
         NSEEL_VM_free(mEelState);
 }

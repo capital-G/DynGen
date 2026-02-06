@@ -1,7 +1,6 @@
 #pragma once
 
 #include "eel2/ns-eel.h"
-#include "ns-eel-int.h"
 
 #include <SC_Graph.h>
 #include <SC_Unit.h>
@@ -18,6 +17,11 @@
  */
 class EEL2Adapter {
 public:
+    /*! @brief adds some optional modules and registers our own functions.
+     *  This is called once when the plugin is loaded.
+     */
+    static void setup();
+
     EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
                 Graph* parent);
 
