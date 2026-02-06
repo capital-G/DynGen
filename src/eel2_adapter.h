@@ -35,8 +35,8 @@ public:
     static EEL_F eelBufReadC(void* opaque, INT_PTR numParams, EEL_F** params);
     static EEL_F eelBufWrite(void* opaque, INT_PTR numParams, EEL_F** param);
 
-    static EEL_F* in(void* opaque, EEL_F* channel);
-    static EEL_F* out(void* opaque, EEL_F* channel);
+    static EEL_F* eelIn(void* opaque, EEL_F* channel);
+    static EEL_F* eelOut(void* opaque, EEL_F* channel);
 
     static EEL_F eelClip(void*, INT_PTR numParams, EEL_F** params);
     static EEL_F eelWrap(void*, INT_PTR numParams, EEL_F** param);
