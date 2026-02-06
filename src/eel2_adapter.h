@@ -75,7 +75,7 @@ public:
     }
 
 private:
-    compileContext* mEelState = nullptr;
+    NSEEL_VMCTX mEelState = nullptr;
     NSEEL_CODEHANDLE mInitCode = nullptr;
     NSEEL_CODEHANDLE mBlockCode = nullptr;
     ;

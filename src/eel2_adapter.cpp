@@ -52,7 +52,7 @@ EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int 
 
 // this is not RT safe
 bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, int numParamIndices) {
-    mEelState = static_cast<compileContext*>(NSEEL_VM_alloc());
+    mEelState = NSEEL_VM_alloc();
 
     // obtain handles to input and output variables
     mInputs = std::make_unique<double*[]>(mNumInputChannels);
@@ -104,7 +104,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     if (!script.mInit.empty()) {
         mInitCode = NSEEL_code_compile_ex(mEelState, script.mInit.c_str(), 0, compileFlags);
         if (!mInitCode) {
-            Print("ERROR: DynGen init compile error: %s\n", mEelState->last_error_string);
+            Print("ERROR: DynGen @init compile error: %s\n", NSEEL_code_getcodeerror(mEelState));
             return false;
         }
     }
@@ -112,14 +112,14 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     if (!script.mBlock.empty()) {
         mBlockCode = NSEEL_code_compile_ex(mEelState, script.mBlock.c_str(), 0, compileFlags);
         if (!mBlockCode) {
-            Print("ERROR: DynGen block compile error %s\n", mEelState->last_error_string);
+            Print("ERROR: DynGen @block compile error %s\n", NSEEL_code_getcodeerror(mEelState));
             return false;
         }
     }
 
     mSampleCode = NSEEL_code_compile_ex(mEelState, script.mSample.c_str(), 0, compileFlags);
     if (!mSampleCode) {
-        Print("ERROR: DynGen sample compile error: %s\n", mEelState->last_error_string);
+        Print("ERROR: DynGen @sample compile error: %s\n", NSEEL_code_getcodeerror(mEelState));
         return false;
     }
 
