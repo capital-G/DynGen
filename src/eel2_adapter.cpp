@@ -15,9 +15,6 @@
 extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
 extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
 
-// fallback value for functions which return
-// a ptr to an EEL_F such as in and out
-EEL_F nullValue = double { 0.0 };
 
 void EEL2Adapter::setup() {
     EEL_fft_register();
@@ -37,8 +34,8 @@ void EEL2Adapter::setup() {
     NSEEL_addfunc_varparm("cubic", 5, NSEEL_PProc_THIS, &eelCubicinterp);
 
     // inputs and outputs
-    NSEEL_addfunc_retptr("in", 1, NSEEL_PProc_THIS, &in);
-    NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &out);
+    NSEEL_addfunc_retptr("in", 1, NSEEL_PProc_THIS, &eelIn);
+    NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &eelOut);
 }
 
 EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
@@ -227,23 +224,26 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufWrite(void* opaque, INT_PTR numParams, 
     return *params[2];
 }
 
-EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::in(void* opaque, EEL_F* channel) {
+EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelIn(void* opaque, EEL_F* param) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
-    if (eel2Adapter->mNumInputChannels <= 0) {
-        return &nullValue;
+    const int channel = static_cast<int>(*param);
+    if (channel >= 0 && channel < eel2Adapter->mNumInputChannels) {
+        return eel2Adapter->mInputs[channel];
+    } else {
+        static double nullInput = 0.0;
+        return &nullInput;
     };
-    auto numChannel = std::clamp(static_cast<int>(*channel), 0, eel2Adapter->mNumInputChannels - 1);
-    return eel2Adapter->mInputs[numChannel];
 }
 
-EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::out(void* opaque, EEL_F* channel) {
+EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelOut(void* opaque, EEL_F* param) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
-    if (eel2Adapter->mNumOutputChannels <= 0) {
-        return &nullValue;
+    const int channel = static_cast<int>(*param);
+    if (channel >= 0 && channel < eel2Adapter->mNumOutputChannels) {
+        return eel2Adapter->mOutputs[channel];
+    } else {
+        static double nullOutput = 0.0;
+        return &nullOutput;
     };
-    auto numChannel = static_cast<int>(*channel);
-    numChannel = std::clamp(numChannel, 0, eel2Adapter->mNumOutputChannels - 1);
-    return eel2Adapter->mOutputs[numChannel];
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelClip(void*, const INT_PTR numParams, EEL_F** params) {
