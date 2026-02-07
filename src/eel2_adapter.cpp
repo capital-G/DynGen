@@ -48,7 +48,6 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     // note that parameter indices are stable because parameter names
     // are append-only.
     mParameters = std::make_unique<double*[]>(numParamIndices);
-    mNumParameters = numParamIndices;
     auto& parameters = script.mParameters;
     for (int i = 0; i < numParamIndices; i++) {
         auto paramIndex = parameterIndices[i];
@@ -60,6 +59,9 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
             mParameters[i] = nullptr;
         }
     }
+    mPrevParamValues = std::make_unique<double[]>(numParamIndices);
+    std::fill_n(mPrevParamValues.get(), numParamIndices, 0.0);
+    mNumParameters = numParamIndices;
 
     // eel2 functions
     NSEEL_VM_SetCustomFuncThis(mEelState, this);
@@ -116,9 +118,6 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
         return false;
     }
 
-    if (mInitCode) {
-        NSEEL_code_execute(mInitCode);
-    }
     return true;
 }
 

@@ -74,7 +74,7 @@ void DynGen::next(int numSamples) {
             Clear(numSamples, mOutBuf[i]);
         }
     } else {
-        mVm->process(mInBuf + InputOffset, mOutBuf, mInBuf + InputOffset + mNumDynGenInputs, numSamples);
+        mVm->process(mInBuf + InputOffset, mOutBuf, mInput + InputOffset + mNumDynGenInputs, numSamples);
     }
 }
 
