@@ -213,8 +213,9 @@ PluginLoad("DynGen") {
 
     NSEEL_init();
 
-    registerUnit<DynGen>(inTable, "DynGen", false);
-    registerUnit<DynGen>(inTable, "DynGenRT", false);
+    // disable buffer aliasing so that users do not have to worry about
+    // 'out*' variables potentially aliasing 'in*' variables.
+    registerUnit<DynGen>(inTable, "DynGen", true);
 
     ft->fDefinePlugInCmd("dyngenfile", Library::dyngenAddFileCallback, nullptr);
 
