@@ -105,7 +105,7 @@ Since SuperCollider only can work on 32 bit floats on the server side the precis
 SUBSECTION:: Parameters
 
 If you want to control the value of a variable from the outside, you can make it a EMPHASIS::parameter:: by prefixing the name with an underscore ( CODE::_:: ).
-The parameter can then be accessed through the CODE::params:: argument to the LINK::#*ar:: method. CODE::params:: is an Array of key-value pairs;
+The parameter can then be accessed through the CODE::params:: argument to the LINK::#*ar:: method. CODE::params:: is an Array of key-value pairs:
 the key is the parameter name as a Symbol (without the underscore!), the value can be any UGen input.
 
 CODE::
@@ -569,8 +569,10 @@ argument:: params
 An Array of key-value pairs that is used to control script parameters, see LINK::#Parameters::.
 The key is the parameter name as a Symbol (without the leading underscore!), the value can be any UGen input.
 
-Parameters can be modulated at any rate. In the CODE::@sample:: section, control-rate parameters always ramp to their new value over the duration of one block, just like LINK::Classes/K2A::.
-If you want to avoid interpolation, you can simply capture the parameter in the CODE::@block:: section. See LINK::#DynGen sections:: for an example.
+Parameters can be modulated at any rate.
+In the CODE::@sample:: section, control-rate parameters always ramp to their new value over the duration of one block, just like LINK::Classes/K2A::.
+If you want to avoid interpolation, you can simply capture the parameter in the CODE::@block:: section.
+See LINK::#DynGen sections:: for an example.
 
 argument:: update
 If CODE::true:: or 1.0, the UGen will automatically adapt to DynGen code changes, see LINK::Classes/DynGenDef#-send::.
