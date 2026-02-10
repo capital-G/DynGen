@@ -64,7 +64,10 @@ public:
         }
 
         if (mFirstBlock) {
-            // initialize parameter cache!
+            // initialize parameter cache! This is necessary so that control-rate parameters
+            // really start with their original value. The parameter cache itself is used
+            // in the @sample section to compare the new (control-rate) parameter value with
+            // the previous one. If the value has changed, we need to interpolate.
             std::copy_n(newParamValues, mNumParameters, mPrevParamValues.get());
 
             if (mInitCode) {

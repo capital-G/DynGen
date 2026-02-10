@@ -457,6 +457,8 @@ The CODE::@init:: section is typically used to initialize variables or to alloca
 
 The CODE::@block:: section is very useful for caching parameters that are not supposed to change during the CODE::@sample:: block.
 It is also necessary if you want to avoid interpolation with control-rate parameters.
+(See the documentation of the CODE::params:: argument in LINK::#*ar::.)
+
 For example, you really don't want to interpolate buffer numbers!
 
 CODE::
