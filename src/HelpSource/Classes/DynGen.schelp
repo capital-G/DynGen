@@ -111,12 +111,7 @@ the key is the parameter name as a Symbol (without the underscore!), the value c
 CODE::
 (
 DynGenDef(\fbSin, "
-@init
-phase = 0;
-y1 = 0;
-
 // _feedback and _freq are parameters
-@sample
 omega = phase + (_feedback * y1);
 
 // phase increment of normal sin osc
