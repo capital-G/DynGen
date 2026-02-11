@@ -373,25 +373,27 @@ TABLE::
 ## numOut || the number of output channels
 ::
 
-SUBSECTION:: DynGen methods
+SUBSECTION:: DynGen functions
 
-DynGen also offers some internal methods to interact with SuperCollider resources.
-These do not implement any kind of interpolation.
+DynGen provides the following utility functions:
 
 TABLE::
 ## STRONG::function:: || STRONG::comment::
-## in(numChannel) || reads the n-th input channel - index gets clamped
-## out(numChannel) || writes to the n-th output channel - index gets clamped
-## bufRead(bufNum, bufFrame, [bufChan]) || reads the frame of a LINK::Classes/Buffer:: on the server. If the buffer does not exist or bufFrame is out of bounds it will return 0.0. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
-## bufReadL(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses linear interpolation.
-## bufReadC(bufNum, bufFrame, [bufChan]) || Same as bufRead but uses cubic interpolation.
-## bufWrite(bufNum, bufFrame, bufVal, [bufChan]) || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. If the buffer does not exist or bufFrame is out of bounds it will not write to the buffer. The bufChan parameter is optional and defaults to the 0-th channel. If bufChan is out of bounds, it will be mapped to the first channel.
-## clip(in, lo, [hi]) || Clips the signal, see LINK::Classes/Float#-clip::. If only two arguments are provided, LINK::Classes/Float#-clip2:: will be applied.
-## wrap(in, lo, [hi]) || Wraps the signal, see LINK::Classes/Float#-wrap::. If only two arguments are provided, LINK::Classes/Float#-wrap2:: will be applied.
-## fold(in, lo, [hi]) || Folds the signal, see LINK::Classes/Float#-fold::. If only two arguments are provided, LINK::Classes/Float#-fold2:: will be applied.
-## mod(in, hi) || Mod of a float signal, see LINK::Classes/SimpleNumber#-mod::. EEL2's internal CODE::%:: only operates on an integer level.
-## lin(x, a, b) || Linear interpolation between values a and b using MATH::a + x(b - a)::.
-## cubic(x, a, b, c, d) || A 4-point, 3rd-order Hermite interpolation at position x.
+## CODE::in(channel):: || reads the n-th input channel; out-of-range channels return 0.0
+## CODE::out(channel):: || writes to the n-th output channel; out-of-range-channels are ignored
+## CODE::bufRead(bufNum, bufFrame, [bufChan]):: || reads the frame of a LINK::Classes/Buffer:: on the server. The CODE::bufChan:: parameter is optional and defaults to the 0-th channel. If the buffer does not exist or CODE::bufFrame/bufChan:: is out-of-bounds it will return 0.0.
+## CODE::bufReadL(bufNum, bufFrame, [bufChan]):: || Same as CODE::bufRead:: but uses linear interpolation.
+## CODE::bufReadC(bufNum, bufFrame, [bufChan]):: || Same as CODE::bufRead:: but uses cubic interpolation.
+## CODE::bufWrite(bufNum, bufFrame, bufVal, [bufChan]):: || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. The CODE::bufChan:: parameter is optional and defaults to the 0-th channel. If the buffer does not exist or CODE::bufFrame/bufChan:: is out-of-bounds it will not write to the buffer.
+## CODE::clip(in, lo, [hi]):: || Clips the signal, see LINK::Classes/Float#-clip::. If only two arguments are provided, LINK::Classes/Float#-clip2:: will be applied.
+## CODE::wrap(in, lo, [hi]):: || Wraps the signal, see LINK::Classes/Float#-wrap::. If only two arguments are provided, LINK::Classes/Float#-wrap2:: will be applied.
+## CODE::fold(in, lo, [hi]):: || Folds the signal, see LINK::Classes/Float#-fold::. If only two arguments are provided, LINK::Classes/Float#-fold2:: will be applied.
+## CODE::mod(in, hi):: || Mod of a float signal, see LINK::Classes/SimpleNumber#-mod::. EEL2's internal CODE::%:: only operates on an integer level.
+## CODE::lin(x, a, b):: || Linear interpolation between values a and b using MATH::a + x(b - a)::.
+## CODE::cubic(x, a, b, c, d):: || A 4-point, 3rd-order Hermite interpolation at position x.
+## CODE::print(...):: || Print one or more numbers to the console.
+The function returns its first argument so you can use it inside expressions, similar to LINK::Classes/UGen#-poll::.
+## CODE::printMem(startIndex, size):: || Print the contents of a memory block.
 ::
 
 An example of buffer playback

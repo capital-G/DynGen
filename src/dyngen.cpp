@@ -213,6 +213,8 @@ PluginLoad("DynGen") {
 
     NSEEL_init();
 
+    EEL2Adapter::setup();
+
     // disable buffer aliasing so that users do not have to worry about
     // 'out*' variables potentially aliasing 'in*' variables.
     registerUnit<DynGen>(inTable, "DynGen", true);

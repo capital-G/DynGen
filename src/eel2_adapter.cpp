@@ -2,21 +2,77 @@
 
 #include "eel2_adapter.h"
 
-#include "eel_fft.h"
 #include "ns-eel-addfuncs.h"
 #include "ns-eel-int.h"
+#include "eel_fft.h"
+#include "eel_mdct.h"
 
 #include <SC_InlineBinaryOp.h>
 #include <SC_InterfaceTable.h>
 #include <SC_Unit.h>
 
-// define symbols for jsfx
-extern "C" void NSEEL_HOSTSTUB_EnterMutex() {}
-extern "C" void NSEEL_HOSTSTUB_LeaveMutex() {}
+#include <array>
+#include <atomic>
+#include <charconv>
 
-// fallback value for functions which return
-// a ptr to an EEL_F such as in and out
-EEL_F nullValue = double { 0.0 };
+// The following is copied from SC_SndBuf.h
+#if defined(_MSC_VER) // Visual Studio Intel/ARM64
+static void pauseCpu() { YieldProcessor(); }
+#elif defined(__SSE2__) // all modern Intel processors
+#    include <immintrin.h>
+static void pauseCpu() { _mm_pause(); }
+#elif defined(__aarch64__) // 64-bit ARM
+static void pauseCpu() { __asm__ __volatile__("isb"); }
+#elif defined(__arm__) // 32-bit ARM
+static void pauseCpu() { __asm__ __volatile__("yield"); }
+#else
+#    warning "unknown architecture: fall back to busy-waiting"
+static void pauseCpu() {}
+#endif
+
+// Some EEL functions internally use global state that must be protected from
+// concurrent access! Even without Supernova we call into EEL2 from different
+// threads (the RT and the NRT thread), so we better play it safe and implement
+// NSEEL_HOSTSTUB_EnterMutex() and NSEEL_HOSTSTUB_LeaveMutex().
+static std::atomic<uint32_t> g_spinlock { 0 };
+
+extern "C" void NSEEL_HOSTSTUB_EnterMutex() {
+    // optimize for non-contended case
+    while (g_spinlock.exchange(1, std::memory_order_acquire) != 0) {
+        while (g_spinlock.load(std::memory_order_relaxed) != 0)
+            pauseCpu();
+    }
+}
+
+extern "C" void NSEEL_HOSTSTUB_LeaveMutex() { g_spinlock.store(0, std::memory_order_release); }
+
+
+void EEL2Adapter::setup() {
+    EEL_fft_register();
+    EEL_mdct_register();
+
+    // buffer access
+    NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelBufRead);
+    NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelBufReadL);
+    NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelBufReadC);
+    NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelBufWrite);
+
+    // signal functions
+    NSEEL_addfunc_varparm("clip", 2, NSEEL_PProc_THIS, &eelClip);
+    NSEEL_addfunc_varparm("wrap", 2, NSEEL_PProc_THIS, &eelWrap);
+    NSEEL_addfunc_varparm("fold", 2, NSEEL_PProc_THIS, &eelFold);
+    NSEEL_addfunc_retval("mod", 2, NSEEL_PProc_THIS, &eelMod);
+    NSEEL_addfunc_retval("lin", 3, NSEEL_PProc_THIS, &eelLininterp);
+    NSEEL_addfunc_varparm("cubic", 5, NSEEL_PProc_THIS, &eelCubicinterp);
+
+    // inputs and outputs
+    NSEEL_addfunc_retval("in", 1, NSEEL_PProc_THIS, &eelIn);
+    NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &eelOut);
+
+    // misc
+    NSEEL_addfunc_varparm("print", 0, NSEEL_PProc_THIS, &eelPrint);
+    NSEEL_addfunc_retptr("printMem", 2, NSEEL_PProc_RAM, &eelPrintMem);
+}
 
 EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
                          Graph* parent):
@@ -29,7 +85,7 @@ EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int 
 
 // this is not RT safe
 bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, int numParamIndices) {
-    mEelState = static_cast<compileContext*>(NSEEL_VM_alloc());
+    mEelState = NSEEL_VM_alloc();
 
     // obtain handles to input and output variables
     mInputs = std::make_unique<double*[]>(mNumInputChannels);
@@ -61,26 +117,10 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
         }
     }
 
-    // eel2 functions
+    // set 'this' pointer for custom functions
     NSEEL_VM_SetCustomFuncThis(mEelState, this);
-    EEL_fft_register();
-    NSEEL_addfunc_varparm("bufRead", 2, NSEEL_PProc_THIS, &eelReadBuf);
-    NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelReadBufL);
-    NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelReadBufC);
-    NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelWriteBuf);
 
-    // signal functions
-    NSEEL_addfunc_varparm("clip", 2, NSEEL_PProc_THIS, &eelClip);
-    NSEEL_addfunc_varparm("wrap", 2, NSEEL_PProc_THIS, &eelWrap);
-    NSEEL_addfunc_varparm("fold", 2, NSEEL_PProc_THIS, &eelFold);
-    NSEEL_addfunc_retval("mod", 2, NSEEL_PProc_THIS, &eelMod);
-    NSEEL_addfunc_retval("lin", 3, NSEEL_PProc_THIS, &eelLininterp);
-    NSEEL_addfunc_varparm("cubic", 5, NSEEL_PProc_THIS, &eelCubicinterp);
-
-    NSEEL_addfunc_retptr("in", 1, NSEEL_PProc_THIS, &in);
-    NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &out);
-
-    // eel2 variables
+    // set our script variables
     *NSEEL_VM_regvar(mEelState, "srate") = mSampleRate;
     *NSEEL_VM_regvar(mEelState, "blockSize") = mBlockSize;
     *NSEEL_VM_regvar(mEelState, "numIn") = mNumInputChannels;
@@ -97,7 +137,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     if (!script.mInit.empty()) {
         mInitCode = NSEEL_code_compile_ex(mEelState, script.mInit.c_str(), 0, compileFlags);
         if (!mInitCode) {
-            Print("ERROR: DynGen init compile error: %s\n", mEelState->last_error_string);
+            Print("ERROR: DynGen @init compile error: %s\n", NSEEL_code_getcodeerror(mEelState));
             return false;
         }
     }
@@ -105,14 +145,14 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     if (!script.mBlock.empty()) {
         mBlockCode = NSEEL_code_compile_ex(mEelState, script.mBlock.c_str(), 0, compileFlags);
         if (!mBlockCode) {
-            Print("ERROR: DynGen block compile error %s\n", mEelState->last_error_string);
+            Print("ERROR: DynGen @block compile error %s\n", NSEEL_code_getcodeerror(mEelState));
             return false;
         }
     }
 
     mSampleCode = NSEEL_code_compile_ex(mEelState, script.mSample.c_str(), 0, compileFlags);
     if (!mSampleCode) {
-        Print("ERROR: DynGen sample compile error: %s\n", mEelState->last_error_string);
+        Print("ERROR: DynGen @sample compile error: %s\n", NSEEL_code_getcodeerror(mEelState));
         return false;
     }
 
@@ -122,29 +162,42 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     return true;
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBuf(void* opaque, const INT_PTR numParams, EEL_F** params) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufRead(void* opaque, const INT_PTR numParams, EEL_F** params) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (!buf) {
         return 0.0f;
-    };
-    int chanOffset = 0;
-    if (numParams >= 3) {
-        chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
     }
+
+    int chanOffset;
+    if (numParams >= 3) {
+        chanOffset = static_cast<int>(*params[2]);
+        if (chanOffset < 0 || chanOffset >= buf->channels) {
+            return 0.0f;
+        }
+    } else {
+        chanOffset = 0;
+    }
+
     LOCK_SNDBUF_SHARED(buf);
     return getSample(buf, chanOffset, static_cast<int>(*params[1]));
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufL(void* opaque, const INT_PTR numParams, EEL_F** params) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufReadL(void* opaque, const INT_PTR numParams, EEL_F** params) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
         return 0.0f;
-    };
-    int chanOffset = 0;
+    }
+
+    int chanOffset;
     if (numParams >= 3) {
-        chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
+        chanOffset = static_cast<int>(*params[2]);
+        if (chanOffset < 0 || chanOffset >= buf->channels) {
+            return 0.0f;
+        }
+    } else {
+        chanOffset = 0;
     }
 
     const auto lowerIndex = static_cast<int>(*params[1]);
@@ -155,15 +208,21 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufL(void* opaque, const INT_PTR numPa
     return lininterp(frac, getSample(buf, chanOffset, lowerIndex), getSample(buf, chanOffset, upperIndex));
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufC(void* opaque, const INT_PTR numParams, EEL_F** params) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufReadC(void* opaque, const INT_PTR numParams, EEL_F** params) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
         return 0.0f;
-    };
-    int chanOffset = 0;
+    }
+
+    int chanOffset;
     if (numParams >= 3) {
-        chanOffset = getChannelOffset(buf, static_cast<int>(*params[2]));
+        chanOffset = static_cast<int>(*params[2]);
+        if (chanOffset < 0 || chanOffset >= buf->channels) {
+            return 0.0f;
+        }
+    } else {
+        chanOffset = 0;
     }
 
     const auto baseIndex = static_cast<int>(*params[1]);
@@ -174,22 +233,22 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelReadBufC(void* opaque, const INT_PTR numPa
                        getSample(buf, chanOffset, baseIndex + 1), getSample(buf, chanOffset, baseIndex + 2));
 }
 
-EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, INT_PTR numParams, EEL_F** params) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufWrite(void* opaque, INT_PTR numParams, EEL_F** params) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
         return 0.0f;
     };
     const int sampleNum = static_cast<int>(*params[1]);
-    if (sampleNum >= buf->frames || sampleNum < 0) {
+    if (sampleNum < 0 || sampleNum >= buf->frames) {
         return 0.0f;
     }
 
     int chanOffset;
     if (numParams >= 4) {
         chanOffset = static_cast<int>(*params[3]);
-        if (chanOffset > buf->channels || chanOffset < 0) {
-            chanOffset = 0;
+        if (chanOffset < 0 || chanOffset >= buf->channels) {
+            return 0.0f;
         }
     } else {
         chanOffset = 0;
@@ -201,23 +260,25 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelWriteBuf(void* opaque, INT_PTR numParams, 
     return *params[2];
 }
 
-EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::in(void* opaque, EEL_F* channel) {
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelIn(void* opaque, EEL_F* param) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
-    if (eel2Adapter->mNumInputChannels <= 0) {
-        return &nullValue;
+    const int channel = static_cast<int>(*param);
+    if (channel >= 0 && channel < eel2Adapter->mNumInputChannels) {
+        return *eel2Adapter->mInputs[channel];
+    } else {
+        return 0.0;
     };
-    auto numChannel = std::clamp(static_cast<int>(*channel), 0, eel2Adapter->mNumInputChannels - 1);
-    return eel2Adapter->mInputs[numChannel];
 }
 
-EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::out(void* opaque, EEL_F* channel) {
+EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelOut(void* opaque, EEL_F* param) {
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
-    if (eel2Adapter->mNumOutputChannels <= 0) {
-        return &nullValue;
+    const int channel = static_cast<int>(*param);
+    if (channel >= 0 && channel < eel2Adapter->mNumOutputChannels) {
+        return eel2Adapter->mOutputs[channel];
+    } else {
+        static double nullOutput = 0.0;
+        return &nullOutput;
     };
-    auto numChannel = static_cast<int>(*channel);
-    numChannel = std::clamp(numChannel, 0, eel2Adapter->mNumOutputChannels - 1);
-    return eel2Adapter->mOutputs[numChannel];
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelClip(void*, const INT_PTR numParams, EEL_F** params) {
@@ -256,6 +317,76 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelCubicinterp(void*, const INT_PTR numParams
     return ((c3 * *params[0] + c2) * *params[0] + c1) * *params[0] + c0;
 }
 
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_F** params) {
+    std::array<char, 2048> buffer;
+
+    auto it = buffer.data();
+    auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
+    for (int i = 0; i < numParams && it != end; ++i) {
+        if (i > 0) {
+            // prepend whitespace
+            *it = ' ';
+            ++it;
+        }
+        auto [ptr, ec] = std::to_chars(it, end, *params[i]);
+        if (ec == std::errc()) {
+            it = ptr;
+        } else {
+            break;
+        }
+    }
+    // add null terminator!
+    *it = '\0';
+
+    Print("%s\n", buffer.data());
+
+    // return first argument
+    return numParams > 0 ? *params[0] : 0.0;
+}
+
+EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length) {
+    // this is EEL's way of converting a double to an index/offset...
+    const int offset = static_cast<int>(*start + 0.0001);
+    const int size = static_cast<int>(*length + 0.0001);
+
+    if (offset < 0 || size < 0) {
+        return start;
+    }
+
+    // check to make sure we don't cross a boundary
+    if ((offset / NSEEL_RAM_ITEMSPERBLOCK) != ((offset + size - 1) / NSEEL_RAM_ITEMSPERBLOCK)) {
+        return start;
+    }
+
+    EEL_F* data = __NSEEL_RAMAlloc(blocks, offset);
+    if (!data || data == &nseel_ramalloc_onfail) {
+        return start;
+    }
+
+    std::array<char, 2048> buffer;
+
+    auto it = buffer.data();
+    auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
+    for (int i = 0; i < size && it != end; ++i) {
+        if (i > 0) {
+            // prepend whitespace
+            *it = ' ';
+            ++it;
+        }
+        auto [ptr, ec] = std::to_chars(it, end, data[i]);
+        if (ec == std::errc()) {
+            it = ptr;
+        } else {
+            break;
+        }
+    }
+    // add null terminator!
+    *it = '\0';
+
+    Print("%s\n", buffer.data());
+
+    return start;
+}
 
 EEL2Adapter::~EEL2Adapter() {
     if (mSampleCode)
@@ -265,6 +396,5 @@ EEL2Adapter::~EEL2Adapter() {
     if (mBlockCode)
         NSEEL_code_free(mBlockCode);
     if (mEelState)
-        // @todo delay this to NRT thread
         NSEEL_VM_free(mEelState);
 }

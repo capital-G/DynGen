@@ -1,7 +1,6 @@
 #pragma once
 
 #include "eel2/ns-eel.h"
-#include "ns-eel-int.h"
 
 #include <SC_Graph.h>
 #include <SC_Unit.h>
@@ -18,6 +17,11 @@
  */
 class EEL2Adapter {
 public:
+    /*! @brief adds some optional modules and registers our own functions.
+     *  This is called once when the plugin is loaded.
+     */
+    static void setup();
+
     EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
                 Graph* parent);
 
@@ -26,12 +30,13 @@ public:
     /*! @brief returns true if vm has been compiled successfully */
     bool init(const DynGenScript& script, const int* parameterIndices, int numParamIndices);
 
-    static EEL_F eelReadBuf(void* opaque, INT_PTR numParams, EEL_F** params);
-    static EEL_F eelReadBufL(void* opaque, INT_PTR numParams, EEL_F** params);
-    static EEL_F eelReadBufC(void* opaque, INT_PTR numParams, EEL_F** params);
-    static EEL_F eelWriteBuf(void* opaque, INT_PTR numParams, EEL_F** param);
-    static EEL_F* in(void* opaque, EEL_F* channel);
-    static EEL_F* out(void* opaque, EEL_F* channel);
+    static EEL_F eelBufRead(void* opaque, INT_PTR numParams, EEL_F** params);
+    static EEL_F eelBufReadL(void* opaque, INT_PTR numParams, EEL_F** params);
+    static EEL_F eelBufReadC(void* opaque, INT_PTR numParams, EEL_F** params);
+    static EEL_F eelBufWrite(void* opaque, INT_PTR numParams, EEL_F** param);
+
+    static EEL_F eelIn(void* opaque, EEL_F* channel);
+    static EEL_F* eelOut(void* opaque, EEL_F* channel);
 
     static EEL_F eelClip(void*, INT_PTR numParams, EEL_F** params);
     static EEL_F eelWrap(void*, INT_PTR numParams, EEL_F** param);
@@ -39,6 +44,9 @@ public:
     static EEL_F eelMod(void*, EEL_F* in, EEL_F* hi);
     static EEL_F eelLininterp(void*, EEL_F* x, EEL_F* a, EEL_F* b);
     static EEL_F eelCubicinterp(void*, INT_PTR numParams, EEL_F** params);
+
+    static EEL_F eelPrint(void*, INT_PTR numParams, EEL_F** params);
+    static EEL_F_PTR eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length);
 
     void process(float** inBuf, float** outBuf, float** parameterPairs, int numSamples) {
         if (mBlockCode) {
@@ -71,7 +79,7 @@ public:
     }
 
 private:
-    compileContext* mEelState = nullptr;
+    NSEEL_VMCTX mEelState = nullptr;
     NSEEL_CODEHANDLE mInitCode = nullptr;
     NSEEL_CODEHANDLE mBlockCode = nullptr;
     ;
@@ -132,12 +140,5 @@ private:
         LOCK_SNDBUF_SHARED(buf);
         sampleNum = std::clamp<int>(sampleNum, 0, buf->samples - 1);
         return buf->data[buf->channels * sampleNum + chan];
-    }
-
-    static int getChannelOffset(const SndBuf* buf, int chanNum) {
-        if (chanNum >= buf->channels || chanNum < 0) {
-            return 0;
-        }
-        return chanNum;
     }
 };
