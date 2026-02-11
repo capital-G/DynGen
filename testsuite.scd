@@ -250,11 +250,11 @@
 		DynGenDef(\testConstants, "out0=srate;out1=blockSize;").send;
 		s.sync;
 		{
-			DynGen.ar(1, \testConstants, sync: 1.0);
+			DynGen.ar(2, \testConstants, sync: 1.0);
 		}.loadToFloatArray(0.1, action: {|sig|
-			var sr = sig[0] > 40000;
-			var block = sig[1] > 4;
-			success = sr.and(block);
+			var sr = s.options.sampleRate;
+			var bs = s.options.blockSize;
+			success = sig[0] == sr and: { sig[1] == bs };
 			condition.unhang;
 		});
 		condition.hang;
