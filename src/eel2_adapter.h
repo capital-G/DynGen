@@ -226,10 +226,12 @@ private:
         return mSndBuf;
     }
 
-    /*! @brief Assumes that chan is within bounds */
-    static float getSample(const SndBuf* buf, int chan, int sampleNum) {
-        LOCK_SNDBUF_SHARED(buf);
-        sampleNum = std::clamp<int>(sampleNum, 0, buf->samples - 1);
-        return buf->data[buf->channels * sampleNum + chan];
+    /*! @brief Assumes that chan is within bounds and that the buffer is locked */
+    static float getSample(const SndBuf* buf, int chan, int frameIndex) {
+        if (frameIndex >= 0 && frameIndex < buf->frames) {
+            return buf->data[buf->channels * frameIndex + chan];
+        } else {
+            return 0.f;
+        }
     }
 };
