@@ -340,7 +340,8 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_
 
     Print("%s\n", buffer.data());
 
-    return 0.0;
+    // return first argument
+    return numParams > 0 ? *params[0] : 0.0;
 }
 
 EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length) {

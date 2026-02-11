@@ -291,12 +291,10 @@ bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry* newLibraryEntry, st
         return false;
     }
 
-#if 1
     // already try to compile before creating/updating any DynGen instances.
     if (!script->tryCompile()) {
         return false;
     }
-#endif
 
     // create parameter list
     for (int i = 0; i < newLibraryEntry->numParameters; i++) {
