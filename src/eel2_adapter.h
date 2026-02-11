@@ -64,19 +64,19 @@ public:
         }
 
         if (mFirstBlock) {
-            // initialize parameter cache! This is necessary so that control-rate parameters
-            // really start with their original value. The parameter cache itself is used
-            // in the @sample section to compare the new (control-rate) parameter value with
-            // the previous one. If the value has changed, we need to interpolate.
+            // initialize script parameters and the parameter cache!
+            // This is necessary so that control-rate parameters really start with their original value.
+            // The parameter cache itself is used in the @sample section to compare the new (control-rate)
+            // parameter value with the previous one. If the value has changed, we need to interpolate;
+            // otherwise we keep the script parameter at its previous value.
+            for (int i = 0; i < mNumParameters; ++i) {
+                if (double* param = mParameters[i]) {
+                    *param = newParamValues[i];
+                }
+            }
             std::copy_n(newParamValues, mNumParameters, mPrevParamValues.get());
 
             if (mInitCode) {
-                // initialize parameters!
-                for (int i = 0; i < mNumParameters; ++i) {
-                    if (double* param = mParameters[i]) {
-                        *param = newParamValues[i];
-                    }
-                }
                 NSEEL_code_execute(mInitCode);
             }
 
@@ -92,7 +92,7 @@ public:
         }
 
         if (mBlockCode) {
-            // update parameters, but do not update the cache!
+            // update parameters, but do *not* update the cache!
             // NOTE: the behavior of control-rate parameters slightly differs
             // between the @block section and the @sample section:
             // The @block section always shows the new value whereas the @sample
@@ -113,12 +113,12 @@ public:
         double slopeFactor = 1.0 / static_cast<double>(numSamples);
 
         for (int i = 0; i < numSamples; i++) {
-            // copy input buffer to vm
+            // copy input samples to in0, in1, etc. variables
             for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
                 *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][i]);
             }
 
-            // update automated parameters
+            // update automated parameters.
             for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
                 if (double* param = mParameters[paramNum]) {
                     Wire* wire = parameterPairs[paramNum * 2 + 1];
@@ -142,14 +142,16 @@ public:
 
             NSEEL_code_execute(mSampleCode);
 
-            // read output buffer from vm
+            // copy out0, out1, etc. variables to output buffer.
             for (int outChannel = 0; outChannel < mNumOutputChannels; outChannel++) {
                 outBuf[outChannel][i] = static_cast<float>(*mOutputs[outChannel]);
             }
         }
 
-        // update all parameters (including the cache!) to the new value.
-        // Let's do this for *all* parameters because it simplifies the code and avoids some branching.
+        // update all parameters (including the cache!) to the *exact* new value.
+        // Let's do this for *all* parameters because it simplifies the code and avoids
+        // some branching. Note that control-rate parameters are only updated in the
+        // @sample section if the new value differs from the last value.
         for (int i = 0; i < mNumParameters; i++) {
             if (double* param = mParameters[i]) {
                 *param = newParamValues[i];
