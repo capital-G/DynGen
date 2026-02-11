@@ -136,6 +136,9 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     *NSEEL_VM_regvar(mEelState, "numIn") = mNumInputChannels;
     *NSEEL_VM_regvar(mEelState, "numOut") = mNumOutputChannels;
 
+    mBlockNum = NSEEL_VM_regvar(mEelState, "blockNum");
+    mSampleIndex = NSEEL_VM_regvar(mEelState, "sampleIndex");
+
     auto compileFlags = NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS | NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET
         | NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
 
