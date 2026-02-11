@@ -67,6 +67,7 @@ void EEL2Adapter::setup() {
 
     // state functions - act like macros
     NSEEL_addfunc_retval("delta", 2, NSEEL_PProc_THIS, &eelDelta);
+    NSEEL_addfunc_retval("history", 2, NSEEL_PProc_THIS, &eelHistory);
 
     // inputs and outputs
     NSEEL_addfunc_retval("in", 1, NSEEL_PProc_THIS, &eelIn);
@@ -323,6 +324,12 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelDelta(void*, EEL_F* state, EEL_F* signal) 
     EEL_F delta = *signal - *state;
     *state = *signal;
     return delta;
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelHistory(void*, EEL_F* state, EEL_F* signal) {
+    EEL_F history = *state;
+    *state = *signal;
+    return history;
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_F** params) {

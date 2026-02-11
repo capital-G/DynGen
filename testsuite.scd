@@ -30,6 +30,7 @@
 
 		// state function tests
 		\testDelta,
+		\testHistory,
 
 		// sclang tests
 		\testRemoveComments,
@@ -668,6 +669,25 @@ out0 = delta(x, in0);
 		s.sync;
 		{
 			DynGen.ar(1, \testDelta, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = sig.every({|x| (x-0.1) < 0.001});
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	testHistory: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testHistory, "
+out0 = history(x, in0) - in0;
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testHistory, Integrator.ar(DC.ar(0.1)), sync: 1.0);
 		}.loadToFloatArray(0.05, action: {|sig|
 			success = sig.every({|x| (x-0.1) < 0.001});
 			condition.unhang;
