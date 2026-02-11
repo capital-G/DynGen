@@ -14,6 +14,9 @@
 		\testDelete,
 		\testDeleteWhileRunning,
 		\testDeleteAll,
+		\testParamsInitSection,
+		\testParamsBlockSection,
+		\testParamsInterpolation,
 
 		// signal function tests
 		\testClip,
@@ -319,6 +322,96 @@
 		playCondition.hang;
 
 		deleteSuccess.and(playSuccess);
+	},
+
+	testParamsInitSection: {
+		// \ir, \kr and \ar parameters should all have the same value in the @init section.
+		var condition = Condition();
+		var success = false;
+		DynGenDef(\testParamsInitSection, "
+            @init
+            x = _x; y = _y; z = _z;
+            @sample
+            out0 = x; out1 = y; out2 = z;"
+		).send;
+		s.sync;
+		{ |a=0.5|
+			DynGen.ar(3, \testParamsInitSection,
+				params: [ x: 0.5, y: a, z: K2A.ar(0.5) ], sync: 1.0);
+		}.loadToFloatArray(0.01, action: {|sig|
+			success = sig[0..2].every(_ == 0.5);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testParamsBlockSection: {
+		var condition = Condition();
+		var success = false;
+		// in the @block section, \kr parameters should have the same value as the corresponding \ar parameters.
+		DynGenDef(\testParamsBlockSection, "
+            @block
+            x = _x; y = _y;
+            @sample
+            out0 = x; out1 = y;"
+		).send;
+		s.sync;
+		{
+			var sig = LFNoise0.ar(300);
+			DynGen.ar(2, \testParamsBlockSection,
+				params: [ x: A2K.kr(sig), y: sig ], sync: 1.0);
+		}.loadToFloatArray(0.02, action: {|sig|
+			var maxErr = 0.0;
+			sig.pairsDo { |x, y|
+				var err = abs(x - y);
+				maxErr = max(maxErr, err);
+			};
+			success = maxErr < 0.000001;
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testParamsInterpolation: {
+		// control-rate parameter interpolation should yield the same result as K2A.
+		// Test with and without @init resp. @block sections!
+		var func = { |code|
+			var success = false;
+			var condition = Condition();
+			DynGenDef(\testParamsInterpolation, code).send;
+			s.sync;
+			{
+				var sig = LFNoise0.kr(300);
+				DynGen.ar(2, \testParamsInterpolation,
+					params: [ x: sig, y: K2A.ar(sig) ], sync: 1.0);
+			}.loadToFloatArray(0.02, action: {|sig|
+				var maxErr = 0.0;
+				sig.pairsDo { |x, y|
+					var err = abs(x - y);
+					maxErr = max(maxErr, err);
+				};
+				success = maxErr < 0.0001;
+				condition.unhang;
+			});
+			condition.hang;
+			success;
+		};
+		var result1 = func.value("out0 = _x; out1 = _y;");
+		var result2 = func.value("
+            @init
+            z = 0;
+            @sample
+            out0 = _x; out1 = _y;"
+		);
+		var result3 = func.value("
+            @block
+            z = 0;
+            @sample
+            out0 = _x; out1 = _y;"
+		);
+		result1.and(result2).and(result3);
 	},
 
 	// signal function tests
