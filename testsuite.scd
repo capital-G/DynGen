@@ -14,6 +14,8 @@
 		\testDelete,
 		\testDeleteWhileRunning,
 		\testDeleteAll,
+		\testInputInitSection,
+		\testInputBlockSection,
 		\testParamsInitSection,
 		\testParamsBlockSection,
 		\testParamsInterpolation,
@@ -324,10 +326,65 @@
 		deleteSuccess.and(playSuccess);
 	},
 
+	testInputInitSection: {
+		// in the @init section, in0, in1, etc. should be initialized to the first input sample
+		var condition = Condition();
+		var success = false;
+		// this code outputs the first derivative of the inputs
+		DynGenDef(\testInputInitSection, "
+            @init
+            prev0 = in0; prev1 = in1;
+            @sample
+            out0 = in0 - prev0; prev0 = in0;
+            out1 = in1 - prev1; prev1 = in1;"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(2, \testInputInitSection, LFNoise1.ar([100, 200]), sync: 1.0);
+		}.loadToFloatArray(0.01, action: {|sig|
+			// the first sample must be 0.0 in both channels
+			success = sig[0..1].every(_ == 0.0);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testInputBlockSection: {
+		// in the @block section in0, in1, etc. should be initialized to the first input sample
+		var condition = Condition();
+		var success = false;
+		DynGenDef(\testInputBlockSection, "
+            @block
+            x = in0;
+            @sample
+            out0 = in0;
+            out1 = x;"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(2, \testInputBlockSection, LFNoise1.ar(200), sync: 1.0);
+		}.loadToFloatArray(0.01, action: {|sig|
+			var blockSize = s.options.blockSize;
+			success = true;
+			// the two outputs should be equal at the beginning of every block.
+			sig.pairsDo { |a, b, i|
+				if ((i.div(2) % blockSize) == 0) {
+					if (a != b) { success = false }
+				}
+			};
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+
+	},
+
 	testParamsInitSection: {
 		// \ir, \kr and \ar parameters should all have the same value in the @init section.
 		var condition = Condition();
 		var success = false;
+		var value = 0.5;
 		DynGenDef(\testParamsInitSection, "
             @init
             x = _x; y = _y; z = _z;
@@ -335,11 +392,11 @@
             out0 = x; out1 = y; out2 = z;"
 		).send;
 		s.sync;
-		{ |a=0.5|
+		{
 			DynGen.ar(3, \testParamsInitSection,
-				params: [ x: 0.5, y: a, z: K2A.ar(0.5) ], sync: 1.0);
+				params: [ x: value, y: \a.kr(value), z: K2A.ar(value) ], sync: 1.0);
 		}.loadToFloatArray(0.01, action: {|sig|
-			success = sig[0..2].every(_ == 0.5);
+			success = sig[0..2].every(_ == value);
 			condition.unhang;
 		});
 		condition.hang;

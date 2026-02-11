@@ -98,8 +98,8 @@ x.free;
 ::
 
 NOTE::
-EEL2 works internally with 64 bit floats (also called doubles) instead of SuperColliders 32 bit floats - it therefore can be useful to use DynGen for really slow processes (e.g. a line which goes from 0.0 to 1.0 in 60 minutes) or where high precission is desirable (e.g. when using phase interpolations).
-Since SuperCollider only can work on 32 bit floats on the server side the precission of the floats have to be reduced when outputting them to SuperCollider.
+EEL2 works internally with 64 bit floats (also called doubles) instead of SuperColliders 32 bit floats - it therefore can be useful to use DynGen for really slow processes (e.g. a line which goes from 0.0 to 1.0 in 60 minutes) or where high precision is desirable (e.g. when using phase interpolations).
+Since SuperCollider only can work on 32 bit floats on the server side the precision of the floats have to be reduced when outputting them to SuperCollider.
 ::
 
 SUBSECTION:: Parameters
@@ -220,7 +220,7 @@ SUBSECTION:: Memory
 Each DynGen instance has access to STRONG::one:: consecutive block of memory.
 This memory can be accessed through square brackets, where the value left to the square brackets add an offset to the memory address.
 
-An example illustrates this unique feature, which is contrary to how arrays work in sclang!
+An example illustrates this unique feature, which is different from how arrays work in sclang!
 
 CODE::
 // writes value 20.0 to location 0!
@@ -414,8 +414,8 @@ Ndef(\p, {
 ::
 
 NOTE::
-Since EEL2 internally works with doubles instead of SuperCollider internal floats it is possible to go beyond the 32 bit address restrictions of LINK::Classes/BufRd:: by working with an internal DynGen phase which uses 64 bit floats.
-This allows to address MATH::2^{53}:: samples accurately, which translates to around 6000 years on 48 kHz instead of the 6 minutes of LINK::Classes/BufRd::.
+Since EEL2 internally works with 64-bit doubles, we can accurately address up to MATH::2^{53}:: samples, which translates to around 6000 years at 48 kHz.
+For comparison, the precision of LINK::Classes/BufRd:: is limited to MATH::2^{24}:: samples, which corresponds to only 6 minutes at 48 kHz.
 ::
 
 SUBSECTION:: DynGen sections
@@ -423,8 +423,11 @@ SUBSECTION:: DynGen sections
 If no section block is given, the whole script will be evaluated for each sample.
 
 A section that starts with the CODE::@init:: header is only evaluated once during initialization.
+CODE::in0::, CODE::in1::, etc. and all the parameters contain their initial values.
 
 A section that starts with CODE::@block:: is evaluated before each block, see LINK::Classes/ServerOptions#-blockSize:: (aka the rate that CODE::.kr:: is running at).
+CODE::in0::, CODE::in1::, etc. and all audio-rate parameters are set to the first sample of the new block.
+Control-rate parameters are set to their new value (without interpolation!).
 
 If any of these two sections is provided, it is necessary to mark the per-sample script with the CODE::@sample:: header.
 
@@ -469,7 +472,7 @@ DynGenDef(\bufRead, "
 buf = _buf;
 
 @sample
-// The _amp parameter, however, should be interpolated.
+// the _amp parameter, however, should be interpolated.
 out0 = bufReadC(buf, in0) * _amp;
 ").send;
 )
