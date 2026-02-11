@@ -165,14 +165,14 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufRead(void* opaque, const INT_PTR numPar
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (!buf) {
-        return 0.0f;
+        return 0.0;
     }
 
     int chanOffset;
     if (numParams >= 3) {
         chanOffset = static_cast<int>(*params[2]);
         if (chanOffset < 0 || chanOffset >= buf->channels) {
-            return 0.0f;
+            return 0.0;
         }
     } else {
         chanOffset = 0;
@@ -186,14 +186,14 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufReadL(void* opaque, const INT_PTR numPa
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
-        return 0.0f;
+        return 0.0;
     }
 
     int chanOffset;
     if (numParams >= 3) {
         chanOffset = static_cast<int>(*params[2]);
         if (chanOffset < 0 || chanOffset >= buf->channels) {
-            return 0.0f;
+            return 0.0;
         }
     } else {
         chanOffset = 0;
@@ -211,14 +211,14 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufReadC(void* opaque, const INT_PTR numPa
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
-        return 0.0f;
+        return 0.0;
     }
 
     int chanOffset;
     if (numParams >= 3) {
         chanOffset = static_cast<int>(*params[2]);
         if (chanOffset < 0 || chanOffset >= buf->channels) {
-            return 0.0f;
+            return 0.0;
         }
     } else {
         chanOffset = 0;
@@ -236,18 +236,18 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufWrite(void* opaque, INT_PTR numParams, 
     const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
     const auto buf = eel2Adapter->getBuffer(static_cast<int>(*params[0]));
     if (buf == nullptr) {
-        return 0.0f;
+        return 0.0;
     };
     const int sampleNum = static_cast<int>(*params[1]);
     if (sampleNum < 0 || sampleNum >= buf->frames) {
-        return 0.0f;
+        return 0.0;
     }
 
     int chanOffset;
     if (numParams >= 4) {
         chanOffset = static_cast<int>(*params[3]);
         if (chanOffset < 0 || chanOffset >= buf->channels) {
-            return 0.0f;
+            return 0.0;
         }
     } else {
         chanOffset = 0;
