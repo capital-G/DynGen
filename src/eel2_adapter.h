@@ -77,6 +77,11 @@ public:
             std::copy_n(newParamValues, mNumParameters, mPrevParamValues.get());
 
             if (mInitCode) {
+                // initialize in0, in1, etc. variables to first input sample
+                for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
+                    *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][0]);
+                }
+
                 NSEEL_code_execute(mInitCode);
             }
 
@@ -92,6 +97,11 @@ public:
         }
 
         if (mBlockCode) {
+            // update in0, in1, etc. variables to first input sample
+            for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
+                *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][0]);
+            }
+
             // update parameters, but do *not* update the cache!
             // NOTE: the behavior of control-rate parameters slightly differs
             // between the @block section and the @sample section:

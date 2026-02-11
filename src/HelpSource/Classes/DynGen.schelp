@@ -423,8 +423,11 @@ SUBSECTION:: DynGen sections
 If no section block is given, the whole script will be evaluated for each sample.
 
 A section that starts with the CODE::@init:: header is only evaluated once during initialization.
+CODE::in0::, CODE::in1::, etc. and all the parameters contain their initial values.
 
 A section that starts with CODE::@block:: is evaluated before each block, see LINK::Classes/ServerOptions#-blockSize:: (aka the rate that CODE::.kr:: is running at).
+CODE::in0::, CODE::in1::, etc. and all audio-rate parameters are set to the first sample of the new block.
+Control-rate parameters are set to their new value (without interpolation!).
 
 If any of these two sections is provided, it is necessary to mark the per-sample script with the CODE::@sample:: header.
 
