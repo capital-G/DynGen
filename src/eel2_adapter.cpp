@@ -65,6 +65,9 @@ void EEL2Adapter::setup() {
     NSEEL_addfunc_retval("lin", 3, NSEEL_PProc_THIS, &eelLininterp);
     NSEEL_addfunc_varparm("cubic", 5, NSEEL_PProc_THIS, &eelCubicinterp);
 
+    // state functions - act like macros
+    NSEEL_addfunc_retval("delta", 2, NSEEL_PProc_THIS, &eelDelta);
+
     // inputs and outputs
     NSEEL_addfunc_retval("in", 1, NSEEL_PProc_THIS, &eelIn);
     NSEEL_addfunc_retptr("out", 1, NSEEL_PProc_THIS, &eelOut);
@@ -314,6 +317,12 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelCubicinterp(void*, const INT_PTR numParams
     EEL_F c3 = 0.5f * (*params[4] - *params[1]) + 1.5f * (*params[2] - *params[3]);
 
     return ((c3 * *params[0] + c2) * *params[0] + c1) * *params[0] + c0;
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelDelta(void*, EEL_F* state, EEL_F* signal) {
+    EEL_F delta = *signal - *state;
+    *state = *signal;
+    return delta;
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_F** params) {

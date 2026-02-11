@@ -28,6 +28,9 @@
 		\testLin,
 		\testCubic,
 
+		// state function tests
+		\testDelta,
+
 		// sclang tests
 		\testRemoveComments,
 		\testExtractParameters,
@@ -647,6 +650,26 @@
 			DynGen.ar(1, \testCubic, sync: 1.0);
 		}.loadToFloatArray(0.1, action: {|sig|
 			success = (sig.first - 2.3299999237061) < 0.01;
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	// state function tests
+	testDelta: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testDelta, "
+out0 = delta(x, in0);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDelta, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = sig.every({|x| (x-0.1) < 0.001});
 			condition.unhang;
 		});
 		condition.hang;
