@@ -2,7 +2,7 @@
 ~dynGenTests = (
 	allTests: [
 		\testBasic,
-		\testRt,
+		\testSync,
 		\testUpdate,
 		\testNonExisting,
 		\testDynamicIO,
@@ -49,13 +49,13 @@
 		success;
 	},
 
-	testRt: {
+	testSync: {
 		var success = false;
 		var condition = Condition();
-		DynGenDef(\testRt, "out0=0.5;").send;
+		DynGenDef(\testSync, "out0=0.5;").send;
 		s.sync;
 		{
-			DynGen.ar(1, \testRt, sync: 1.0);
+			DynGen.ar(1, \testSync, sync: 1.0);
 		}.loadToFloatArray(0.2, action: {|sig|
 			success = (sig[0] - 0.5).abs < 0.01;
 			condition.unhang;
