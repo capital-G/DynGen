@@ -718,6 +718,7 @@ out1 = __gain2;
 		var testsToRun = if(name.isNil, {self.allTests}, {name.asArray});
 		var results = testsToRun.collect({|testName|
 			"Running %".format(testName).postln;
+			if (self[testName].isNil) { Error("'%' not found".format(testName)).throw };
 			[testName, self.perform(testName)];
 		});
 		if(results.any(_[1].not), {
