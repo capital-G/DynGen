@@ -29,6 +29,9 @@
 		\testCubic,
 
 		// state function tests
+		\testWrongDelta,
+		\testWrongDeltaInput,
+		\testWrongDeltaOutput,
 		\testDelta,
 		\testHistory,
 		\testLatch,
@@ -660,6 +663,72 @@
 	},
 
 	// state function tests
+
+	// this uses a number as state variable - which should not be done
+	// results in [-0.4, 0.1, 0.1, 0.1, ...]
+	testWrongDelta: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testWrongDelta, "
+out0 = delta(0.5, in0);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testWrongDelta, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = (sig.first + 0.4) < 0.01;
+			sig = sig.drop(1);
+			success = success.and(sig.every({|x| (x-0.1) < 0.01}));
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	// this uses the input as state variable - which should not be done
+	// results in [0.0, 0.0, 0.0, ...]
+	testWrongDeltaInput: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testWrongDeltaInput, "
+out0 = delta(in0, in0);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testWrongDeltaInput, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = sig.every({|x| x < 0.01});
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	// this uses the output as state variable - which should not be done
+	// results in [0.1, 0.1, 0.2, 0.2, 0.3, 0.3, ...]
+	testWrongDeltaOutput: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testWrongDeltaOutput, "
+out0 = delta(out0, in0);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testWrongDeltaOutput, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = sig.every({|x, i| ((((i+2)/2.0).floor * 0.1) - x) < 0.01});
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
 	testDelta: {
 		var success = false;
 		var condition = Condition();
