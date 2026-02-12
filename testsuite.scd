@@ -28,6 +28,14 @@
 		\testLin,
 		\testCubic,
 
+		// state function tests
+		\testWrongDelta,
+		\testWrongDeltaInput,
+		\testWrongDeltaOutput,
+		\testDelta,
+		\testHistory,
+		\testLatch,
+
 		// sclang tests
 		\testRemoveComments,
 		\testExtractParameters,
@@ -647,6 +655,130 @@
 			DynGen.ar(1, \testCubic, sync: 1.0);
 		}.loadToFloatArray(0.1, action: {|sig|
 			success = (sig.first - 2.3299999237061) < 0.01;
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	// state function tests
+
+	// this uses a number as state variable - which should not be done
+	// results in [-0.4, 0.1, 0.1, 0.1, ...]
+	testWrongDelta: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testWrongDelta, "
+out0 = delta(0.5, in0);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testWrongDelta, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = (sig.first + 0.4) < 0.01;
+			sig = sig.drop(1);
+			success = success.and(sig.every({|x| (x-0.1) < 0.01}));
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	// this uses the input as state variable - which should not be done
+	// results in [0.0, 0.0, 0.0, ...]
+	testWrongDeltaInput: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testWrongDeltaInput, "
+out0 = delta(in0, in0);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testWrongDeltaInput, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = sig.every({|x| x < 0.01});
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	// this uses the output as state variable - which should not be done
+	// results in [0.1, 0.1, 0.2, 0.2, 0.3, 0.3, ...]
+	testWrongDeltaOutput: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testWrongDeltaOutput, "
+out0 = delta(out0, in0);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testWrongDeltaOutput, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = sig.every({|x, i| ((((i+2)/2.0).floor * 0.1) - x) < 0.01});
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	testDelta: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testDelta, "
+out0 = delta(x, in0);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDelta, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = sig.every({|x| (x-0.1) < 0.001});
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	testHistory: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testHistory, "
+out0 = history(x, in0) - in0;
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testHistory, Integrator.ar(DC.ar(0.1)), sync: 1.0);
+		}.loadToFloatArray(0.05, action: {|sig|
+			success = sig.every({|x| (x-0.1) < 0.001});
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	testLatch: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testLatch, "
+out0 = latch(x, in0, _trigger);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testLatch, LFPulse.ar(800.0), [trigger: Impulse.ar(800.0)], sync: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			success = sig.every({|x| (x-1.0) < 0.001});
 			condition.unhang;
 		});
 		condition.hang;
