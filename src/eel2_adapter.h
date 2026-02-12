@@ -49,6 +49,7 @@ public:
 
     static EEL_F eelDelta(void*, EEL_F* state, EEL_F* signal);
     static EEL_F eelHistory(void*, EEL_F* state, EEL_F* signal);
+    static EEL_F eelLatch(void*, EEL_F* state, EEL_F* signal, EEL_F* trigger);
 
     static EEL_F eelPrint(void*, INT_PTR numParams, EEL_F** params);
     static EEL_F_PTR eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length);

@@ -31,6 +31,7 @@
 		// state function tests
 		\testDelta,
 		\testHistory,
+		\testLatch,
 
 		// sclang tests
 		\testRemoveComments,
@@ -690,6 +691,25 @@ out0 = history(x, in0) - in0;
 			DynGen.ar(1, \testHistory, Integrator.ar(DC.ar(0.1)), sync: 1.0);
 		}.loadToFloatArray(0.05, action: {|sig|
 			success = sig.every({|x| (x-0.1) < 0.001});
+			condition.unhang;
+		});
+		condition.hang;
+
+		success;
+	},
+
+	testLatch: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testLatch, "
+out0 = latch(x, in0, _trigger);
+").send;
+		s.sync;
+		{
+			DynGen.ar(1, \testLatch, LFPulse.ar(800.0), [trigger: Impulse.ar(800.0)], sync: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			success = sig.every({|x| (x-1.0) < 0.001});
 			condition.unhang;
 		});
 		condition.hang;
