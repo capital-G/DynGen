@@ -10,6 +10,7 @@
 		\testMultiParam,
 		\testBufRead,
 		\testBufWrite,
+		\testBufInfo,
 		\testConstants,
 		\testDelete,
 		\testDeleteWhileRunning,
@@ -186,6 +187,30 @@
 		});
 		bufCondition.hang;
 
+		success;
+	},
+
+	testBufInfo: {
+		var success = false;
+		var condition = Condition();
+		var buffer = Buffer.read(s, ExampleFiles.apollo11);
+
+		DynGenDef(\testBufInfo, "
+            out0=bufSampleRate(_bufnum);
+            out1=bufChannels(_bufnum);
+            out2=bufFrames(_bufnum);"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(3, \testBufInfo, params: [bufnum: buffer], sync: 1.0);
+		}.loadToFloatArray(0.01, action: { |sig|
+			var sr = sig[0] == buffer.sampleRate;
+			var chans = sig[1] == buffer.numChannels;
+			var frames = sig[2] == buffer.numFrames;
+			success = sr.and(chans).and(frames);
+			condition.unhang;
+		});
+		condition.hang;
 		success;
 	},
 

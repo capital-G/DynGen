@@ -56,6 +56,9 @@ void EEL2Adapter::setup() {
     NSEEL_addfunc_varparm("bufReadL", 2, NSEEL_PProc_THIS, &eelBufReadL);
     NSEEL_addfunc_varparm("bufReadC", 2, NSEEL_PProc_THIS, &eelBufReadC);
     NSEEL_addfunc_varparm("bufWrite", 3, NSEEL_PProc_THIS, &eelBufWrite);
+    NSEEL_addfunc_retval("bufSampleRate", 1, NSEEL_PProc_THIS, &eelBufSampleRate);
+    NSEEL_addfunc_retval("bufChannels", 1, NSEEL_PProc_THIS, &eelBufChannels);
+    NSEEL_addfunc_retval("bufFrames", 1, NSEEL_PProc_THIS, &eelBufFrames);
 
     // signal functions
     NSEEL_addfunc_varparm("clip", 2, NSEEL_PProc_THIS, &eelClip);
@@ -257,6 +260,36 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufWrite(void* opaque, INT_PTR numParams, 
     buf->data[(sampleNum * buf->channels) + chanOffset] = static_cast<float>(*params[2]);
     // or should this return the old now overwritten value?
     return *params[2];
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufSampleRate(void* opaque, EEL_F* bufNum) {
+    const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+    const auto buf = eel2Adapter->getBuffer(static_cast<int>(*bufNum));
+    if (buf) {
+        return buf->samplerate;
+    } else {
+        return 0.0;
+    }
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufFrames(void* opaque, EEL_F* bufNum) {
+    const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+    const auto buf = eel2Adapter->getBuffer(static_cast<int>(*bufNum));
+    if (buf) {
+        return static_cast<double>(buf->frames);
+    } else {
+        return 0.0;
+    }
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufChannels(void* opaque, EEL_F* bufNum) {
+    const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+    const auto buf = eel2Adapter->getBuffer(static_cast<int>(*bufNum));
+    if (buf) {
+        return static_cast<double>(buf->channels);
+    } else {
+        return 0.0;
+    }
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelIn(void* opaque, EEL_F* param) {
