@@ -11,6 +11,7 @@
 		\testBufRead,
 		\testBufWrite,
 		\testBufInfo,
+		\testBufInfoOutOfRange,
 		\testConstants,
 		\testDelete,
 		\testDeleteWhileRunning,
@@ -208,6 +209,26 @@
 			var chans = sig[1] == buffer.numChannels;
 			var frames = sig[2] == buffer.numFrames;
 			success = sr.and(chans).and(frames);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testBufInfoOutOfRange: {
+		var success = false;
+		var condition = Condition();
+		var bufnum = s.options.numBuffers; // out of range
+		DynGenDef(\testBufInfoOutOfRange, "
+            out0=bufSampleRate(_bufnum);
+            out1=bufChannels(_bufnum);
+            out2=bufFrames(_bufnum);"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(3, \testBufInfoOutOfRange, params: [bufnum: bufnum], sync: 1.0);
+		}.loadToFloatArray(0.01, action: { |sig|
+			success = sig[0..2].every(_ == 0.0);
 			condition.unhang;
 		});
 		condition.hang;
