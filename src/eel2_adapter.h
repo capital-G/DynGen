@@ -221,7 +221,10 @@ private:
         } else {
             // looking for a matching localbuf
             int localBufNum = bufNum - mWorld->mNumSndBufs;
-            if (localBufNum <= mParent->localBufNum) {
+            // NOTE: 'localMaxBufNum' actually holds the max. number of local
+            // sound buffers. It is *not* the max. local buffer number!
+            // As of SC 3.14, all the Server code gets this wrong...
+            if (localBufNum < mParent->localMaxBufNum) {
                 mSndBuf = mParent->mLocalSndBufs + localBufNum;
             }
         }
