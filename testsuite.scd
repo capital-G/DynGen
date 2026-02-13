@@ -127,9 +127,11 @@
 		{
 			DynGen.ar(2, \testCodeAfterUGen, params: [ foo: 2.0 ], update: 0.0, sync: 1.0);
 		}.loadToFloatArray(0.2, action: {|sig|
-			sig.pairsDo {|a, b|
-				if (a == 1.0 and: { b == 2.0 }) { success = true };
-			};
+			// the first two samples should be still 0.0,
+			// the last two samples should match the code.
+			var initSuccess = sig[0] == 0.0 and: { sig[1] == 0.0 };
+			var codeSuccess = sig.wrapAt(-2) == 1.0 and: { sig.wrapAt(-1) == 2.0 };
+			success = initSuccess and: codeSuccess;
 			condition.unhang;
 		});
 		// finally send code (after some delay!)
