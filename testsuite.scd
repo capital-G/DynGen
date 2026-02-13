@@ -2,7 +2,7 @@
 ~dynGenTests = (
 	allTests: [
 		\testBasic,
-		\testRt,
+		\testSync,
 		\testUpdate,
 		\testNonExisting,
 		\testDynamicIO,
@@ -10,6 +10,8 @@
 		\testMultiParam,
 		\testBufRead,
 		\testBufWrite,
+		\testBufInfo,
+		\testBufInfoOutOfRange,
 		\testConstants,
 		\testDelete,
 		\testDeleteWhileRunning,
@@ -56,13 +58,13 @@
 		success;
 	},
 
-	testRt: {
+	testSync: {
 		var success = false;
 		var condition = Condition();
-		DynGenDef(\testRt, "out0=0.5;").send;
+		DynGenDef(\testSync, "out0=0.5;").send;
 		s.sync;
 		{
-			DynGen.ar(1, \testRt, sync: 1.0);
+			DynGen.ar(1, \testSync, sync: 1.0);
 		}.loadToFloatArray(0.2, action: {|sig|
 			success = (sig[0] - 0.5).abs < 0.01;
 			condition.unhang;
@@ -194,6 +196,50 @@
 		});
 		bufCondition.hang;
 
+		success;
+	},
+
+	testBufInfo: {
+		var success = false;
+		var condition = Condition();
+		var buffer = Buffer.read(s, ExampleFiles.apollo11);
+
+		DynGenDef(\testBufInfo, "
+            out0=bufSampleRate(_bufnum);
+            out1=bufChannels(_bufnum);
+            out2=bufFrames(_bufnum);"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(3, \testBufInfo, params: [bufnum: buffer], sync: 1.0);
+		}.loadToFloatArray(0.01, action: { |sig|
+			var sr = sig[0] == buffer.sampleRate;
+			var chans = sig[1] == buffer.numChannels;
+			var frames = sig[2] == buffer.numFrames;
+			success = sr.and(chans).and(frames);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testBufInfoOutOfRange: {
+		var success = false;
+		var condition = Condition();
+		var bufnum = s.options.numBuffers; // out of range
+		DynGenDef(\testBufInfoOutOfRange, "
+            out0=bufSampleRate(_bufnum);
+            out1=bufChannels(_bufnum);
+            out2=bufFrames(_bufnum);"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(3, \testBufInfoOutOfRange, params: [bufnum: bufnum], sync: 1.0);
+		}.loadToFloatArray(0.01, action: { |sig|
+			success = sig[0..2].every(_ == 0.0);
+			condition.unhang;
+		});
+		condition.hang;
 		success;
 	},
 
@@ -825,6 +871,7 @@ out1 = __gain2;
 		var testsToRun = if(name.isNil, {self.allTests}, {name.asArray});
 		var results = testsToRun.collect({|testName|
 			"Running %".format(testName).postln;
+			if (self[testName].isNil) { Error("'%' not found".format(testName)).throw };
 			[testName, self.perform(testName)];
 		});
 		if(results.any(_[1].not), {

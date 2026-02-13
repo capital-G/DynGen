@@ -36,6 +36,9 @@ public:
     static EEL_F eelBufReadL(void* opaque, INT_PTR numParams, EEL_F** params);
     static EEL_F eelBufReadC(void* opaque, INT_PTR numParams, EEL_F** params);
     static EEL_F eelBufWrite(void* opaque, INT_PTR numParams, EEL_F** param);
+    static EEL_F eelBufSampleRate(void* opaque, EEL_F* bufNum);
+    static EEL_F eelBufFrames(void* opaque, EEL_F* bufNum);
+    static EEL_F eelBufChannels(void* opaque, EEL_F* bufNum);
 
     static EEL_F eelIn(void* opaque, EEL_F* channel);
     static EEL_F* eelOut(void* opaque, EEL_F* channel);
@@ -222,7 +225,10 @@ private:
         } else {
             // looking for a matching localbuf
             int localBufNum = bufNum - mWorld->mNumSndBufs;
-            if (localBufNum <= mParent->localBufNum) {
+            // NOTE: 'localMaxBufNum' actually holds the max. number of local
+            // sound buffers. It is *not* the max. local buffer number!
+            // As of SC 3.14, all the Server code gets this wrong...
+            if (localBufNum < mParent->localMaxBufNum) {
                 mSndBuf = mParent->mLocalSndBufs + localBufNum;
             }
         }
@@ -230,10 +236,12 @@ private:
         return mSndBuf;
     }
 
-    /*! @brief Assumes that chan is within bounds */
-    static float getSample(const SndBuf* buf, int chan, int sampleNum) {
-        LOCK_SNDBUF_SHARED(buf);
-        sampleNum = std::clamp<int>(sampleNum, 0, buf->samples - 1);
-        return buf->data[buf->channels * sampleNum + chan];
+    /*! @brief Assumes that chan is within bounds and that the buffer is locked */
+    static float getSample(const SndBuf* buf, int chan, int frameIndex) {
+        if (frameIndex >= 0 && frameIndex < buf->frames) {
+            return buf->data[buf->channels * frameIndex + chan];
+        } else {
+            return 0.f;
+        }
     }
 };

@@ -385,6 +385,9 @@ TABLE::
 ## CODE::bufReadL(bufNum, bufFrame, [bufChan]):: || Same as CODE::bufRead:: but uses linear interpolation.
 ## CODE::bufReadC(bufNum, bufFrame, [bufChan]):: || Same as CODE::bufRead:: but uses cubic interpolation.
 ## CODE::bufWrite(bufNum, bufFrame, bufVal, [bufChan]):: || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. The CODE::bufChan:: parameter is optional and defaults to the 0-th channel. If the buffer does not exist or CODE::bufFrame/bufChan:: is out-of-bounds it will not write to the buffer.
+## CODE::bufRate(bufNum):: || returns the buffer sample rate (or 0.0 if CODE::bufNum:: is out-of-range)
+## CODE::bufChannels(bufNum):: || returns the number of buffer channels (or 0.0 if CODE::bufNum:: is out-of-range)
+## CODE::bufFrames(bufNum):: || returns the number of buffer frames (or 0.0 if CODE::bufNum:: is out-of-range)
 ## CODE::clip(in, lo, [hi]):: || Clips the signal, see LINK::Classes/Float#-clip::. If only two arguments are provided, LINK::Classes/Float#-clip2:: will be applied.
 ## CODE::wrap(in, lo, [hi]):: || Wraps the signal, see LINK::Classes/Float#-wrap::. If only two arguments are provided, LINK::Classes/Float#-wrap2:: will be applied.
 ## CODE::fold(in, lo, [hi]):: || Folds the signal, see LINK::Classes/Float#-fold::. If only two arguments are provided, LINK::Classes/Float#-fold2:: will be applied.
@@ -404,15 +407,39 @@ An example of buffer playback
 CODE::
 ~buffer = Buffer.read(s, path: ExampleFiles.apollo11);
 
-DynGenDef(\buffer, "out0 = bufReadC(_bufNum, _bufFrame)").send;
+(
+// Play all channels of a buffer in a loop with variable playback rate.
+// This code works for any number of buffer channels!
+DynGenDef(\loopBuffer, "
+    @init
+    buf = -1;
+
+    @block
+    // update all buffer info at the start each block
+    _bufNum != buf ? (
+        buf = _bufNum;
+        channels = bufChannels(buf);
+        frames = bufFrames(buf);
+        advance = bufSampleRate(buf) / srate;
+    );
+
+    @sample
+    chan = 0;
+    loop(channels,
+        out(chan) = bufReadC(buf, pos, chan);
+        chan += 1;
+    );
+    pos += advance * _rate;
+    pos = wrap(pos, 0, frames);"
+).send;
+)
 
 (
 Ndef(\p, {
-	DynGen.ar(1, \buffer, params: [
-		bufNum: ~buffer.bufnum,
-		bufFrame: Phasor.ar(rate: SinOscFB.ar(5.3, 1.3) + 1.0, end: ~buffer.numFrames),
+	DynGen.ar(~buffer.numChannels, \loopBuffer, params: [
+		bufNum: ~buffer, rate: \rate.kr(1.0, spec: [-2.0, 2.0])
 	]).dup * 0.2;
-}).play;
+}).play.gui;
 )
 ::
 
