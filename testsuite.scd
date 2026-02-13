@@ -248,7 +248,7 @@
 		var success = false;
 		var condition = Condition();
 
-		DynGenDef(\testVars, "out0=sampleIndex;out1=blockNum;").send;
+		DynGenDef(\testVars, "out0=sampleNum;out1=blockNum;").send;
 		s.sync;
 		{
 			DynGen.ar(2, \testVars, sync: 1.0);

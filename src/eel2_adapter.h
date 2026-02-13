@@ -131,8 +131,8 @@ public:
         double slopeFactor = 1.0 / static_cast<double>(numSamples);
 
         for (int i = 0; i < numSamples; i++) {
-            // update "sampleIndex" variable
-            *mSampleIndex = static_cast<double>(i);
+            // update "sampleNum" variable
+            *mSampleNum = static_cast<double>(i);
 
             // copy input samples to in0, in1, etc. variables
             for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
@@ -198,7 +198,7 @@ private:
     uint64_t mBlockCounter = 0;
 
     double* mBlockNum = nullptr;
-    double* mSampleIndex = nullptr;
+    double* mSampleNum = nullptr;
     std::unique_ptr<double*[]> mInputs;
     std::unique_ptr<double*[]> mOutputs;
     std::unique_ptr<double*[]> mParameters;
