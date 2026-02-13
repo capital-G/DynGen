@@ -12,6 +12,7 @@
 		\testBufWrite,
 		\testBufInfo,
 		\testBufInfoOutOfRange,
+		\testVars,
 		\testConstants,
 		\testDelete,
 		\testDeleteWhileRunning,
@@ -243,6 +244,28 @@
 		success;
 	},
 
+	testVars: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testVars, "out0=sampleNum;out1=blockNum;").send;
+		s.sync;
+		{
+			DynGen.ar(2, \testVars, sync: 1.0);
+		}.loadToFloatArray(0.01, action: {|sig|
+			var blockSize = s.options.blockSize;
+			success = true;
+			sig.pairsDo { |a, b, i|
+				var sampleIndex = i.div(2).mod(blockSize);
+				var blockNum = i.div(2).div(blockSize);
+				if (a != sampleIndex or: { b != blockNum }) { success = false; }
+			};
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
 	testConstants: {
 		var success = false;
 		var condition = Condition();
@@ -250,11 +273,11 @@
 		DynGenDef(\testConstants, "out0=srate;out1=blockSize;").send;
 		s.sync;
 		{
-			DynGen.ar(1, \testConstants, sync: 1.0);
-		}.loadToFloatArray(0.1, action: {|sig|
-			var sr = sig[0] > 40000;
-			var block = sig[1] > 4;
-			success = sr.and(block);
+			DynGen.ar(2, \testConstants, sync: 1.0);
+		}.loadToFloatArray(0.01, action: {|sig|
+			var sr = s.options.sampleRate;
+			var bs = s.options.blockSize;
+			success = sig[0] == sr and: { sig[1] == bs };
 			condition.unhang;
 		});
 		condition.hang;

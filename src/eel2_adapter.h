@@ -70,8 +70,11 @@ public:
             }
         }
 
-        if (mFirstBlock) {
-            // initialize script parameters and the parameter cache!
+        // update "blockNum" variable
+        *mBlockNum = static_cast<double>(mBlockCounter);
+
+        if (mBlockCounter == 0) {
+            // First block: initialize script parameters and the parameter cache!
             // This is necessary so that control-rate parameters really start with their original value.
             // The parameter cache itself is used in the @sample section to compare the new (control-rate)
             // parameter value with the previous one. If the value has changed, we need to interpolate;
@@ -91,8 +94,6 @@ public:
 
                 NSEEL_code_execute(mInitCode);
             }
-
-            mFirstBlock = false;
         }
 
         double* prevParamValues = nullptr;
@@ -130,6 +131,9 @@ public:
         double slopeFactor = 1.0 / static_cast<double>(numSamples);
 
         for (int i = 0; i < numSamples; i++) {
+            // update "sampleNum" variable
+            *mSampleNum = static_cast<double>(i);
+
             // copy input samples to in0, in1, etc. variables
             for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
                 *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][i]);
@@ -175,23 +179,26 @@ public:
                 mPrevParamValues[i] = newParamValues[i];
             }
         }
+
+        mBlockCounter++;
     }
 
 private:
     NSEEL_VMCTX mEelState = nullptr;
     NSEEL_CODEHANDLE mInitCode = nullptr;
     NSEEL_CODEHANDLE mBlockCode = nullptr;
-    ;
     NSEEL_CODEHANDLE mSampleCode = nullptr;
 
     int mNumInputChannels = 0;
     int mNumOutputChannels = 0;
     int mNumParameters = 0; // number of automated parameters
 
-    double mSampleRate = 0;
     int mBlockSize = 0;
-    bool mFirstBlock = true;
+    double mSampleRate = 0;
+    uint64_t mBlockCounter = 0;
 
+    double* mBlockNum = nullptr;
+    double* mSampleNum = nullptr;
     std::unique_ptr<double*[]> mInputs;
     std::unique_ptr<double*[]> mOutputs;
     std::unique_ptr<double*[]> mParameters;

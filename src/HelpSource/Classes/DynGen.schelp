@@ -360,6 +360,18 @@ Ndef(\oversample, {
 )
 ::
 
+SUBSECTION:: DynGen variables
+
+DynGen defines the following variables:
+
+TABLE::
+## STRONG::variable name:: || STRONG::comment::
+## CODE::in0::, CODE::in1::, etc. || contains the current sample value of the given input channel. If the channel number is out-of-range, the variable contains 0.0.
+## CODE::out0::, CODE::out1::, etc. || represents the current sample of the given output channel. If the channel number is out-of-range, any assignments will be ignored.
+## CODE::sampleNum:: || the number/index of the current sample in this block (starting from 0). This is only valid in the CODE::@sample:: section.
+## CODE::blockNum:: || the number of the current block, starting from 0.
+::
+
 SUBSECTION:: DynGen constants
 
 DynGen provides some constants which are accessible like normal variables.
@@ -367,10 +379,10 @@ There is no const protection, so pay attention to not overwrite them.
 
 TABLE::
 ## STRONG::variable name:: || STRONG::comment::
-## srate || same as LINK::Classes/ServerOptions#-sampleRate::
-## blockSize || same as LINK::Classes/ServerOptions#-blockSize::
-## numIn || the number of input channels
-## numOut || the number of output channels
+## CODE::srate:: || same as LINK::Classes/ServerOptions#-sampleRate::
+## CODE::blockSize:: || same as LINK::Classes/ServerOptions#-blockSize::
+## CODE::numIn:: || the number of input channels
+## CODE::numOut:: || the number of output channels
 ::
 
 SUBSECTION:: DynGen functions
