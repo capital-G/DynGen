@@ -99,12 +99,13 @@
 	},
 
 	testNonExisting: {
+		// a DynGen without code should just produce silence
 		var success = false;
 		var condition = Condition();
 		{
 			DynGen.ar(1, \nonExisting);
-		}.loadToFloatArray(0.1, action: {|sig|
-			success = sig.any({|x| (x-0.0).abs < 0.01});
+		}.loadToFloatArray(0.01, action: {|sig|
+			success = sig.every(_ == 0.0);
 			condition.unhang;
 		});
 		condition.hang;
