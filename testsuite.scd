@@ -5,6 +5,7 @@
 		\testSync,
 		\testUpdate,
 		\testNonExisting,
+		\testCodeAfterUGen,
 		\testDynamicIO,
 		\testParam,
 		\testMultiParam,
@@ -108,6 +109,33 @@
 			success = sig.every(_ == 0.0);
 			condition.unhang;
 		});
+		condition.hang;
+		success;
+	},
+
+	testCodeAfterUGen: {
+		// Send the code after creating the DynGen.
+		// Despite the error message in the console, we should still be able to send the code and update the UGen.
+		// Make sure this also works with parameters and with update=0.
+		var success = false;
+		var condition = Condition();
+		// first remove the code from the Server!
+		// only do is if we have code to avoid error messages.
+		var def = DynGenDef(\testCodeAfterUGen);
+		if (def.code.size > 0) { "free def".postln; def.free };
+		// then create the UGen (without code)
+		{
+			DynGen.ar(2, \testCodeAfterUGen, params: [ foo: 2.0 ], update: 0.0, sync: 1.0);
+		}.loadToFloatArray(0.2, action: {|sig|
+			sig.pairsDo {|a, b|
+				if (a == 1.0 and: { b == 2.0 }) { success = true };
+			};
+			condition.unhang;
+		});
+		// finally send code (after some delay!)
+		0.1.wait;
+		DynGenDef(\testCodeAfterUGen, "out0=1.0; out1=_foo").send;
+		s.sync;
 		condition.hang;
 		success;
 	},

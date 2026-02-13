@@ -87,7 +87,8 @@ struct CodeLibrary {
     DynGen* mDynGen;
 
     /*! @brief the eel2 code currently associated with the DynGen instance.
-     *  NRT managed.
+     *  NRT managed. This is NULL if no code has been sent yet. In this case
+     *  the CodeLibrary only acts as a placeholder.
      */
     DynGenScript* mScript;
 
@@ -176,8 +177,12 @@ struct NewDynGenLibraryEntry {
 
 class Library {
 public:
-    /*! @brief find the CodeLibrary for a given code ID */
-    static CodeLibrary* findCode(int codeID);
+    /*! @brief returns the CodeLibrary for a given code ID.
+     *  If the code does not exist (yet), an empty entry is created as a placeholder
+     *  and returned to the caller.
+     *  This function only returns NULL when memory allocation fails.
+     */
+    static CodeLibrary* getCode(World* World, int codeID);
 
     /*! @brief runs in stage  1 (RT thread)
      *  responds to an osc message on the RT thread - we therefore have to
@@ -206,6 +211,9 @@ public:
     static void cleanup();
 
 private:
+    /*! @brief find the CodeLibrary for a given code ID */
+    static CodeLibrary* findCode(int codeID);
+
     /*! @brief removes a node from the linked list and checks
      *  if any associated resources are ready to be freed.
      *

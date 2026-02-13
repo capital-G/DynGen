@@ -117,6 +117,25 @@ bool CodeLibrary::isReadyToBeFreed() const { return mShouldBeFreed && mDynGen ==
 // and its associated running DynGens.
 CodeLibrary* gLibrary = nullptr;
 
+CodeLibrary* Library::getCode(World* world, int codeID) {
+    auto code = findCode(codeID);
+    if (!code) {
+        // create new code node
+        code = static_cast<CodeLibrary*>(RTAlloc(world, sizeof(CodeLibrary)));
+        if (!code) {
+            return nullptr; // out of memory
+        }
+        code->mNext = gLibrary;
+        code->mWorld = world;
+        code->mID = codeID;
+        code->mDynGen = nullptr;
+        code->mScript = nullptr;
+        code->mShouldBeFreed = false;
+        gLibrary = code;
+    }
+    return code;
+}
+
 CodeLibrary* Library::findCode(int codeID) {
     for (auto node = gLibrary; node; node = node->mNext) {
         if (node->mID == codeID) {
@@ -159,18 +178,20 @@ void Library::freeNode(CodeLibrary* node, bool async) {
         RTFree(world, node);
     }
 
-    if (async) {
-        // defer deletion to NRT and RT thread since script is NRT allocated
-        ft->fDoAsynchronousCommand(
-            world, nullptr, nullptr, script,
-            [](World*, void* data) {
-                auto script = static_cast<DynGenScript*>(data);
-                delete script;
-                return false;
-            },
-            nullptr, nullptr, [](World* inWorld, void*) {}, 0, nullptr);
-    } else {
-        delete script;
+    if (script != nullptr) {
+        if (async) {
+            // defer deletion to NRT and RT thread since script is NRT allocated
+            ft->fDoAsynchronousCommand(
+                world, nullptr, nullptr, script,
+                [](World*, void* data) {
+                    auto script = static_cast<DynGenScript*>(data);
+                    delete script;
+                    return false;
+                },
+                nullptr, nullptr, [](World* inWorld, void*) {}, 0, nullptr);
+        } else {
+            delete script;
+        }
     }
 }
 

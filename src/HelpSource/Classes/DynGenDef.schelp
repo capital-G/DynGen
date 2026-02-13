@@ -7,7 +7,7 @@ DESCRIPTION::
 
 In order to run a LINK::Classes/DynGen:: script on the server it is necessary to first register it on the server under a given name, similar to a LINK::Classes/SynthDef::.
 
-If the code for an already existing name gets updated, all running instances of this code will also be updated.
+If the code for an already existing name gets updated, all running LINK::Classes/DynGen:: instances of this code will also be updated.
 This allows to live-code DynGen scripts.
 
 CLASSMETHODS::
@@ -60,10 +60,9 @@ This behaves similar to LINK::Classes/SynthDef#-send:: or LINK::Classes/Buffer#-
 Associated LINK::Classes/DynGen:: instances may automatically update their code.
 This is controlled with the CODE::update:: argument for LINK::Classes/DynGen#*ar::.
 
-NOTE::
-By default the associated DynGen code will be transferred to the server directly via osc using the CODE::/dyngenscript:: plugin command.
-In case the script is too big, the script will be saved to a local temp file and its path will be sent to the server via the CODE::/dyngenfile:: plugin command.
-::
+(By default, the contained DynGen code will be transferred to the Server directly via OSC using the CODE::/dyngenscript:: plugin command.
+In case the script is too big, the script will be saved to a local temp file and its path will be sent to the server via the CODE::/dyngenfile:: plugin command.)
+
 argument:: server
 The server on which the DynGenDef should be registered.
 If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
