@@ -608,6 +608,9 @@ argument:: script
 The LINK::Classes/DynGenDef:: script which should be used.
 This can either be a LINK::Classes/Symbol:: with the name of the referenced script or a DynGenDef object.
 
+If the given script does not exist on the Server yet, an error message will be posted to the console.
+However, you can still send the code after the fact and the UGen will be automatically updated (regardless of the CODE::update:: parameter).
+
 argument:: inputs
 An array of input signals.
 Each input will be made available within the scripts through the variables CODE::in0::, code::in1::, ...
@@ -620,6 +623,9 @@ Parameters can be modulated at any rate.
 In the CODE::@sample:: section, control-rate parameters always ramp to their new value over the duration of one block, just like LINK::Classes/K2A::.
 If you want to avoid interpolation, you can simply capture the parameter in the CODE::@block:: section.
 See LINK::#DynGen sections:: for an example.
+
+If a parameter is not found in the DynGen code, you get a warning in the console.
+It is not discarded, though, you can still use it when you update the code.
 
 argument:: update
 If CODE::true:: or 1.0, the UGen will automatically adapt to DynGen code changes, see LINK::Classes/DynGenDef#-send::.

@@ -193,23 +193,25 @@ DynGenDef {
 		^params;
 	}
 
-	// takes an array of [\paramName, signal] which should be
-	// transformed to its numerical representation of the `prParameters`
-	// array. Non existing parameters will be thrown away,
-	// also only the first occurence of a parameter will be considered
+	// takes an array of [\paramName, signal] which should be transformed
+	// to its numerical representation of the `prParameters` array.
+	// Non-existing parameters are kept, but they will return zero until
+	// the code is updated. In that case we post a warning.
 	prTranslateParameters {|parameters|
 		var newParameters = [];
-		parameters.pairsDo({|param, value|
-			var index = prParams.indexOf("_%".format(param).asSymbol);
-			if(index.notNil, {
+		parameters.pairsDo {|param, value|
+			var paramSym = ("_" ++ param).asSymbol;
+			var index = prParams.indexOf(paramSym);
+			if (index.notNil) {
 				newParameters = newParameters.add(index).add(value);
-			}, {
-				"Parameter % is not registered in % - will be ignored".format(
-					param,
-					name,
-				).warn;
-			});
-		});
+			} {
+				"Parameter % is not registered in % - will be ignored until the code is updated".format(param, name).warn;
+				// add the parameter to the script so it can be updated later!
+				prParams = prParams.add(paramSym);
+				index = prParams.size - 1;
+				newParameters = newParameters.add(index).add(value);
+			}
+		};
 		^newParameters;
 	}
 

@@ -13,6 +13,7 @@ DynGen::DynGen() {
     mNumDynGenParameters = static_cast<int>(in0(NumParametersIndex));
     assert(mNumDynGenInputs + mNumDynGenParameters + InputOffset <= numInputs());
 
+    // call this before initializing the VM because we only want to clear the outputs.
     set_calc_function<DynGen, &DynGen::next>();
 
     // necessary for `ClearUnitIfMemFailed` macro
@@ -22,30 +23,27 @@ DynGen::DynGen() {
     mStub->mObject = this;
     mStub->mRefCount = 1;
 
-    // search for codeId within code library linked list
-    auto codeNode = Library::findCode(mCodeID);
-    if (codeNode == nullptr) {
-        Print("ERROR: Could not find script with hash %i\n", mCodeID);
-        next(1);
-        return;
-    }
-
     mParameterIndices = static_cast<int*>(RTAlloc(mWorld, sizeof(int) * mNumDynGenParameters));
-    if (!mParameterIndices) {
-        Print("ERROR: Could not allocate memory for parameter pointers\n");
-        next(1);
-        return;
-    }
+    ClearUnitIfMemFailed(mParameterIndices);
     for (int i = 0; i < mNumDynGenParameters; i++) {
         // parameters come in index-value pairs, so only take each 2nd position
         auto paramIndex = static_cast<int>(in0(InputOffset + mNumDynGenInputs + (2 * i)));
         mParameterIndices[i] = paramIndex;
     }
 
+    // get/create code library for this code ID. This only returns NULL when we're out of RT memory.
+    mCodeLibrary = Library::getCode(mWorld, mCodeID);
+    ClearUnitIfMemFailed(mCodeLibrary);
     // add ourselves to the code node so we can receive code updates.
-    codeNode->addUnit(this);
     // we have to unregister ourself when the Unit is freed, see ~DynGen().
-    mCodeLibrary = codeNode;
+    mCodeLibrary->addUnit(this);
+
+    // check if the entry actually contains a script. If not, we return with an error message.
+    // NOTE: the user might later create the script, which would in turn update the UGen!
+    if (mCodeLibrary->mScript == nullptr) {
+        Print("ERROR: Could not find script with hash %i\n", mCodeID);
+        return;
+    }
 
     if (useAudioThread) {
         // do init of VM in RT thread - this is dangerous and should not be done,
@@ -55,14 +53,14 @@ DynGen::DynGen() {
         auto vm =
             new EEL2Adapter(mNumDynGenInputs, mNumOutputs, static_cast<int>(sampleRate()), mBufLength, mWorld, mParent);
 
-        if (vm->init(*codeNode->mScript, mParameterIndices, mNumDynGenParameters)) {
+        if (vm->init(*mCodeLibrary->mScript, mParameterIndices, mNumDynGenParameters)) {
             mVm = vm;
         } else {
             delete vm;
         }
     } else {
         // offload VM init to NRT thread
-        if (!updateCode(codeNode->mScript)) {
+        if (!updateCode(mCodeLibrary->mScript)) {
             ClearUnitOnMemFailed
         }
     }
@@ -122,30 +120,27 @@ bool DynGen::updateCode(const DynGenScript* script) const {
 DynGen::~DynGen() {
     RTFree(mWorld, mParameterIndices);
 
-    mStub->mObject = nullptr;
+    mStub->mObject = nullptr; // invalidate stub!
     mStub->mRefCount -= 1;
     if (mStub->mRefCount == 0) {
         RTFree(mWorld, mStub);
     }
 
-    // in case we have not found a matching code the vm was never initialized
-    // so we also do not have access to a code library or a vm we would have
-    // to clean up, so we bail out early.
-    if (mCodeLibrary == nullptr) {
-        return;
+    if (mCodeLibrary) {
+        // remove ourselves from the code library
+        mCodeLibrary->removeUnit(this);
+
+        if (mCodeLibrary->isReadyToBeFreed()) {
+            RTFree(mWorld, mCodeLibrary);
+        }
     }
 
-    // remove ourselves from the code library
-    mCodeLibrary->removeUnit(this);
-
-    if (mCodeLibrary->isReadyToBeFreed()) {
-        RTFree(mWorld, mCodeLibrary);
+    if (mVm) {
+        // free the vm in RT context through async command
+        ft->fDoAsynchronousCommand(
+            mWorld, nullptr, nullptr, static_cast<void*>(mVm), deleteVmOnSynthDestruction, nullptr, nullptr,
+            [](World*, void*) {}, 0, nullptr);
     }
-
-    // free the vm in RT context through async command
-    ft->fDoAsynchronousCommand(
-        mWorld, nullptr, nullptr, static_cast<void*>(mVm), deleteVmOnSynthDestruction, nullptr, nullptr,
-        [](World*, void*) {}, 0, nullptr);
 }
 
 bool DynGen::createVmAndCompile(World* world, void* rawCallbackData) {
