@@ -80,6 +80,7 @@ void EEL2Adapter::setup() {
     // misc
     NSEEL_addfunc_varparm("print", 0, NSEEL_PProc_THIS, &eelPrint);
     NSEEL_addfunc_retptr("printMem", 2, NSEEL_PProc_RAM, &eelPrintMem);
+    NSEEL_addfunc_varparm("poll", 1, NSEEL_PProc_THIS, &eelPoll);
 }
 
 EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
@@ -445,6 +446,39 @@ EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelPrintMem(EEL_F** blocks, EEL_F* start,
     Print("%s\n", buffer.data());
 
     return start;
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPoll(void* opaque, const INT_PTR numParams, EEL_F** params) {
+    const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+    double rate = std::max(*params[0], 0.000001);
+    uint64_t samples = static_cast<uint64_t>(eel2Adapter->mSampleRate / rate + 0.5);
+
+    if (eel2Adapter->mSampleCounter % samples == 0) {
+        std::array<char, 2048> buffer;
+
+        auto it = buffer.data();
+        auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
+        for (int i = 1; i < numParams && it != end; ++i) {
+            if (i > 1) {
+                // prepend whitespace
+                *it = ' ';
+                ++it;
+            }
+            auto [ptr, ec] = std::to_chars(it, end, *params[i]);
+            if (ec == std::errc()) {
+                it = ptr;
+            } else {
+                break;
+            }
+        }
+        // add null terminator!
+        *it = '\0';
+
+        Print("%s\n", buffer.data());
+    }
+
+    // return the first printed value
+    return numParams > 1 ? *params[1] : 0.0;
 }
 
 EEL2Adapter::~EEL2Adapter() {
