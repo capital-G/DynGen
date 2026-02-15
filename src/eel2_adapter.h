@@ -56,6 +56,7 @@ public:
 
     static EEL_F eelPrint(void*, INT_PTR numParams, EEL_F** params);
     static EEL_F_PTR eelPrintMem(EEL_F** blocks, EEL_F* start, EEL_F* length);
+    static EEL_F eelPoll(void* opaque, INT_PTR numParams, EEL_F** params);
 
     void process(float** inBuf, float** outBuf, Wire** parameterPairs, int numSamples) {
         double* newParamValues = nullptr;
@@ -167,6 +168,8 @@ public:
             for (int outChannel = 0; outChannel < mNumOutputChannels; outChannel++) {
                 outBuf[outChannel][i] = static_cast<float>(*mOutputs[outChannel]);
             }
+
+            mSampleCounter++;
         }
 
         // update all parameters (including the cache!) to the *exact* new value.
@@ -196,6 +199,7 @@ private:
     int mBlockSize = 0;
     double mSampleRate = 0;
     uint64_t mBlockCounter = 0;
+    uint64_t mSampleCounter = 0;
 
     double* mBlockNum = nullptr;
     double* mSampleNum = nullptr;
