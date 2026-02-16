@@ -119,7 +119,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
             mParameters[i] = NSEEL_VM_regvar(mEelState, parameters[paramIndex].c_str());
         } else {
             // ignore out-of-range parameter indices
-            Print("ERROR: Parameter index %d out of range\n");
+            Print("ERROR: Parameter index %d out of range\n", i);
             mParameters[i] = nullptr;
         }
     }
