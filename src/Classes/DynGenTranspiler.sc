@@ -82,7 +82,8 @@ DynGenEnvironment : EnvironmentRedirect {
 		"put got called w/ % - %".format(key, value).postln;
 		dgVar = DynGenVar(key, context);
 		context.addStatement(dgVar, value.asDynGen);
-		^super.put(key, dgVar);
+		super.put(key, dgVar);
+		^dgVar;
 	}
 }
 
@@ -156,6 +157,14 @@ DynGenExpr {
 
 	? {|other|
 		^DynGenBinOp.new('?', this, other, context);
+	}
+
+	min {|other|
+		^DynGenBinOp.new('min', this, other, context);
+	}
+
+	max {|other|
+		^DynGenBinOp.new('max', this, other, context);
 	}
 
 	asDynGen {
@@ -269,6 +278,35 @@ DynGenVar : DynGenExpr {
 	}
 }
 
+DynGenCollection : DynGenExpr {
+	var <>elements;
+
+	*new {|elements, context|
+		^super.new(context).initCollection(elements);
+	}
+
+	initCollection {|elements_|
+		elements = elements_;
+	}
+
+	sum {
+		^elements.reduce({|a, b| a+b;});
+	}
+
+	mean {
+		^(this.sum/elements.size);
+	}
+
+	at {|index|
+		^elements[index];
+	}
+
+	// no asDynGen or printOn since dyngen
+	// has no collections - these only act as
+	// containers for sc variables to operate
+	// meta operations on them
+}
+
 + Integer {
 	asDynGen {
 		^DynGenLiteral(this, nil);
@@ -278,6 +316,13 @@ DynGenVar : DynGenExpr {
 + Float {
 	asDynGen {
 		^DynGenLiteral(this, nil);
+	}
+}
+
++ Collection {
+	asDynGen {
+		// @todo do some checks on the content of the collection!
+		^DynGenCollection(this, this.first.context);
 	}
 }
 
