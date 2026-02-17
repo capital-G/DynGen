@@ -14,7 +14,7 @@ DynGenTranspiler {
 		varNames = Set();
 		environment = DynGenEnvironment(this);
 		"Calling func now".postln;
-		environment.use({func.value()});
+		environment.use({func.value(environment)});
 	}
 
 	addStatement {|lhs, rhs|
