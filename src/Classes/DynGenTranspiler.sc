@@ -116,6 +116,43 @@ DynGenExpr {
 		^DynGenFuncCall(\lin, [this, a, b], context);
 	}
 
+	cubic {|a, b, c, d|
+		^DynGenFuncCall(\cubic, [this, a, b, c, d], context);
+	}
+
+	bufRead {|frame, chan=0|
+		^DynGenFuncCall(\bufRead, [this, frame, chan], context);
+	}
+
+	bufReadL{|frame, chan=0|
+		^DynGenFuncCall(\bufReadL, [this, frame, chan], context);
+	}
+
+	bufReadC {|frame, chan=0|
+		^DynGenFuncCall(\bufReadC, [this, frame, chan], context);
+	}
+
+	bufWrite {|bufNum, frame, chan=0|
+		^DynGenFuncCall(\bufWrite, [bufNum, frame, this, chan], context);
+	}
+
+	bufRate {
+		^DynGenFuncCall(\bufRate, [this], context);
+	}
+
+	bufChannels {
+		^DynGenFuncCall(\bufChannels, [this], context);
+	}
+
+	bufFrames {
+		^DynGenFuncCall(\bufFrames, [this], context);
+	}
+
+	// how to implement out - which is used in assignments and not as a function
+	in {
+		^DynGenFuncCall(\in, [this], context);
+	}
+
 	delta {|state|
 		^DynGenFuncCall(\delta, [state, this], context);
 	}
@@ -124,12 +161,102 @@ DynGenExpr {
 		^DynGenFuncCall(\history, [state, this], context);
 	}
 
+	latch {|trigger, state|
+		^DynGenFuncCall(\latch, [state, this, trigger], context);
+	}
 
-	// binops
+	print {
+		^DynGenFuncCall(\print, [this], context);
+	}
+
+	printMem {|size|
+		^DynGenFuncCall(\printMem, [this, size], context);
+	}
+
+	poll {|rate=10.0|
+		^DynGenFuncCall(\poll, [this, rate], context);
+	}
+
+	// eel2 built-in unary functions
+	sign {
+		^DynGenFuncCall(\sign, [this], context);
+	}
+
+	rand {
+		^DynGenFuncCall(\rand, [this], context);
+	}
+
+	floor {
+		^DynGenFuncCall(\floor, [this], context);
+	}
+
+	ceil {
+		^DynGenFuncCall(\ceil, [this], context);
+	}
+
+	invsqrt {
+		^DynGenFuncCall(\invsqrt, [this], context);
+	}
 
 	sin {
 		"Perform sin on %".format(this);
 		^DynGenFuncCall(\sin, [this], context);
+	}
+
+	cos {
+		^DynGenFuncCall(\cos, [this], context);
+	}
+
+	tan {
+		^DynGenFuncCall(\tan, [this], context);
+	}
+
+	asin {
+		^DynGenFuncCall(\asin, [this], context);
+	}
+
+	acos {
+		^DynGenFuncCall(\acos, [this], context);
+	}
+
+	atan {
+		^DynGenFuncCall(\atan, [this], context);
+	}
+
+	sqr {
+		^DynGenFuncCall(\sqr, [this], context);
+	}
+
+	sqrt {
+		^DynGenFuncCall(\sqrt, [this], context);
+	}
+
+	exp {
+		^DynGenFuncCall(\exp, [this], context);
+	}
+
+	log {
+		^DynGenFuncCall(\log, [this], context);
+	}
+
+	log10 {
+		^DynGenFuncCall(\log10, [this], context);
+	}
+
+
+	// binops
+	// can't implement ^ - use pow instead
+
+	% { |denominator|
+		^DynGenBinOp('%', this, denominator, context);
+	}
+
+	<< {|shiftAmount|
+		^DynGenBinOp('<<', this, shiftAmount, context);
+	}
+
+	>> {|shiftAmount|
+		^DynGenBinOp('>>', this, shiftAmount, context);
 	}
 
 	+ {|other|
@@ -146,25 +273,112 @@ DynGenExpr {
 		^DynGenBinOp.new('*', this, other, context);
 	}
 
-	/ {|other|
-		"Perform / from % on %".format(this, other);
-		^DynGenBinOp.new('/', this, other, context);
-	}
-
-	== {|other|
-		^DynGenBinOp.new('==', this, other, context);
+	/ {|divisor|
+		"Perform / from % on %".format(this, divisor);
+		^DynGenBinOp.new('/', this, divisor, context);
 	}
 
 	? {|other|
 		^DynGenBinOp.new('?', this, other, context);
 	}
 
+	| {|other|
+		^DynGenBinOp('|', this, other, context);
+	}
+
+	& {|other|
+		^DynGenBinOp('&', this, other, context);
+	}
+
+	// can't use ~ - this is xor
+	xor {|other|
+		^DynGenBinOp('~', this, other, context);
+	}
+
+	== {|other|
+		^DynGenBinOp('==', this, other, context);
+	}
+
+	=== {|other|
+		^DynGenBinOp('===', this, other, context);
+	}
+
+	!= {|other|
+		^DynGenBinOp('!=', this, other, context);
+	}
+
+	!== {|other|
+		^DynGenBinOp('!==', this, other, context);
+	}
+
+	< {|other|
+		^DynGenBinOp('<', this, other, context);
+	}
+
+	> {|other|
+		^DynGenBinOp('>', this, other, context);
+	}
+
+	<= {|other|
+		^DynGenBinOp('<=', this, other, context);
+	}
+
+	>= {|other|
+		^DynGenBinOp('>=', this, other, context);
+	}
+
+	|| {|other|
+		^DynGenBinOp('||', this, other, context);
+	}
+
+	&& {|other|
+		^DynGenBinOp('&&', this, other, context);
+	}
+
+	*= {|other|
+		^DynGenBinOp('*=', this, other, context);
+	}
+
+	/= {|divisor|
+		^DynGenBinOp('/=', this, divisor, context);
+	}
+
+	%= {|divisor|
+		^DynGenBinOp('%=', this, divisor, context);
+	}
+
+	// do not implement ^=
+
+	+= {|other|
+		^DynGenBinOp('+=', this, other, context);
+	}
+
+	-= {|other|
+		^DynGenBinOp('-=', this, other, context);
+	}
+
+	|= {|other|
+		^DynGenBinOp('|=', this, other, context);
+	}
+
+	&= {|other|
+		^DynGenBinOp('&=', this, other, context);
+	}
+
 	min {|other|
-		^DynGenBinOp.new('min', this, other, context);
+		^DynGenFuncCall(\min, [this, other], context);
 	}
 
 	max {|other|
-		^DynGenBinOp.new('max', this, other, context);
+		^DynGenFuncCall(\max, [this, other], context);
+	}
+
+	atan2 {|other|
+		^DynGenFuncCall(\atan2, [this, other], context);
+	}
+
+	pow {|exponent|
+		^DynGenFuncCall(\pow, [this, exponent], context);
 	}
 
 	asDynGen {
@@ -326,7 +540,6 @@ DynGenCollection : DynGenExpr {
 	}
 }
 
-// not necessary?
 + String {
 	asDynGen {
 		^this;
