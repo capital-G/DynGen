@@ -13,7 +13,6 @@ DynGenTranspiler {
 		statements = [];
 		varNames = Set();
 		environment = DynGenEnvironment(this);
-		"Calling func now".postln;
 		environment.use({func.value(environment)});
 	}
 
@@ -55,33 +54,22 @@ DynGenEnvironment : EnvironmentRedirect {
 	}
 
 	makeVar {|name|
-		"makeVar got called w/ % - %".format(name, context).postln;
 		^DynGenVar(name, this.context);
 	}
 
-	add {|...args|
-		"Add got called w/ %".format(args).postln;
-	}
-
 	at { |key|
-		var dgVar;
-		"At got called with % (context: %)".format(key, context).postln;
-
-		dgVar = envir.at(key);
+		var dgVar = envir.at(key);
 
 		if(dgVar.isNil, {
 			dgVar = this.makeVar(key, context);
 			envir.put(key, dgVar);
-			context.registerVar(key);
 		});
 
 		^dgVar;
 	}
 
 	put { |key, value|
-		var dgVar;
-		"put got called w/ % - %".format(key, value).postln;
-		dgVar = DynGenVar(key, context);
+		var dgVar = dgVar = DynGenVar(key, context);
 		context.addStatement(dgVar, value.asDynGen);
 		super.put(key, dgVar);
 		^dgVar;
@@ -265,26 +253,23 @@ DynGenExpr {
 	}
 
 	+ {|other|
-		"Perform + from % on %".format(this, other);
-		^DynGenBinOp.new('+', this, other, context);
+		^DynGenBinOp('+', this, other, context);
 	}
 
 	- {|other|
-		^DynGenBinOp.new('-', this, other, context);
+		^DynGenBinOp('-', this, other, context);
 	}
 
 	* {|other|
-		"Perform * from % on %".format(this, other);
-		^DynGenBinOp.new('*', this, other, context);
+		^DynGenBinOp('*', this, other, context);
 	}
 
 	/ {|divisor|
-		"Perform / from % on %".format(this, divisor);
-		^DynGenBinOp.new('/', this, divisor, context);
+		^DynGenBinOp('/', this, divisor, context);
 	}
 
 	? {|other|
-		^DynGenBinOp.new('?', this, other, context);
+		^DynGenBinOp('?', this, other, context);
 	}
 
 	| {|other|
@@ -405,7 +390,6 @@ DynGenParamAccessor {
 
 	at {|key|
 		// maybe we should cache this?
-		"access at %".format(key);
 		^createParam(key);
 	}
 
@@ -420,7 +404,6 @@ DynGenParamAccessor {
 	}
 
 	doesNotUnderstand {|selector ...args, kwargs|
-		"Does not understand got called w/ % - % - %".format(selector, args, kwargs).postln;
 		^this.performArgs(\createParam, [selector]++args, kwargs);
 	}
 }
@@ -458,7 +441,6 @@ DynGenFuncCall : DynGenExpr {
 	}
 
 	initFuncCall {|funcName_, arguments_|
-		"New func call w/ % (%)".format(funcName, arguments);
 		funcName = funcName_;
 		arguments = arguments_;
 	}
@@ -486,7 +468,6 @@ DynGenLiteral : DynGenExpr {
 	}
 
 	initLiteral {|value_|
-		"Init literal %".format(value_).postln;
 		value = value_;
 	}
 
@@ -531,12 +512,10 @@ DynGenVar : DynGenExpr {
 	var <name;
 
 	*new {|name, context|
-		"new dyngenvar w/ % %".format(name, context).postln;
 		^super.new(context).init(name);
 	}
 
 	init {|name_|
-		"New variable %".format(name_).postln;
 		context.registerVar(name_);
 		name = name_;
 	}
