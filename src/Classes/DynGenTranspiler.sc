@@ -148,9 +148,13 @@ DynGenExpr {
 		^DynGenFuncCall(\bufFrames, [this], context);
 	}
 
-	// how to implement out - which is used in assignments and not as a function
 	in {
 		^DynGenFuncCall(\in, [this], context);
+	}
+
+	// maybe this is too hacky?
+	out {|chan|
+		^DynGenBinOp("=", "out(%)".format(chan), this, context);
 	}
 
 	delta {|state|
