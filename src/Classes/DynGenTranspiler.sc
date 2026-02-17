@@ -51,6 +51,7 @@ DynGenEnvironment : EnvironmentRedirect {
 
 	init {|context_|
 		context = context_;
+		envir.put(\p, DynGenParamAccessor(context));
 	}
 
 	makeVar {|name|
@@ -393,6 +394,59 @@ DynGenExpr {
 		^aNumber.asDynGen.perform(aSelector, this, adverb)
 	}
 
+}
+
+DynGenParamAccessor {
+	var <>context;
+
+	*new {|context|
+		^super.newCopyArgs(context);
+	}
+
+	at {|key|
+		// maybe we should cache this?
+		"access at %".format(key);
+		^createParam(key);
+	}
+
+	createParam {|name, default=0.0, spec=\unipolar|
+		^DynGenParam(
+			name,
+			default,
+			spec,
+			context,
+		);
+
+	}
+
+	doesNotUnderstand {|selector ...args, kwargs|
+		"Does not understand got called w/ % - % - %".format(selector, args, kwargs).postln;
+		^this.performArgs(\createParam, [selector]++args, kwargs);
+	}
+}
+
+DynGenParam : DynGenExpr {
+	var <>name;
+	var <>default;
+	var <>spec;
+
+	*new {|name, default, spec, context|
+		^super.new(context).initParam(name, default, spec);
+	}
+
+	initParam {|name_, default_, spec_|
+		name = name_;
+		default = default_;
+		spec = spec_;
+	}
+
+	asDynGen {
+		^"_%".format(name.asString);
+	}
+
+	printOn { |stream|
+		stream << this.asDynGen;
+	}
 }
 
 DynGenFuncCall : DynGenExpr {
