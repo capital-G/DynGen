@@ -2,6 +2,7 @@
 ~dynGenTests = (
 	allTests: [
 		\testBasic,
+		\testCodeSections,
 		\testSync,
 		\testUpdate,
 		\testNonExisting,
@@ -54,6 +55,49 @@
 			DynGen.ar(1, \testBasic);
 		}.loadToFloatArray(0.2, action: {|sig|
 			success = sig.any({|x| (x-0.5).abs <= 0.01});
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testCodeSections: {
+		var success = false;
+		var condition = Condition();
+		// also test function definitions across code sections!
+		DynGenDef(\testCodeSections, "
+            @init
+            x = 0.5;
+            function increment(i)
+            (
+                i + 1;
+            );
+
+            // add some trailing whitespace
+            @sample \n
+            z = increment(z);
+            out0 = x;
+            out1 = y;
+            out2 = z;
+
+            // make sure that sections can be defined in any order
+            @block  \n
+            y = increment(y);"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(3, \testCodeSections, sync: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			var blockSize = s.options.blockSize;
+			success = true;
+			sig.clump(3).do { |array, i|
+				var x = array[0];
+				var y = array[1];
+				var z = array[2];
+				if (x != 0.5) { success = false };
+				if (y != (i.div(blockSize) + 1)) { success = false };
+				if (z != (i + 1)) { success = false };
+			};
 			condition.unhang;
 		});
 		condition.hang;

@@ -12,69 +12,138 @@
 
 namespace {
 
-bool validateBlockOrder(size_t posInit, size_t posBlock, size_t posSample) {
-    size_t lastPos = 0;
-    if (posInit != std::string_view::npos) {
-        lastPos = posInit;
-    }
-    if (posBlock != std::string_view::npos) {
-        if (posBlock < lastPos) {
-            return false;
+/*! @brief iterate over all lines in the given std::string_view.
+ * 'func' receives the line as a std::string_view, followed by the position
+ * of the line in the string. The newline character is included in the result!
+ */
+template<typename Func>
+void forEachLine(std::string_view string, Func&& func) {
+    size_t pos = 0;
+    while (pos < string.size()) {
+        size_t next = string.find('\n', pos);
+        if (next != std::string_view::npos) {
+            next++;
+            func(string.substr(pos, next - pos), pos);
+            pos = next;
+        } else {
+            // till the end of the string
+            func(string.substr(pos), pos);
+            break;
         }
-        lastPos = posBlock;
     }
-    if (posSample != std::string_view::npos) {
-        if (posSample < lastPos) {
-            return false;
+}
+
+/*! @brief removes all trailing whitespace from the given string_view */
+std::string_view trimRight(std::string_view sv) {
+    if (sv.empty()) {
+        return sv;
+    }
+
+    ptrdiff_t pos = sv.size() - 1;
+    for (; pos >= 0; --pos) {
+        if (!std::isspace(sv[pos])) {
+            break;
         }
     }
-    return true;
+
+    if (pos >= 0) {
+        return sv.substr(0, pos + 1);
+    } else {
+        return {};
+    }
+}
+
+/*! @brief try to find a code section name in the given line.
+ *  Make sure that everything before and after the name is whitespace.
+ *  'start' is the position of the @ character in the line.
+ */
+CodeSection findCodeSection(std::string_view line) {
+    auto matchName = [&](std::string_view name, size_t start) {
+        // name must be followed by at least one whitespace character
+        return line.compare(start, name.size(), name) == 0 &&
+                std::isspace(line[start + name.size()]);
+    };
+
+    for (size_t pos = 0; pos < line.size(); ++pos) {
+        auto c = line[pos];
+        if (c == '@') {
+            if (matchName("@init", pos)) {
+                return CodeSection::Init;
+            } else if (matchName("@block", pos)) {
+                return CodeSection::Block;
+            } else if (matchName("@sample", pos)) {
+                return CodeSection::Sample;
+            }
+        } else if (!std::isspace(c)) {
+            break;
+        }
+    }
+    return CodeSection::None;
 }
 
 } // namespace
 
 bool DynGenScript::parse(std::string_view script) {
-    std::string_view init("@init\n");
-    std::string_view block("@block\n");
-    std::string_view sample("@sample\n");
+    CodeSection currentSection = CodeSection::None;
+    size_t currentSectionStart = 0;
 
-    auto posInit = script.find(init);
-    auto posBlock = script.find(block);
-    auto posSample = script.find(sample);
+    std::string_view initCode;
+    std::string_view blockCode;
+    std::string_view sampleCode;
 
-    // if no blocks given -> use code as sample block
-    if (posInit == std::string_view::npos && posSample == std::string_view::npos
-        && posBlock == std::string_view::npos) {
-        mSample = script;
-        return true;
-    };
+    forEachLine(script, [&](std::string_view line, size_t linePos) {
+        auto newSection = findCodeSection(line);
+        if (newSection != CodeSection::None) {
+            // finish current section
+            size_t currentSize = linePos - currentSectionStart;
+            if (currentSection == CodeSection::Init) {
+                initCode = script.substr(currentSectionStart, currentSize);
+            } else if (currentSection == CodeSection::Block) {
+                blockCode = script.substr(currentSectionStart, currentSize);
+            } else if (currentSection == CodeSection::Sample) {
+                sampleCode = script.substr(currentSectionStart, currentSize);
+            }
+            // start new section
+            currentSection = newSection;
+            currentSectionStart = linePos + line.size(); // skip header!
+        }
+    });
 
-    if (posSample == std::string_view::npos) {
-        Print("DynGen script requires a sample section\n");
+    // finish last section
+    if (currentSection == CodeSection::Init) {
+        initCode = script.substr(currentSectionStart);
+    } else if (currentSection == CodeSection::Block) {
+        blockCode = script.substr(currentSectionStart);
+    } else if (currentSection == CodeSection::Sample) {
+        sampleCode = script.substr(currentSectionStart);
+    } else {
+        // no sections -> the whole script is used as the @sample section
+        sampleCode = script;
+    }
+
+    if (sampleCode.empty()) {
+        Print("ERROR: DynGen script requires a @sample section!\n");
         return false;
     }
 
-    if (!validateBlockOrder(posInit, posBlock, posSample)) {
-        Print("DynGen: Wrong script block order, requires @init, @block, @sample "
-              "order\n");
-        return false;
+    mInit = trimRight(initCode);
+    mBlock = trimRight(blockCode);
+    mSample = trimRight(sampleCode);
+
+#if 0
+    if (!mInit.empty()) {
+        Print("--- @init ---\n");
+        Print("%s\n", mInit.c_str());
     }
-
-    // skip the matched strings!
-    auto startInit = (posInit != std::string_view::npos) ? posInit + init.size() : std::string_view::npos;
-    auto startBlock = (posBlock != std::string_view::npos) ? posBlock + block.size() : std::string_view::npos;
-    auto startSample = (posSample != std::string_view::npos) ? posSample + sample.size() : std::string_view::npos;
-
-    if (posInit != std::string_view::npos) {
-        const auto endPos = posBlock != std::string_view::npos ? posBlock : posSample;
-        mInit = std::string(script.substr(startInit, endPos - startInit));
+    if (!mBlock.empty()) {
+        Print("--- @block ---\n");
+        Print("%s\n", mBlock.c_str());
     }
-
-    if (posBlock != std::string_view::npos) {
-        mBlock = std::string(script.substr(startBlock, posSample - startBlock));
+    if (!mSample.empty()) {
+        Print("--- @sample ---\n");
+        Print("%s\n", mSample.c_str());
     }
-
-    mSample = std::string(script.substr(startSample));
+#endif
 
     return true;
 }

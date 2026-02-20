@@ -15,6 +15,13 @@ struct World;
 
 extern InterfaceTable* ft;
 
+enum class CodeSection {
+    None,
+    Init,
+    Block,
+    Sample
+};
+
 /*! @class DynGenScript
  *  @brief contains the code sections of an EEL2 script
  *  plus a list of exposed parameter names.
