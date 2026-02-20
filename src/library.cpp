@@ -16,8 +16,7 @@ namespace {
  * 'func' receives the line as a std::string_view, followed by the position
  * of the line in the string. The newline character is included in the result!
  */
-template<typename Func>
-void forEachLine(std::string_view string, Func&& func) {
+template <typename Func> void forEachLine(std::string_view string, Func&& func) {
     size_t pos = 0;
     while (pos < string.size()) {
         size_t next = string.find('\n', pos);
@@ -60,8 +59,7 @@ std::string_view trimRight(std::string_view sv) {
 CodeSection findCodeSection(std::string_view line) {
     auto matchName = [&](std::string_view name, size_t start) {
         // name must be followed by at least one whitespace character
-        return line.compare(start, name.size(), name) == 0 &&
-                std::isspace(line[start + name.size()]);
+        return line.compare(start, name.size(), name) == 0 && std::isspace(line[start + name.size()]);
     };
 
     for (size_t pos = 0; pos < line.size(); ++pos) {
@@ -130,7 +128,7 @@ bool DynGenScript::parse(std::string_view script) {
     mBlock = trimRight(blockCode);
     mSample = trimRight(sampleCode);
 
-#if 0
+#if 1
     if (!mInit.empty()) {
         Print("--- @init ---\n");
         Print("%s\n", mInit.c_str());
