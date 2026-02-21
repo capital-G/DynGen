@@ -13,6 +13,7 @@
 
 #include <array>
 #include <atomic>
+#include <cassert>
 #include <charconv>
 
 // The following is copied from SC_SndBuf.h
@@ -123,25 +124,71 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
         std::string name = "out" + std::to_string(i);
         mOutputs[i] = NSEEL_VM_regvar(mEelState, name.c_str());
     }
-    // since the parameter indices are fixed at synth creation time,
+
+    // Initialize all script parameter variables to the specified value.
+    // The init value may be overwritten later by parameter UGen inputs
+    // in the process() method.
+    // Also catch "trig" parameters with a *positive* init value that are
+    // not modulated by the UGen because they have to be handled specially.
+    // ("trig" parameters with a non-positive init value just stay at 0.0.)
+    auto& scriptParams = script.mParameters;
+    double** initTriggers =
+        script.mParameters.size() > 0 ? static_cast<double**>(alloca(scriptParams.size() * sizeof(double*))) : nullptr;
+    int numInitTriggers = 0;
+
+    for (int i = 0; i < scriptParams.size(); ++i) {
+        auto& param = scriptParams[i];
+        double* var = NSEEL_VM_regvar(mEelState, param.name.c_str());
+        *var = std::clamp(param.initValue, param.minValue, param.maxValue);
+        // NOTE: only "trig" parameters with *positive* init value!
+        if (param.type == ParamType::Trigger && param.initValue > 0.0) {
+            if (auto end = parameterIndices + numParamIndices; std::find(parameterIndices, end, i) == end) {
+                // not modulated by UGen
+                assert(initTriggers != nullptr);
+                initTriggers[numInitTriggers] = var;
+                numInitTriggers++;
+            }
+        }
+    }
+
+    // Obtain handles to modulated paramater variables.
+    // Since the parameter indices are fixed at synth creation time,
     // we only have to get pointers to the parameters at these indices.
-    // note that parameter indices are stable because parameter names
+    // Note that parameter indices are stable because parameter names
     // are append-only.
-    mParameters = std::make_unique<double*[]>(numParamIndices);
-    auto& parameters = script.mParameters;
+    mParameters = std::make_unique<double*[]>(numParamIndices + numInitTriggers);
+    mParamSpecs = std::make_unique<Param[]>(numParamIndices);
     for (int i = 0; i < numParamIndices; i++) {
         auto paramIndex = parameterIndices[i];
-        if (paramIndex >= 0 && paramIndex < parameters.size()) {
-            mParameters[i] = NSEEL_VM_regvar(mEelState, parameters[paramIndex].c_str());
+        if (paramIndex >= 0 && paramIndex < scriptParams.size()) {
+            auto& spec = scriptParams[paramIndex];
+            mParameters[i] = NSEEL_VM_regvar(mEelState, spec.name.c_str());
+            // the following specs are needed in the process method
+            mParamSpecs[i].type = spec.type;
+            mParamSpecs[i].minValue = spec.minValue;
+            mParamSpecs[i].maxValue = spec.maxValue;
         } else {
             // ignore out-of-range parameter indices
             Print("ERROR: Parameter index %d out of range\n", i);
             mParameters[i] = nullptr;
+            mParamSpecs[i] = Param {};
         }
     }
+
+    // Add init triggers to parameter variable list
+    for (int i = 0; i < numInitTriggers; ++i) {
+        mParameters[numParamIndices + i] = initTriggers[i];
+    }
+
+    // Allocate and clear the parameter cache.
+    // NOTE: for "lin" parameters, the parameter cache will be initialized
+    // in the first process block. For "trig" parameters, the cache must be
+    // initialized with 0.0. For all other parameters, the cache is not used.
     mPrevParamValues = std::make_unique<double[]>(numParamIndices);
     std::fill_n(mPrevParamValues.get(), numParamIndices, 0.0);
+
     mNumParameters = numParamIndices;
+    mNumInitTriggers = numInitTriggers;
 
     // set 'this' pointer for custom functions
     NSEEL_VM_SetCustomFuncThis(mEelState, this);
@@ -405,7 +452,7 @@ EEL_F EEL2Adapter::eelLatch(void*, EEL_F* state, EEL_F* signal, EEL_F* trigger) 
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_F** params) {
-    std::array<char, 2048> buffer;
+    std::array<char, 16384> buffer;
 
     auto it = buffer.data();
     auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
@@ -450,7 +497,7 @@ EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelPrintMem(EEL_F** blocks, EEL_F* start,
         return start;
     }
 
-    std::array<char, 2048> buffer;
+    std::array<char, 16384> buffer;
 
     auto it = buffer.data();
     auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
