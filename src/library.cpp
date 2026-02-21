@@ -124,11 +124,11 @@ bool DynGenScript::parse(std::string_view script) {
         return false;
     }
 
-    mInit = trimRight(initCode);
-    mBlock = trimRight(blockCode);
-    mSample = trimRight(sampleCode);
+    mInit = initCode;
+    mBlock = blockCode;
+    mSample = sampleCode;
 
-#if 1
+#if 0
     if (!mInit.empty()) {
         Print("--- @init ---\n");
         Print("%s\n", mInit.c_str());
