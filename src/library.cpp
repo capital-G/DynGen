@@ -4,6 +4,7 @@
 
 #include "library.h"
 #include "dyngen.h"
+#include "string_utils.h"
 
 #include <fstream>
 #include <memory>
@@ -12,34 +13,15 @@
 
 namespace {
 
-/*! @brief iterate over all lines in the given std::string_view.
- *  'func' receives the line as a std::string_view, followed by the position
- *  of the line in the string. The newline character is included in the result!
- */
-template <typename Func> void forEachLine(std::string_view string, Func&& func) {
-    size_t pos = 0;
-    while (pos < string.size()) {
-        size_t next = string.find('\n', pos);
-        if (next != std::string_view::npos) {
-            next++;
-            func(string.substr(pos, next - pos), pos);
-            pos = next;
-        } else {
-            // till the end of the string
-            func(string.substr(pos), pos);
-            break;
-        }
-    }
-}
-
 /*! @brief try to find a code section name in the given line.
- *  Make sure that everything before and after the name is whitespace.
- *  'start' is the position of the @ character in the line.
+ *  The name must either extend to the end of the line or be followed
+ *  by at least one whitespace character.
  */
 CodeSection findCodeSection(std::string_view line) {
     auto matchName = [&](std::string_view name, size_t start) {
-        // name must be followed by at least one whitespace character
-        return line.compare(start, name.size(), name) == 0 && std::isspace(line[start + name.size()]);
+        return line.compare(start, name.size(), name) == 0 &&
+               ((line.size() - start) == name.size() ||
+                isWhitespace(line[start + name.size()]));
     };
 
     for (size_t pos = 0; pos < line.size(); ++pos) {
@@ -52,7 +34,7 @@ CodeSection findCodeSection(std::string_view line) {
             } else if (matchName("@sample", pos)) {
                 return CodeSection::Sample;
             }
-        } else if (!std::isspace(c)) {
+        } else if (!isWhitespace(c)) {
             break;
         }
     }
@@ -103,7 +85,7 @@ bool DynGenScript::parse(std::string_view script) {
                 }
                 // start new section
                 currentSection = newSection;
-                currentSectionStart = linePos + line.size(); // skip header!
+                currentSectionStart = linePos + line.size() + 1; // skip header!
             }
         });
 
