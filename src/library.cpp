@@ -6,8 +6,37 @@
 #include "dyngen.h"
 #include "string_utils.h"
 
+#include <charconv>
 #include <fstream>
 #include <memory>
+
+std::optional<ParamType> getParamTypeFromString(std::string_view sv) {
+    if (sv == "lin") {
+        return ParamType::Linear;
+    } else if (sv == "step") {
+        return ParamType::Step;
+    } else if (sv == "trig") {
+        return ParamType::Trigger;
+    } else if (sv == "const") {
+        return ParamType::Const;
+    } else {
+        return std::nullopt;
+    }
+}
+
+const char* paramTypeString(ParamType type) {
+    switch (type) {
+    case ParamType::Linear:
+        return "lin";
+    case ParamType::Step:
+        return "step";
+    case ParamType::Trigger:
+        return "trig";
+    case ParamType::Const:
+        return "const";
+    }
+    return "?";
+}
 
 //-------------------- DynGenScript -------------------//
 
@@ -33,6 +62,8 @@ CodeSection findCodeSection(std::string_view line) {
                 return CodeSection::Block;
             } else if (matchName("@sample", pos)) {
                 return CodeSection::Sample;
+            } else if (matchName("@param", pos)) {
+                return CodeSection::Param;
             }
         } else if (!isWhitespace(c)) {
             break;
@@ -43,13 +74,14 @@ CodeSection findCodeSection(std::string_view line) {
 
 } // namespace
 
-bool DynGenScript::parse(std::string_view script) {
+bool DynGenScript::parse(std::string_view script, char** paramNames, int numParams) {
     CodeSection currentSection = CodeSection::None;
     size_t currentSectionStart = 0;
 
     std::string_view initCode;
     std::string_view blockCode;
     std::string_view sampleCode;
+    std::string_view paramCode;
 
     forEachLine(script, [&](std::string_view line, size_t linePos) {
         auto newSection = findCodeSection(line);
@@ -62,6 +94,8 @@ bool DynGenScript::parse(std::string_view script) {
                 blockCode = script.substr(currentSectionStart, currentSize);
             } else if (currentSection == CodeSection::Sample) {
                 sampleCode = script.substr(currentSectionStart, currentSize);
+            } else if (currentSection == CodeSection::Param) {
+                paramCode = script.substr(currentSectionStart, currentSize);
             }
             // start new section
             currentSection = newSection;
@@ -76,6 +110,8 @@ bool DynGenScript::parse(std::string_view script) {
         blockCode = script.substr(currentSectionStart);
     } else if (currentSection == CodeSection::Sample) {
         sampleCode = script.substr(currentSectionStart);
+    } else if (currentSection == CodeSection::Param) {
+        paramCode = script.substr(currentSectionStart);
     } else {
         // no sections -> the whole script is used as the @sample section
         sampleCode = script;
@@ -86,11 +122,19 @@ bool DynGenScript::parse(std::string_view script) {
         return false;
     }
 
+    if (!parseParameters(paramCode, paramNames, numParams)) {
+        return false;
+    }
+
     mInit = initCode;
     mBlock = blockCode;
     mSample = sampleCode;
 
 #if 0
+    if (!paramCode.empty()) {
+        Print("--- @param ---\n");
+        Print("%s\n", std::string(paramCode).c_str());
+    }
     if (!mInit.empty()) {
         Print("--- @init ---\n");
         Print("%s\n", mInit.c_str());
@@ -111,6 +155,202 @@ bool DynGenScript::parse(std::string_view script) {
 bool DynGenScript::tryCompile() {
     EEL2Adapter state(0, 0, 0, 0, nullptr, nullptr);
     return state.init(*this, nullptr, 0);
+}
+
+namespace {
+
+/*! @brief try to parse a std::string_view as a floating point number.
+ *  'sv' should already be trimmed. Returns an empty optional on failure.
+ */
+std::optional<double> parseDouble(std::string_view sv) {
+    double value;
+    auto [ptr, err] = std::from_chars(sv.begin(), sv.end(), value);
+    if (err == std::errc{}) {
+        return value;
+    } else {
+        return std::nullopt;
+    }
+}
+
+/*! @brief try to parse a line as a parameter declaration.
+ *  'line' must contain non-whitespace characters and must not be a comment.
+ *  Returns an empty optional on failure (e.g. syntax error)
+ */
+std::optional<ParamSpec> parseParameter(std::string_view line) {
+    ParamSpec spec;
+
+    // remove leading whitespace
+    line = trimLeft(line);
+    auto colonPos = line.find(':');
+    if (colonPos == std::string_view::npos) {
+        // no colon -> only parameter string.
+        // ignore everything after the first whitespace character.
+        auto end = std::find_if(line.begin(), line.end(),
+                               [](auto c) { return isWhitespace(c); });
+        auto name = line.substr(0, end - line.begin());
+        spec.name = std::string("_") += name;
+        return spec;
+    }
+    // name: ignore colon and prepend underscore.
+    auto name = line.substr(0, colonPos);
+    spec.name = std::string("_") += name;
+    // skip colon and trim whitespace to we can check for empty argument list.
+    line = trimLeft(line.substr(colonPos + 1));
+    if (line.empty()) {
+        return spec;
+    }
+
+    // iterate over comma separated arguments
+    int argCount = 0;
+    bool gotKeywordArg = false;
+    bool parseError = false;
+
+    auto parseInitValue = [&](std::string_view value) {
+        if (auto number = parseDouble(value)) {
+            spec.initValue = *number;
+        } else {
+            Print("ERROR: parameter '%s': bad init value '%s'\n",
+                  std::string(name).c_str(), std::string(value).c_str());
+            parseError = true;
+        }
+    };
+
+    auto parseType = [&](std::string_view value) {
+        if (auto type = getParamTypeFromString(value)) {
+            spec.type = *type;
+        } else {
+            Print("ERROR: parameter '%s': bad type '%s'\n",
+                  std::string(name).c_str(), std::string(value).c_str());
+            parseError = true;
+        }
+    };
+
+    auto parseMinValue = [&](std::string_view value) {
+        if (auto number = parseDouble(value)) {
+            spec.minValue = *number;
+        } else {
+            Print("ERROR: parameter '%s': bad min. value '%s'\n",
+                  std::string(name).c_str(), std::string(value).c_str());
+            parseError = true;
+        }
+    };
+
+    auto parseMaxValue = [&](std::string_view value) {
+        if (auto number = parseDouble(value)) {
+            spec.maxValue = *number;
+        } else {
+            Print("ERROR: parameter '%s': bad max. value '%s'\n",
+                  std::string(name).c_str(), std::string(value).c_str());
+            parseError = true;
+        }
+    };
+
+    forEachLine(line, [&](std::string_view arg, size_t) {
+        // remove all surrounding whitespace!
+        arg = trim(arg);
+
+        if (auto eqPos = arg.find('='); eqPos != std::string_view::npos) {
+            // keyword argument
+            auto key = trim(arg.substr(0, eqPos));
+            auto value = trim(arg.substr(eqPos + 1));
+            if (key == "init") {
+                parseInitValue(value);
+            } else if (key == "type") {
+                parseType(value);
+            } else if (key == "min") {
+                parseMinValue(value);
+            } else if (key == "max") {
+                parseMaxValue(value);
+            } else {
+                Print("ERROR: parameter '%s': unknown key '%s'\n",
+                      std::string(name).c_str(), std::string(key).c_str());
+                parseError = true;
+            }
+
+            gotKeywordArg = true;
+        } else if (!gotKeywordArg) {
+            // positional argument
+            if (argCount == 0) {
+                // init value
+                parseInitValue(arg);
+            } else if (argCount == 1) {
+                // type
+                parseType(arg);
+            } else if (argCount == 2) {
+                // min. value
+                parseMinValue(arg);
+            } else if (argCount == 3) {
+                // max. value
+                parseMaxValue(arg);
+            } else {
+                Print("WARNING: parameter '%s': ignore extra argument '%s'\n",
+                      std::string(name).c_str(), std::string(arg).c_str());
+            }
+            argCount++;
+        } else {
+            Print("WARNING: parameter '%s': ignore argument '%s' after keyword args\n",
+                  std::string(name).c_str(), std::string(arg).c_str());
+        }
+    }, ',');
+
+    if (!parseError) {
+        return spec;
+    } else {
+        return std::nullopt;
+    }
+}
+
+/*! @brief check if a line is a comment or only consists of whitespace */
+std::optional<std::string_view> checkLine(std::string_view line) {
+    line = trimLeft(line);
+    if (line.empty() || (line[0] == '/' && line[1] == '/') || (line[0] == '/' && line[1] == '*')) {
+        return std::nullopt;
+    }
+    return line;
+}
+
+} // namespace
+
+bool DynGenScript::parseParameters(std::string_view text, char** paramNames, int numParams) {
+    std::vector<ParamSpec> params;
+    bool ok = true;
+    // parse parameter section
+    forEachLine(text, [&](std::string_view line, size_t) {
+        if (auto result = checkLine(line)) {
+            if (auto param = parseParameter(*result)) {
+#if 0
+                Print("name: %s, init: %f, type: %s, min: %g, max: %g\n", param->name.c_str(), param->initValue,
+                      paramTypeString(param->type), param->minValue, param->maxValue);
+#endif
+                params.push_back(std::move(*param));
+            } else {
+                ok = false;
+            }
+        }
+    });
+
+    if (ok) {
+        // try to find parameter names in declared parameters. If not found, use default specs.
+        for (int i = 0; i < numParams; ++i) {
+            auto name = paramNames[i];
+            auto it = std::find_if(params.begin(), params.end(),
+                                   [name](const auto& spec) { return spec.name == name; });
+            if (it != params.end()) {
+                mParameters.push_back(*it);
+            } else {
+                ParamSpec spec;
+                spec.name = name;
+                mParameters.push_back(std::move(spec));
+            }
+#if 0
+            auto& p = mParameters.back();
+            Print("#%d: name: %s, init: %f, type: %s, min: %g, max: %g\n", i, p.name.c_str(), p.initValue,
+                  paramTypeString(p.type), p.minValue, p.maxValue);
+#endif
+        }
+    }
+
+    return ok;
 }
 
 //-------------------- CodeLibrary --------------------//
@@ -337,18 +577,13 @@ void Library::cleanup() {
 bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry* newLibraryEntry, std::string_view code) {
     auto script = std::make_unique<DynGenScript>();
 
-    if (!script->parse(code)) {
+    if (!script->parse(code, newLibraryEntry->parameterNamesRT, newLibraryEntry->numParameters)) {
         return false;
     }
 
     // already try to compile before creating/updating any DynGen instances.
     if (!script->tryCompile()) {
         return false;
-    }
-
-    // create parameter list
-    for (int i = 0; i < newLibraryEntry->numParameters; i++) {
-        script->mParameters.push_back(newLibraryEntry->parameterNamesRT[i]);
     }
 
     newLibraryEntry->script = script.release();

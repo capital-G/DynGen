@@ -119,24 +119,45 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
         std::string name = "out" + std::to_string(i);
         mOutputs[i] = NSEEL_VM_regvar(mEelState, name.c_str());
     }
-    // since the parameter indices are fixed at synth creation time,
+
+    // Initialize all script parameter variables to the specified value.
+    // The init value may be overwritten later by parameter UGen inputs
+    // in the process() method.
+    for (auto& param : script.mParameters) {
+        double* var = NSEEL_VM_regvar(mEelState, param.name.c_str());
+        *var = param.initValue;
+    }
+
+    // Obtain handles to modulated paramater variables.
+    // Since the parameter indices are fixed at synth creation time,
     // we only have to get pointers to the parameters at these indices.
-    // note that parameter indices are stable because parameter names
+    // Note that parameter indices are stable because parameter names
     // are append-only.
     mParameters = std::make_unique<double*[]>(numParamIndices);
-    auto& parameters = script.mParameters;
+    mParamSpecs = std::make_unique<Param[]>(numParamIndices);
     for (int i = 0; i < numParamIndices; i++) {
         auto paramIndex = parameterIndices[i];
-        if (paramIndex >= 0 && paramIndex < parameters.size()) {
-            mParameters[i] = NSEEL_VM_regvar(mEelState, parameters[paramIndex].c_str());
+        if (paramIndex >= 0 && paramIndex < script.mParameters.size()) {
+            auto& spec = script.mParameters[paramIndex];
+            mParameters[i] = NSEEL_VM_regvar(mEelState, spec.name.c_str());
+            // the following specs are needed in the process method
+            mParamSpecs[i].type = spec.type;
+            mParamSpecs[i].minValue = spec.minValue;
+            mParamSpecs[i].maxValue = spec.maxValue;
         } else {
             // ignore out-of-range parameter indices
             Print("ERROR: Parameter index %d out of range\n", i);
             mParameters[i] = nullptr;
+            mParamSpecs[i] = Param{};
         }
     }
+    // Allocate and clear the parameter cache.
+    // NOTE: for "lin" parameters, the parameter cache will be initialized
+    // in the first process block. For "trig" parameters, the cache must be
+    // initialized with 0.0. For all other parameters, the cache is not used.
     mPrevParamValues = std::make_unique<double[]>(numParamIndices);
     std::fill_n(mPrevParamValues.get(), numParamIndices, 0.0);
+
     mNumParameters = numParamIndices;
 
     // set 'this' pointer for custom functions
