@@ -143,6 +143,17 @@ Ndef(\z, {
 )
 ::
 
+If such a parameter is not modulated by a matching UGen input, its value is 0.0.
+
+Control-rate UGen inputs use linear interpolation by default, just like LINK::Classes/K2A::.
+
+If you want to set default values, change the control-rate behavior or use trigger inputs, see LINK::#Advanced parameters::.
+
+NOTE::
+Parameters should be considered read-only!
+Unfortunately, there is no const protection, so be careful not to overwrite them.
+(There is no guarantee that the parameter would be reset for the next sample.)
+::
 
 SUBSECTION:: DynGen sections
 
@@ -152,11 +163,19 @@ While this works for simple scripts, it is often necessary to split the code int
 You can declare the following sections:
 
 DEFINITIONLIST::
+## CODE::@param:: ||
+A section that starts with the CODE::@param:: header lets you declare parameters and their properties (e.g. parameter type, default value and parameter range).
+See LINK::#Advanced parameters:: for more information.
 ## CODE::@init:: ||
 A section that starts with the CODE::@init:: header is only evaluated once (right before the very first block).
 CODE::in0::, CODE::in1::, etc. and all the parameters contain their initial values.
 
 This section is typically used to initialize variables or to allocate memory regions (see LINK::#Memory::).
+
+NOTE::
+Do not assign to parameters in the CODE::@init:: section to give them default values!
+Instead use the CODE::@param:: section.
+::
 
 ## CODE::@block:: ||
 A section that starts with CODE::@block:: is evaluated before each block, see LINK::Classes/ServerOptions#-blockSize:: (aka the rate that CODE::.kr:: is running at).
@@ -209,37 +228,21 @@ CODE::
 Ndef(\b, {DynGen.ar(3, \blocks).poll});
 ::
 
-The CODE::@block:: section can be used to avoid interpolation with control-rate parameters.
-(See the documentation of the CODE::params:: argument in LINK::#*ar::.)
-
-For example, you really don't want to interpolate buffer numbers!
-
-CODE::
-(
-DynGenDef(\bufRead, "
-@block
-// cache the buffer number to avoid interpolation!
-buf = _buf;
-
-@sample
-// the _amp parameter, however, should be interpolated.
-out0 = bufReadC(buf, in0) * _amp;
-").send;
-)
-::
-
 
 SUBSECTION:: DynGen variables
 
 DynGen defines the following variables:
 
 TABLE::
-## STRONG::variable name:: || STRONG::comment::
+## STRONG::name:: || STRONG::comment::
 ## CODE::in0::, CODE::in1::, etc. || contains the current sample value of the given input channel. If the channel number is out-of-range, the variable contains 0.0.
 ## CODE::out0::, CODE::out1::, etc. || represents the current sample of the given output channel. If the channel number is out-of-range, any assignments will be ignored.
 ## CODE::sampleNum:: || the number/index of the current sample in this block (starting from 0). This is only valid in the CODE::@sample:: section.
 ## CODE::blockNum:: || the number of the current block, starting from 0.
 ::
+
+All variables above, except for CODE::out0::, CODE::out1::, etc., are read-only!
+Unfortunately, there is no const protection, so be careful not to overwrite them.
 
 SUBSECTION:: DynGen constants
 
@@ -247,7 +250,7 @@ DynGen provides some constants which are accessible like normal variables.
 There is no const protection, so pay attention to not overwrite them.
 
 TABLE::
-## STRONG::variable name:: || STRONG::comment::
+## STRONG::name:: || STRONG::comment::
 ## CODE::srate:: || same as LINK::Classes/ServerOptions#-sampleRate::
 ## CODE::blockSize:: || same as LINK::Classes/ServerOptions#-blockSize::
 ## CODE::numIn:: || the number of input channels
@@ -329,6 +332,182 @@ NOTE::
 Since EEL2 internally works with 64-bit doubles, we can accurately address up to MATH::2^{53}:: samples, which translates to around 6000 years at 48 kHz.
 For comparison, the precision of LINK::Classes/BufRd:: is limited to MATH::2^{24}:: samples, which corresponds to only 6 minutes at 48 kHz.
 ::
+
+SUBSECTION:: Advanced parameters
+
+If the default behavior of parameters does not suit your needs, you can specify the exact behavior by declaring the parameters in a CODE::@param:: section.
+The syntax is as follows:
+CODE::
+// header
+@param
+// param #1
+<name>: [init=]<init>, [type=]<type>, [min=]<min>, [max=]<max>
+// param #2
+<name>: [init=]<init>, [type=]<type>, [min=]<min>, [max=]<max>
+// etc.
+::
+Parameter properties are separated by commas.
+They are all optional and can be provided as positional arguments or keyword arguments (in any order).
+Keyword arguments can follow positional arguments, but not the opposite.
+Spaces before/after the equals sign (=) are permitted!
+
+Some examples:
+CODE::
+@param
+// all properties
+amp: 1.0, lin, 0.0, 1.0
+// only init value
+freq: 440
+// init value and type
+trig: 1, trig
+// only type via keyword arg
+buf: type=step
+// mix of positional and keyword args.
+feedback: 0.5, min = 0.0, max = 0.9999
+::
+
+DEFINITIONLIST::
+## CODE::<name>:: || the parameter name EMPHASIS::without:: the underscore
+## CODE::<init>:: || the initial parameter value. This can be used to provide a useful default in case the parameter is not modulated. The default is 0.0.
+## CODE::<type>:: || the parameter type. Possible values:
+DEFINITIONLIST::
+## CODE::lin:: || If the parameter is modulated at control-rate, it is automatically converted to audio-rate with linear interpolation, just like LINK::Classes/K2A::. This is the most common parameter type and it is also the default.
+## CODE::step:: || If the parameter is modulated at control-rate, the conversion to audio-rate is done with zero-order hold. In other words, there is no interpolation. This is particularly important for buffer numbers or channel indices!
+## CODE::const:: || The parameter is only set once in the beginning and will not change thereafter. This is basically enforcing init-rate behavior.
+## CODE::trig:: || The parameter acts as a trigger. The input is automatically converted from a SC trigger signal to a DynGen trigger signal. This works with all rates!
+
+SC triggers are EMPHASIS::stateful::: they trigger when the value changes from non-positive to positive.
+
+DynGen trigger signals are EMPHASIS::stateless::: they trigger when the value is non-zero.
+
+NOTE::
+If the parameter is not modulated and CODE::<init>:: is positive, it will trigger exactly once in the beginning.
+::
+::
+## CODE::<min>:: || the lower limit. Parameter modulation is automatically clipped to this value. By the default, there is no limit.
+## CODE::<max>:: || the higher limit. Parameter modulation is automatically clipped to this value. By the default, there is no limit.
+::
+
+Here is an example for parameter init, min. and max. values:
+
+CODE::
+(
+DynGenDef(\fbSin, "
+@param
+freq: 440, min=100, max=4000
+feedback: 0.25, min=0, max=2
+
+@init
+advance = 2*$pi / srate;
+
+@sample
+omega = phase + (_feedback * y1);
+phase +=  _freq * advance;
+out0 = sin(omega);
+y1 = out0;
+").send;
+)
+
+// play with default values
+{ DynGen.ar(1, \fbSin) ! 2 * 0.1 }.play;
+
+// play with parameter modulation. Notice how the the 'freq'
+// parameter is clipped to the specified range!
+(
+Ndef(\fbSin2, {
+	DynGen.ar(1, \fbSin,
+		params: [
+			freq: \freq.kr(220, spec: \freq.asSpec),
+			feedback: \feedback.kr(0.5, spec: [0.0, 2.0]),
+		]
+	) ! 2 * \amp.kr(0.05, spec: \amp.asSpec);
+}).play.gui;
+)
+::
+
+Buffer numbers and channel indices should be declared as "step" parameters to prevent interpolation.
+Imagine you are dynamically changing buffers from number 10 to 20.
+The default "lin" type would quickly ramp from 10 to 20, which is certainly not what you want!
+
+CODE::
+(
+DynGenDef(\bufRead, "
+@param
+// 'amp' should be interpolated
+amp: 1.0, lin, 0.0, 1.0
+// 'buf' should *not* be interpolated
+buf: type=step
+
+@sample
+out0 = bufReadC(_buf, in0) * _amp;
+").send;
+)
+::
+
+Finally, here is an example for a trigger parameter:
+CODE::
+(
+// Play a buffer at the given rate
+DynGenDef(\playBuf, "
+@param
+// no interpolation
+buf: type=step
+// normal speed by default
+rate: 1.0
+// by default, trigger *once* in the beginning
+trig: 1.0, trig
+
+@init
+buf = -1;
+pos = -1;
+
+@sample
+// update buffer info when _buf changes
+_buf != buf ? (
+    buf = _buf;
+    frames = bufFrames(buf);
+    advance = bufSampleRate(buf) / srate;
+);
+
+// check if we have been triggered
+_trig != 0.0 ? (
+    // reset position to start resp. end
+    _rate > 0 ? pos = 0 : pos = frames - 1;
+);
+
+pos >= 0 ? (
+    out0 = bufReadC(buf, pos, chan);
+    pos += advance * _rate;
+) : (
+    out0 = 0;
+);
+").send;
+)
+::
+CODE::
+
+// load Buffer
+~buffer = Buffer.read(s, path: ExampleFiles.apollo11);
+
+// only default values: play once at regular speed
+{ DynGen.ar(1, \playBuf, nil, [ buf: ~buffer ]) ! 2 * 0.1 }.play;
+
+// play once backwards
+{ DynGen.ar(1, \playBuf, nil, [ rate: -1, buf: ~buffer ]) ! 2 * 0.1 }.play;
+::
+CODE::
+// play repeatedly at random rates
+(
+{
+	var trig = Dust.ar(MouseX.kr.linexp(0, 1, 0.25, 50));
+	var rate = pow(2, TRand.ar(-2, 2, trig));
+	DynGen.ar(1, \playBuf, params: [
+		trig: trig, rate: rate, buf: ~buffer
+	]) ! 2 * 0.1;
+}.play;
+)
+::
+
 
 SUBSECTION:: Multi-channel expansion
 
@@ -647,9 +826,8 @@ An Array of key-value pairs that is used to control script parameters, see LINK:
 The key is the parameter name as a Symbol (without the leading underscore!), the value can be any UGen input.
 
 Parameters can be modulated at any rate.
-In the CODE::@sample:: section, control-rate parameters always ramp to their new value over the duration of one block, just like LINK::Classes/K2A::.
-If you want to avoid interpolation, you can simply capture the parameter in the CODE::@block:: section.
-See LINK::#DynGen sections:: for an example.
+They are automatically converted to the appropriate DynGen signal depending on how they are declared.
+See LINK::#Advanced parameters:: for more information.
 
 If a parameter is not found in the DynGen code, you get a warning in the console.
 It is not discarded, though, you can still use it when you update the code.
