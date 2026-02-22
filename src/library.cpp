@@ -175,6 +175,12 @@ std::optional<double> parseDouble(std::string_view sv) {
 /*! @brief try to parse a line as a parameter declaration.
  *  'line' must contain non-whitespace characters and must not be a comment.
  *  Returns an empty optional on failure (e.g. syntax error)
+ *
+ *  Syntax:
+ *  <name>: [init=]<init>, [type=]<type>, [min=]<min>, [max=]max, [warp=]<warp>, [step=]<step>, [unit=]<unit>
+ *
+ *  @note Only <init>, <type>, <min> and <max> are used by the DynGen UGen.
+ *  <warp>, <step> and <unit> are only meaningful to Clients, e.g. for representing parameters in GUIs.
  */
 std::optional<ParamSpec> parseParameter(std::string_view line) {
     ParamSpec spec;
@@ -261,6 +267,8 @@ std::optional<ParamSpec> parseParameter(std::string_view line) {
                 parseMinValue(value);
             } else if (key == "max") {
                 parseMaxValue(value);
+            } else if (key == "warp" || key == "step" || key == "unit") {
+                // silently ignore
             } else {
                 Print("ERROR: parameter '%s': unknown key '%s'\n",
                       std::string(name).c_str(), std::string(key).c_str());
@@ -282,6 +290,8 @@ std::optional<ParamSpec> parseParameter(std::string_view line) {
             } else if (argCount == 3) {
                 // max. value
                 parseMaxValue(arg);
+            } else if (argCount < 7) {
+                // silently ignore "warp", "step" and "unit" arguments.
             } else {
                 Print("WARNING: parameter '%s': ignore extra argument '%s'\n",
                       std::string(name).c_str(), std::string(arg).c_str());

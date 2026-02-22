@@ -11,7 +11,7 @@ inline bool isWhitespace(char c) {
 
 /*! @brief iterate over all lines in the given std::string_view.
  *  'func' receives the line as a std::string_view, followed by the position of the line in the string.
- *  The delimiting character is *not* included in the result!
+ *  @note The delimiting character is *not* included in the result!
  */
 template <typename Func> void forEachLine(std::string_view string, Func&& func, char delim = '\n') {
     size_t pos = 0;
