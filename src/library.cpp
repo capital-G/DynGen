@@ -164,7 +164,7 @@ namespace {
  */
 std::optional<double> parseDouble(std::string_view sv) {
     double value;
-    auto [ptr, err] = std::from_chars(sv.begin(), sv.end(), value);
+    auto [ptr, err] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
     if (err == std::errc{}) {
         return value;
     } else {
