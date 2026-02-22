@@ -200,9 +200,14 @@ std::optional<ParamSpec> parseParameter(std::string_view line) {
     // name: ignore colon and prepend underscore.
     auto name = line.substr(0, colonPos);
     spec.name = std::string("_") += name;
-    // skip colon and trim whitespace to we can check for empty argument list.
-    line = trimLeft(line.substr(colonPos + 1));
+    // get arguments without surrounding whitespace
+    line = trim(line.substr(colonPos + 1));
+    // remove trailing commas
+    while (!line.empty() && line.back() == ',') {
+        line.remove_suffix(1);
+    }
     if (line.empty()) {
+        // no arguments
         return spec;
     }
 
