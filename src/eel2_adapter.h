@@ -107,6 +107,10 @@ public:
                 for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
                     *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][0]);
                 }
+                // init triggers
+                for (int i = 0; i < mNumInitTriggers; ++i) {
+                    *mParameters[mNumParameters + i] = 1.0;
+                }
 
                 NSEEL_code_execute(mInitCode);
             }
@@ -152,6 +156,10 @@ public:
                         *param = newParamValues[i];
                     }
                 }
+            }
+            // init triggers
+            for (int i = 0; i < mNumInitTriggers; ++i) {
+                *mParameters[mNumParameters + i] = mBlockCounter == 0 ? 1.0 : 0.0;
             }
 
             NSEEL_code_execute(mBlockCode);
@@ -237,6 +245,10 @@ public:
                     }
                 }
             }
+            // init triggers
+            for (int i = 0; i < mNumInitTriggers; ++i) {
+                *mParameters[mNumParameters + i] = mSampleCounter == 0 ? 1.0 : 0.0;
+            }
 
             NSEEL_code_execute(mSampleCode);
 
@@ -269,7 +281,8 @@ private:
 
     int mNumInputChannels = 0;
     int mNumOutputChannels = 0;
-    int mNumParameters = 0; // number of automated parameters
+    int mNumParameters = 0; // number of modulated parameters
+    int mNumInitTriggers = 0; // (positive) "trig" parameters that are not modulated
 
     int mBlockSize = 0;
     double mSampleRate = 0;

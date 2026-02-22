@@ -13,6 +13,7 @@
 
 #include <array>
 #include <atomic>
+#include <cassert>
 #include <charconv>
 
 // The following is copied from SC_SndBuf.h
@@ -123,9 +124,28 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     // Initialize all script parameter variables to the specified value.
     // The init value may be overwritten later by parameter UGen inputs
     // in the process() method.
-    for (auto& param : script.mParameters) {
+    // Also catch "trig" parameters with a *positive* init value that are
+    // not modulated by the UGen because they have to be handled specially.
+    // ("trig" parameters with a non-positive init value just stay at 0.0.)
+    auto& scriptParams = script.mParameters;
+    int* initTriggers = script.mParameters.size() > 0 ?
+                static_cast<int*>(alloca(scriptParams.size() * sizeof(int))) : nullptr;
+    int numInitTriggers = 0;
+
+    for (int i = 0; i < scriptParams.size(); ++i) {
+        auto& param = scriptParams[i];
         double* var = NSEEL_VM_regvar(mEelState, param.name.c_str());
         *var = param.initValue;
+        // NOTE: only "trig" parameters with *positive* init value!
+        if (param.type == ParamType::Trigger && param.initValue > 0.0) {
+            if (auto end = parameterIndices + numParamIndices;
+                std::find(parameterIndices, end, i) == end) {
+                // not modulated by UGen
+                assert(initTriggers != nullptr);
+                initTriggers[numInitTriggers] = i;
+                numInitTriggers++;
+            }
+        }
     }
 
     // Obtain handles to modulated paramater variables.
@@ -133,12 +153,12 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     // we only have to get pointers to the parameters at these indices.
     // Note that parameter indices are stable because parameter names
     // are append-only.
-    mParameters = std::make_unique<double*[]>(numParamIndices);
+    mParameters = std::make_unique<double*[]>(numParamIndices + numInitTriggers);
     mParamSpecs = std::make_unique<Param[]>(numParamIndices);
     for (int i = 0; i < numParamIndices; i++) {
         auto paramIndex = parameterIndices[i];
-        if (paramIndex >= 0 && paramIndex < script.mParameters.size()) {
-            auto& spec = script.mParameters[paramIndex];
+        if (paramIndex >= 0 && paramIndex < scriptParams.size()) {
+            auto& spec = scriptParams[paramIndex];
             mParameters[i] = NSEEL_VM_regvar(mEelState, spec.name.c_str());
             // the following specs are needed in the process method
             mParamSpecs[i].type = spec.type;
@@ -151,6 +171,13 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
             mParamSpecs[i] = Param{};
         }
     }
+    // Obtain handles to "trig" parameters that must be initialized.
+    for (int i = 0; i < numInitTriggers; ++i) {
+        int index = initTriggers[i];
+        auto& spec = scriptParams[index];
+        double* var = NSEEL_VM_regvar(mEelState, spec.name.c_str());
+        mParameters[numParamIndices + i] = var;
+    }
     // Allocate and clear the parameter cache.
     // NOTE: for "lin" parameters, the parameter cache will be initialized
     // in the first process block. For "trig" parameters, the cache must be
@@ -159,6 +186,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     std::fill_n(mPrevParamValues.get(), numParamIndices, 0.0);
 
     mNumParameters = numParamIndices;
+    mNumInitTriggers = numInitTriggers;
 
     // set 'this' pointer for custom functions
     NSEEL_VM_SetCustomFuncThis(mEelState, this);
