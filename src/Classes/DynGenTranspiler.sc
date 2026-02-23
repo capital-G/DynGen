@@ -2,24 +2,17 @@
 // and stores the necessary context
 DynGenTranspiler {
 	var <>environment;
-	var <>varNames;
 
 	*new {|func|
 		^super.newCopyArgs().init(func);
 	}
 
 	init {|func|
-		varNames = Set();
 		environment = DynGenEnvironment(this);
 		environment.use({func.value(environment)});
 	}
 
-	registerVar {|name|
-		"register var %".format(name).postln;
-		varNames = varNames.add(name);
-	}
-
-	emit {
+	compile {
 		^environment.sequence.asDynGen;
 	}
 }
@@ -29,7 +22,6 @@ DynGenEnvironment : EnvironmentRedirect {
 	var <>sequence;
 
 	*new {|context|
-		// "New environment w/ %".format(context).postln;
 		^super.new.init(context);
 	}
 
@@ -401,7 +393,6 @@ DynGenParamAccessor {
 			spec,
 			context,
 		);
-
 	}
 
 	doesNotUnderstand {|selector ...args, kwargs|
@@ -559,7 +550,6 @@ DynGenVar : DynGenExpr {
 	}
 
 	init {|name_|
-		context.registerVar(name_);
 		name = name_;
 	}
 
