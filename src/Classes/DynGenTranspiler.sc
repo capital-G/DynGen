@@ -2,7 +2,6 @@
 // and stores the necessary context
 DynGenTranspiler {
 	var <>environment;
-	var <>statements;
 	var <>varNames;
 
 	*new {|func|
@@ -10,15 +9,9 @@ DynGenTranspiler {
 	}
 
 	init {|func|
-		statements = [];
 		varNames = Set();
 		environment = DynGenEnvironment(this);
 		environment.use({func.value(environment)});
-	}
-
-	addStatement {|lhs, rhs|
-		"Add statement % %".format(lhs, rhs).postln;
-		statements = statements.add((lhs: lhs, rhs: rhs));
 	}
 
 	registerVar {|name|
@@ -27,21 +20,13 @@ DynGenTranspiler {
 	}
 
 	emit {
-		var code = "";
-		statements.do({|statement|
-			code = "%% = %;\n".format(
-				code,
-				statement.lhs.asDynGen,
-				statement.rhs.asDynGen,
-			)
-		});
-		^code;
+		^environment.sequence.asDynGen;
 	}
-
 }
 
 DynGenEnvironment : EnvironmentRedirect {
 	var <>context;
+	var <>sequence;
 
 	*new {|context|
 		// "New environment w/ %".format(context).postln;
@@ -50,6 +35,7 @@ DynGenEnvironment : EnvironmentRedirect {
 
 	init {|context_|
 		context = context_;
+		sequence = DynGenSequence([], context);
 		envir.put(\p, DynGenParamAccessor(context));
 	}
 
@@ -69,8 +55,16 @@ DynGenEnvironment : EnvironmentRedirect {
 	}
 
 	put { |key, value|
-		var dgVar = dgVar = DynGenVar(key, context);
-		context.addStatement(dgVar, value.asDynGen);
+		var dgVar = DynGenVar(key, context);
+
+		var assignment = DynGenAssignment(
+			lhs: dgVar,
+			rhs: value.asDynGen,
+			context: context,
+		);
+
+		sequence.add(assignment);
+
 		super.put(key, dgVar);
 		^dgVar;
 	}
@@ -236,6 +230,14 @@ DynGenExpr {
 		^DynGenFuncCall(\log10, [this], context);
 	}
 
+	// unary ops
+	not {
+		^DynGenUnaryOp("!", this, context);
+	}
+
+	neg {
+		^DynGenUnaryOp("-", this, context);
+	}
 
 	// binops
 	// can't implement ^ - use pow instead
@@ -378,7 +380,6 @@ DynGenExpr {
 	performBinaryOpOnSimpleNumber { arg aSelector, aNumber, adverb;
 		^aNumber.asDynGen.perform(aSelector, this, adverb)
 	}
-
 }
 
 DynGenParamAccessor {
@@ -426,9 +427,45 @@ DynGenParam : DynGenExpr {
 	asDynGen {
 		^"_%".format(name.asString);
 	}
+}
 
-	printOn { |stream|
-		stream << this.asDynGen;
+DynGenAssignment : DynGenExpr {
+	var <>lhs;
+	var <>rhs;
+
+	*new {|lhs, rhs, context|
+		^super.new(context).initAssignment(lhs, rhs);
+	}
+
+	initAssignment {|lhs_, rhs_|
+		lhs = lhs_;
+		rhs = rhs_;
+	}
+
+	asDynGen {
+		^"% = %".format(lhs.asDynGen, rhs.asDynGen);
+	}
+}
+
+DynGenSequence : DynGenExpr {
+	var <>expressions;
+
+	*new {|expressions, context|
+		^super.new(context).initSequence(expressions);
+	}
+
+	initSequence {|expressions_|
+		expressions = expressions_.asArray;
+	}
+
+	add {|expression|
+		expressions = expressions.add(expression);
+	}
+
+	asDynGen {
+		^expressions.collect({|expression|
+			"%;".format(expression.asDynGen);
+		}).join("\n");
 	}
 }
 
@@ -453,10 +490,6 @@ DynGenFuncCall : DynGenExpr {
 			}).join(", ");
 		)
 	}
-
-	printOn { |stream|
-		stream << this.asDynGen;
-	}
 }
 
 DynGenLiteral : DynGenExpr {
@@ -474,9 +507,23 @@ DynGenLiteral : DynGenExpr {
 	asDynGen {
 		^value.asString;
 	}
+}
 
-	printOn { |stream|
-		stream << this.asDynGen;
+DynGenUnaryOp : DynGenExpr {
+	var <>op;
+	var <>value;
+
+	*new {|op, value, context|
+		^super.new(context).initUnaryOp(op, value);
+	}
+
+	initUnaryOp {|op_, value_|
+		op = op_;
+		value = value_;
+	}
+
+	asDynGen {
+		^"%%".format(op, value.asDynGen);
 	}
 }
 
@@ -502,10 +549,6 @@ DynGenBinOp : DynGenExpr {
 			right.asDynGen,
 		)
 	}
-
-	printOn { |stream|
-		stream << this.asDynGen;
-	}
 }
 
 DynGenVar : DynGenExpr {
@@ -522,10 +565,6 @@ DynGenVar : DynGenExpr {
 
 	asDynGen {
 		^name.asString;
-	}
-
-	printOn { |stream|
-		stream << this.asDynGen;
 	}
 }
 
@@ -552,7 +591,7 @@ DynGenCollection : DynGenExpr {
 		^elements[index];
 	}
 
-	// no asDynGen or printOn since dyngen
+	// no asDynGen since dyngen
 	// has no collections - these only act as
 	// containers for sc variables to operate
 	// meta operations on them
