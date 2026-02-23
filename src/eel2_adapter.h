@@ -197,8 +197,13 @@ public:
                             } else {
                                 *param = 0.0;
                             }
-                            // update the parameter cache!
+                            // Update the parameter cache!
                             prevParamValues[paramNum] = value;
+                            // 'newParamValues' will be copied *unconditionally* to 'mPrevParamValues'
+                            // at the end of the process() function! This makes the update very cheap.
+                            // Actually, we'd only have to update our 'newParamValues' entry on the
+                            // last sample in the block, but this way we avoid yet another branch.
+                            newParamValues[paramNum] = value;
                         } else {
                             // "lin" or "step" parameter -> clamp to specified range
                             *param = std::clamp(value, spec.minValue, spec.maxValue);
@@ -218,17 +223,17 @@ public:
                         } else if (spec.type == ParamType::Linear) {
                             // "lin" parameter -> ramp to new value if it has changed
                             double newValue = newParamValues[paramNum];
-                            double curValue = prevParamValues[paramNum];
-                            if (newValue != curValue) {
-                                double slope = (newValue - curValue) * slopeFactor;
-                                *param = curValue + slope * i;
+                            double prevValue = prevParamValues[paramNum];
+                            if (newValue != prevValue) {
+                                double slope = (newValue - prevValue) * slopeFactor;
+                                *param = prevValue + slope * i;
                             } else {
                                 *param = newValue;
                             }
                         } else {
                             // "step" parameter -> just set it as is.
                             // (Actually, we only need to do this for the first sample in the block,
-                            // but repeatedly setting the variable should be cheaper than a branch.)
+                            // but repeatedly setting the variable might be cheaper than a branch.)
                             *param = newParamValues[paramNum];
                         }
                     } else {
