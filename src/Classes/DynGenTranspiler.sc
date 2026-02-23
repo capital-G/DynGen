@@ -13,13 +13,17 @@ DynGenTranspiler {
 	}
 
 	compile {
-		^environment.sequence.asDynGen;
+		^environment.compile;
 	}
 }
 
 DynGenEnvironment : EnvironmentRedirect {
 	var <>context;
 	var <>sequence;
+	// due statements are emitted while parsing the statements
+	// if the statement is not assigned, it will be put into
+	// the sequence such that it gets executed, else it will be discarded.
+	var <>dueStatements;
 
 	*new {|context|
 		^super.new.init(context);
@@ -27,6 +31,7 @@ DynGenEnvironment : EnvironmentRedirect {
 
 	init {|context_|
 		context = context_;
+		dueStatements = [];
 		sequence = DynGenSequence([], context);
 		envir.put(\p, DynGenParamAccessor(context));
 	}
@@ -50,10 +55,15 @@ DynGenEnvironment : EnvironmentRedirect {
 		^dgVar;
 	}
 
-	put { |key, value|
-		var dgVar = DynGenVar(key, context);
+	put {|key, value|
+		var assignment;
+		var dgVar;
 
-		var assignment = DynGenAssignment(
+		this.prFlushDueStatements(value);
+
+		dgVar = DynGenVar(key, context);
+
+		assignment = DynGenAssignment(
 			lhs: dgVar,
 			rhs: value.asDynGen,
 			context: context,
@@ -63,6 +73,20 @@ DynGenEnvironment : EnvironmentRedirect {
 
 		super.put(key, dgVar);
 		^dgVar;
+	}
+
+	compile {
+		this.prFlushDueStatements;
+		^sequence.asDynGen;
+	}
+
+	prFlushDueStatements {|currentStatement|
+		dueStatements.do({|dueStatement|
+			if(dueStatement.hash !== currentStatement.hash, {
+				this.addStatement(dueStatement);
+			});
+		});
+		dueStatements = [];
 	}
 }
 
@@ -266,10 +290,6 @@ DynGenExpr {
 		^DynGenBinOp('/', this, divisor, context);
 	}
 
-	? {|other|
-		^DynGenBinOp('?', this, other, context);
-	}
-
 	| {|other|
 		^DynGenBinOp('|', this, other, context);
 	}
@@ -383,6 +403,31 @@ DynGenExpr {
 		);
 		context.environment.sequence.add(assignment);
 		^assignment
+	}
+
+	ifTrue {|trueFunc, falseFunc|
+		var func = if(falseFunc.isNil, {
+			DynGenBinOp(
+				op: '?',
+				left: this,
+				right: trueFunc,
+				context: context,
+			);
+		}, {
+			DynGenTernaryOp(
+				opA: '?',
+				opB: ':',
+				selector: this,
+				branchA: trueFunc,
+				branchB: falseFunc,
+				context: context,
+			);
+		});
+
+		// if can also be used w/o assignment
+		context.environment.dueStatements = context.environment.dueStatements.add(func);
+		^func;
+
 	}
 
 	asDynGen {
@@ -584,6 +629,42 @@ DynGenBinOp : DynGenExpr {
 	}
 }
 
+DynGenTernaryOp : DynGenExpr {
+	var <>opA;
+	var <>opB;
+	var <>selector;
+	var <>branchA;
+	var <>branchB;
+
+	*new {|opA, opB, selector, branchA, branchB, context|
+		^super.new(context).initTernaryOp(
+			opA,
+			opB,
+			selector,
+			branchA,
+			branchB,
+		);
+	}
+
+	initTernaryOp {|opA_, opB_, selector_, branchA_, branchB_|
+		opA = opA_;
+		opB = opB_;
+		selector = selector_;
+		branchA = branchA_;
+		branchB = branchB_;
+	}
+
+	asDynGen {
+		^"% % % % %".format(
+			selector.asDynGen,
+			opA,
+			branchA.asDynGen,
+			opB,
+			branchB.asDynGen,
+		);
+	}
+}
+
 DynGenVar : DynGenExpr {
 	var <name;
 
@@ -651,5 +732,11 @@ DynGenCollection : DynGenExpr {
 + String {
 	asDynGen {
 		^this;
+	}
+}
+
++ Function {
+	asDynGen {
+		^"(%)".format(DynGenTranspiler(this).compile).replace("\n", " ");
 	}
 }
