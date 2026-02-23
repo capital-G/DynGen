@@ -135,7 +135,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     for (int i = 0; i < scriptParams.size(); ++i) {
         auto& param = scriptParams[i];
         double* var = NSEEL_VM_regvar(mEelState, param.name.c_str());
-        *var = param.initValue;
+        *var = std::clamp(param.initValue, param.minValue, param.maxValue);
         // NOTE: only "trig" parameters with *positive* init value!
         if (param.type == ParamType::Trigger && param.initValue > 0.0) {
             if (auto end = parameterIndices + numParamIndices;
