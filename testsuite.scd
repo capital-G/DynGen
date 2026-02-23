@@ -10,6 +10,12 @@
 		\testDynamicIO,
 		\testParam,
 		\testMultiParam,
+		\testParamSpecs,
+		\testLinParam,
+		\testStepParam,
+		\testTrigParam,
+		\testConstParam,
+		\testInitRateParams,
 		\testBufRead,
 		\testBufWrite,
 		\testBufInfo,
@@ -23,7 +29,6 @@
 		\testInputBlockSection,
 		\testParamsInitSection,
 		\testParamsBlockSection,
-		\testParamsInterpolation,
 
 		// signal function tests
 		\testClip,
@@ -229,6 +234,243 @@
 			var left = (sig[1024] - pi).abs < 0.01;
 			var right = (sig[1025] - 2.0).abs < 0.01;
 			success = left.and(right);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testParamSpecs: {
+		var success = false;
+		var condition = Condition();
+		DynGenDef(\testParamSpecs, "
+            @param
+            // comments are ok
+            a: 0.5
+            b: 0.5, lin, -1, 1
+            // test keyword args in arbitrary order
+            c: type=lin, max=1, min=-1, init=0.5
+            // can use keyword args after positional args
+            d: 0.5, type=lin
+            // whitespace around commans is ok
+            e: 0.5 , lin , 0 , 1
+            // whitespace around = is ok
+            f: init = 0.5, type = lin, min = 0, max = 1
+            // trailing commas are ignored
+            g: 0.5, lin,
+
+            @sample
+            out0 = _a;
+            out1 = _b;
+            out2 = _c;
+            out3 = _d;"
+		).send;
+		s.sync;
+		{
+			var noise = WhiteNoise.ar * 10;
+			DynGen.ar(4, \testParamSpecs, params: [
+				// do not modulate 'a' to check init value behavior
+				// check range clipping for 'b' and 'c' for audio-rate and control-rate
+				b: noise, c: A2K.kr(noise),
+				// make sure that 'd' is not clipped
+				d: noise
+			], sync: 1.0) ++ noise;
+		}.loadToFloatArray(0.1, action: {|sig|
+			success = sig.clump(5).every { |array|
+				var a = array[0] == 0.5;
+				var b = array[1] >= -1 and: { array[1] <= 1 };
+				var c = array[2] >= -1 and: { array[2] <= 1 };
+				var d = array[3] == array[4];
+				a && b && c && d;
+			};
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testLinParam: {
+		// control-rate "lin" parameters should yield the same result as K2A (except for the very first block).
+		// Test with and without @init resp. @block sections!
+		var func = { |code|
+			var success = false;
+			var condition = Condition();
+			DynGenDef(\testLinParam, code).send;
+			s.sync;
+			{
+				var noiseKr = WhiteNoise.kr;
+				var noiseAr = K2A.ar(noiseKr);
+				var first = Latch.ar(noiseKr, 1);
+				DynGen.ar(2, \testLinParam, params: [ a: noiseAr, b: noiseKr ], sync: 1.0) ++ noiseAr ++ first;
+			}.loadToFloatArray(0.02, action: {|sig|
+				var maxErr = 0.0001;
+				var blockSize = s.options.blockSize;
+				success = sig.clump(4).every { |array, i|
+					var err1, err2, a, b, noise, first;
+					#a, b, noise, first = array;
+					// DynGen does not have access to parameter values before the first process() call.
+					// For this reason, control-rate "lin" parameters already start with the new value in the very first block.
+					if (i.div(blockSize) == 0) {
+						(abs(b - first) < maxErr)
+					} {
+						abs(a - b) < maxErr and: { (abs(b - noise) < maxErr) }
+					}
+				};
+				condition.unhang;
+			});
+			condition.hang;
+			success;
+		};
+		var result1 = func.value("out0 = _a; out1 = _b;");
+		var result2 = func.value("
+            @init
+            x = 0;
+            @sample
+            out0 = _a; out1 = _b;"
+		);
+		var result3 = func.value("
+            @block
+            x = 0;
+            @sample
+            out0 = _a; out1 = _b;"
+		);
+		result1.and(result2).and(result3);
+	},
+
+	testStepParam: {
+		// a control-rate "step" parameter must not be interpolated!
+		// also test that audio-rate "step" parameters are passed as is.
+		var success = false;
+		var condition = Condition();
+		DynGenDef(\testStepParam, "
+            @param
+            a: 0, step
+            b: 0, step
+            @sample
+            out0 = _a;
+            out1 = _b;"
+		).send;
+		s.sync;
+		{
+			var noiseAr = WhiteNoise.ar;
+			var noiseKr = A2K.kr(noiseAr);
+			var noiseStep = Latch.ar(noiseAr, Impulse.ar(ControlRate.ir));
+			DynGen.ar(2, \testStepParam, params: [a: noiseAr, b: noiseKr], sync: 1.0) ++ noiseAr ++ noiseStep;
+		}.loadToFloatArray(0.1, action: {|sig|
+			var maxErr = 0.0001;
+			success = sig.clump(4).every { |array|
+				var a, b, noise, step;
+				#a, b, noise, step = array;
+				abs(a - noise) < maxErr and: { abs(b - step) < maxErr };
+			};
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testTrigParam: {
+		// trigger inputs are converted to impulse signals.
+		// If a trigger input is not modulated/set and its init value is positive,
+		// it must trigger exactly once on the very first sample.
+		var success = false;
+		var condition = Condition();
+		DynGenDef(\testTrigParam, "
+            @param
+            // modulated/set
+            a: 0, trig
+            b: 0, trig
+            c: 0, trig
+            // not modulated/set
+            d: 1, trig
+            e: 0, trig
+            @sample
+            out0 = _a;
+            out1 = _b;
+            out2 = _c;
+            out3 = _d;
+            out4 = _e;"
+		).send;
+		s.sync;
+		{
+			// Use a "real" audio signal because it helps to discover bugs!
+			var sigAr = SinOsc.ar(200);
+			var sigKr = SinOsc.kr(200);
+			var trigAr = Trig1.ar(sigAr, 0);
+			var trigKr = Trig1.kr(sigKr, 0);
+			DynGen.ar(5, \testTrigParam, params: [a: sigAr, b: sigKr, c: 1], sync: 1.0) ++ trigAr ++ Trig1.ar(trigKr, 0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			var maxErr = 0.0001;
+			success = sig.clump(7).every { |array, i|
+				var a, b, c, d, e, trigAr, trigKr;
+				#a, b, c, d, e, trigAr, trigKr = array;
+				(a == trigAr) and: { b == trigKr }
+				and: { c == (i == 0).asInteger }
+				and: { d == c } and: { e == 0 }
+			};
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testConstParam: {
+		// audio-rate and control-rate "const" parameters cannot be modulated after the first sample.
+		var success = false;
+		var condition = Condition();
+		DynGenDef(\testConstParam, "
+            @param
+            a: 0, const
+            b: 0, const
+            @sample
+            out0 = _a;
+            out1 = _b;"
+		).send;
+		s.sync;
+		{
+			var noiseAr = WhiteNoise.ar;
+			var noiseKr = A2K.kr(noiseAr);
+			var noiseFirst = Latch.ar(noiseAr, 1);
+			DynGen.ar(2, \testConstParam, params: [a: noiseAr, b: noiseKr], sync: 1.0) ++ noiseFirst;
+		}.loadToFloatArray(0.1, action: {|sig|
+			var maxErr = 0.0001;
+			success = sig.clump(3).every { |array|
+				var a = array[0], b = array[1], first = array[2];
+				abs(a - first) < maxErr and: { abs(b - first) < maxErr };
+			};
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testInitRateParams: {
+		// init rate parameters must generate constant output, except for "trig" parameters.
+		var success = false;
+		var condition = Condition();
+		var value = 0.5;
+		DynGenDef(\testInitRateParams, "
+            @param
+            a: 0, lin
+            b: 0, step
+            c: 0, const
+            d: 0, trig
+            @sample
+            out0 = _a;
+            out1 = _b;
+            out2 = _c;
+            out3 = _d;"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(4, \testInitRateParams, params: [a: value, b: value, c: value, d: 1.0], sync: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			success = sig.clump(4).every { |array, i|
+				var a, b, c, d;
+				#a, b, c, d = array;
+				(a == value) and: { b == value } and: { c == value }
+				and: { d == (i == 0).asInteger }
+			};
 			condition.unhang;
 		});
 		condition.hang;
@@ -567,7 +809,7 @@
 		).send;
 		s.sync;
 		{
-			var sig = LFNoise0.ar(300);
+			var sig = WhiteNoise.ar;
 			DynGen.ar(2, \testParamsBlockSection,
 				params: [ x: A2K.kr(sig), y: sig ], sync: 1.0);
 		}.loadToFloatArray(0.02, action: {|sig|
@@ -581,46 +823,6 @@
 		});
 		condition.hang;
 		success;
-	},
-
-	testParamsInterpolation: {
-		// control-rate parameter interpolation should yield the same result as K2A.
-		// Test with and without @init resp. @block sections!
-		var func = { |code|
-			var success = false;
-			var condition = Condition();
-			DynGenDef(\testParamsInterpolation, code).send;
-			s.sync;
-			{
-				var sig = LFNoise0.kr(300);
-				DynGen.ar(2, \testParamsInterpolation,
-					params: [ x: sig, y: K2A.ar(sig) ], sync: 1.0);
-			}.loadToFloatArray(0.02, action: {|sig|
-				var maxErr = 0.0;
-				sig.pairsDo { |x, y|
-					var err = abs(x - y);
-					maxErr = max(maxErr, err);
-				};
-				success = maxErr < 0.0001;
-				condition.unhang;
-			});
-			condition.hang;
-			success;
-		};
-		var result1 = func.value("out0 = _x; out1 = _y;");
-		var result2 = func.value("
-            @init
-            z = 0;
-            @sample
-            out0 = _x; out1 = _y;"
-		);
-		var result3 = func.value("
-            @block
-            z = 0;
-            @sample
-            out0 = _x; out1 = _y;"
-		);
-		result1.and(result2).and(result3);
 	},
 
 	// signal function tests
