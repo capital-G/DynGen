@@ -498,6 +498,10 @@ DynGenLiteral : DynGenExpr {
 	asDynGen {
 		^value.asString;
 	}
+
+	printOn {|stream|
+		stream << this.asDynGen;
+	}
 }
 
 DynGenUnaryOp : DynGenExpr {
