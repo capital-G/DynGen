@@ -35,6 +35,10 @@ DynGenEnvironment : EnvironmentRedirect {
 		^DynGenVar(name, this.context);
 	}
 
+	addStatement { |statement|
+		sequence = sequence.add(statement);
+	}
+
 	at { |key|
 		var dgVar = envir.at(key);
 
@@ -55,7 +59,7 @@ DynGenEnvironment : EnvironmentRedirect {
 			context: context,
 		);
 
-		sequence.add(assignment);
+		this.addStatement(assignment);
 
 		super.put(key, dgVar);
 		^dgVar;
@@ -365,6 +369,22 @@ DynGenExpr {
 		^DynGenFuncCall(\pow, [this, exponent], context);
 	}
 
+	at {|offset|
+		^DynGenMemoryAccess(this, offset, context);
+	}
+
+	// put is an assignment - e.g. x[20] = sin(0.5);
+	put {|offset, value|
+		var lhs = DynGenMemoryAccess(this, offset, context);
+		var assignment = DynGenAssignment(
+			lhs: lhs,
+			rhs: value,
+			context: context,
+		);
+		context.environment.sequence.add(assignment);
+		^assignment
+	}
+
 	asDynGen {
 		^this;
 	}
@@ -501,6 +521,24 @@ DynGenLiteral : DynGenExpr {
 
 	printOn {|stream|
 		stream << this.asDynGen;
+	}
+}
+
+DynGenMemoryAccess : DynGenExpr {
+	var <>variable;
+	var <>offset;
+
+	*new {|variable, offset, context|
+		^super.new(context).initMemoryAccess(variable, offset);
+	}
+
+	initMemoryAccess {|variable_, offset_|
+		variable = variable_;
+		offset = offset_;
+	}
+
+	asDynGen {
+		^"%[%]".format(variable.asDynGen, offset.asDynGen);
 	}
 }
 
