@@ -69,34 +69,55 @@ bool DynGenScript::parse(std::string_view script) {
     std::string_view blockCode;
     std::string_view sampleCode;
 
-    forEachLine(script, [&](std::string_view line, size_t linePos) {
-        auto newSection = findCodeSection(line);
-        if (newSection != CodeSection::None) {
-            // finish current section
-            size_t currentSize = linePos - currentSectionStart;
-            if (currentSection == CodeSection::Init) {
-                initCode = script.substr(currentSectionStart, currentSize);
-            } else if (currentSection == CodeSection::Block) {
-                blockCode = script.substr(currentSectionStart, currentSize);
-            } else if (currentSection == CodeSection::Sample) {
-                sampleCode = script.substr(currentSectionStart, currentSize);
+    auto closeSection = [&](std::string_view code) {
+        if (currentSection == CodeSection::Init) {
+            if (initCode.empty()) {
+                initCode = code;
+            } else {
+                throw std::runtime_error("duplicate @init section");
             }
-            // start new section
-            currentSection = newSection;
-            currentSectionStart = linePos + line.size(); // skip header!
+        } else if (currentSection == CodeSection::Block) {
+            if (blockCode.empty()) {
+                blockCode = code;
+            } else {
+                throw std::runtime_error("duplicate @block section");
+            }
+        } else if (currentSection == CodeSection::Sample) {
+            if (sampleCode.empty()) {
+                sampleCode = code;
+            } else {
+                throw std::runtime_error("duplicate @sample section");
+            }
         }
-    });
+    };
 
-    // finish last section
-    if (currentSection == CodeSection::Init) {
-        initCode = script.substr(currentSectionStart);
-    } else if (currentSection == CodeSection::Block) {
-        blockCode = script.substr(currentSectionStart);
-    } else if (currentSection == CodeSection::Sample) {
-        sampleCode = script.substr(currentSectionStart);
-    } else {
-        // no sections -> the whole script is used as the @sample section
-        sampleCode = script;
+    try {
+        forEachLine(script, [&](std::string_view line, size_t linePos) {
+            auto newSection = findCodeSection(line);
+            if (newSection != CodeSection::None) {
+                // close current section
+                if (currentSection != CodeSection::None) {
+                    size_t currentSize = linePos - currentSectionStart;
+                    auto code = script.substr(currentSectionStart, currentSize);
+                    closeSection(code);
+                }
+                // start new section
+                currentSection = newSection;
+                currentSectionStart = linePos + line.size(); // skip header!
+            }
+        });
+
+        // close open section
+        if (currentSection != CodeSection::None) {
+            auto code = script.substr(currentSectionStart);
+            closeSection(code);
+        } else {
+            // no sections -> the whole script is used as the @sample section
+            sampleCode = script;
+        }
+    } catch (const std::exception& e) {
+        Print("ERROR: %s\n", e.what());
+        return false;
     }
 
     if (sampleCode.empty()) {

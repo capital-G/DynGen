@@ -3,6 +3,7 @@
 	allTests: [
 		\testBasic,
 		\testCodeSections,
+		\testDuplicateSections,
 		\testSync,
 		\testUpdate,
 		\testNonExisting,
@@ -102,6 +103,29 @@
 		});
 		condition.hang;
 		success;
+	},
+
+	testDuplicateSections: {
+		var func = { |code|
+			var success = false;
+			var condition = Condition();
+			DynGenDef(\testDuplicateSections, code).send;
+			s.sync;
+			{
+				DynGen.ar(3, \testDuplicateSections, sync: 1.0);
+			}.loadToFloatArray(0.01, action: {|sig|
+				success = sig.every(_ == 0.0);
+				condition.unhang;
+			});
+			condition.hang;
+			success;
+		};
+		func.("@sample\n out0 = 1.0;\n @sample\n out0 = -1.0;") and:
+		func.("@sample\n out0 = 1.0;\n @init\n x = 0.0\n @sample\n out0 = -1.0;") and:
+		func.("@init\n x = 1.0;\n @init\n x = -1.0;\n @sample\n out0 = 1.0;") and:
+		func.("@init\n x = 1.0;\n @sample\n out0 = -1.0;\n @init\n x = 1.0;") and:
+		func.("@block\n x = 1.0;\n @block\n x = -1.0;\n @sample\n out0 = 1.0;") and:
+		func.("@block\n x = 1.0;\n @sample\n out0 = -1.0;\n @block\n x = 1.0; ")
 	},
 
 	testSync: {
