@@ -4,6 +4,7 @@
 		\testBasic,
 		\testCodeSections,
 		\testDuplicateSections,
+		\testCodeBeforeSections,
 		\testSync,
 		\testUpdate,
 		\testNonExisting,
@@ -112,7 +113,7 @@
 			DynGenDef(\testDuplicateSections, code).send;
 			s.sync;
 			{
-				DynGen.ar(3, \testDuplicateSections, sync: 1.0);
+				DynGen.ar(1, \testDuplicateSections, sync: 1.0);
 			}.loadToFloatArray(0.01, action: {|sig|
 				success = sig.every(_ == 0.0);
 				condition.unhang;
@@ -126,6 +127,28 @@
 		func.("@init\n x = 1.0;\n @sample\n out0 = -1.0;\n @init\n x = 1.0;") and:
 		func.("@block\n x = 1.0;\n @block\n x = -1.0;\n @sample\n out0 = 1.0;") and:
 		func.("@block\n x = 1.0;\n @sample\n out0 = -1.0;\n @block\n x = 1.0; ")
+	},
+
+	testCodeBeforeSections: {
+		// currently, any code before the first section is silently ignored.
+		// TODO: make this a warning or error
+		var success = false;
+		var condition = Condition();
+		DynGenDef(\testCodeBeforeSections, "
+            out0 = 0.5;
+
+            @sample
+            out0 = -0.5;"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(1, \testCodeBeforeSections, sync: 1.0);
+		}.loadToFloatArray(0.01, action: {|sig|
+			success = sig.every(_ == -0.5);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
 	},
 
 	testSync: {
