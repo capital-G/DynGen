@@ -162,6 +162,12 @@ namespace {
  *  'sv' should already be trimmed. Returns an empty optional on failure.
  */
 std::optional<double> parseDouble(std::string_view sv) {
+#if defined(__APPLE__)
+    // Apple Clang does not ship std::from_chars for doubles. This sucks...
+    try {
+        return std::stod(std::string(sv));
+    } catch (...) { return std::nullopt; }
+#else
     double value;
     auto [ptr, err] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
     if (err == std::errc {}) {
@@ -169,6 +175,7 @@ std::optional<double> parseDouble(std::string_view sv) {
     } else {
         return std::nullopt;
     }
+#endif
 }
 
 /*! @brief try to parse a line as a parameter declaration.
