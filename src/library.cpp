@@ -13,8 +13,8 @@
 namespace {
 
 /*! @brief iterate over all lines in the given std::string_view.
- * 'func' receives the line as a std::string_view, followed by the position
- * of the line in the string. The newline character is included in the result!
+ *  'func' receives the line as a std::string_view, followed by the position
+ *  of the line in the string. The newline character is included in the result!
  */
 template <typename Func> void forEachLine(std::string_view string, Func&& func) {
     size_t pos = 0;
@@ -29,26 +29,6 @@ template <typename Func> void forEachLine(std::string_view string, Func&& func) 
             func(string.substr(pos), pos);
             break;
         }
-    }
-}
-
-/*! @brief removes all trailing whitespace from the given string_view */
-std::string_view trimRight(std::string_view sv) {
-    if (sv.empty()) {
-        return sv;
-    }
-
-    ptrdiff_t pos = sv.size() - 1;
-    for (; pos >= 0; --pos) {
-        if (!std::isspace(sv[pos])) {
-            break;
-        }
-    }
-
-    if (pos >= 0) {
-        return sv.substr(0, pos + 1);
-    } else {
-        return {};
     }
 }
 
