@@ -69,8 +69,14 @@
 	testCodeSections: {
 		var success = false;
 		var condition = Condition();
+		// ignore unknown @ directives!
 		// also test function definitions across code sections!
 		DynGenDef(\testCodeSections, "
+            // @foo should be ignored
+            @foo
+            // @bar should also be ignored
+            @bar
+
             @init
             x = 0.5;
             function increment(i)
@@ -79,14 +85,14 @@
             );
 
             // add some trailing whitespace
-            @sample \n
+            @sample   \n
             z = increment(z);
             out0 = x;
             out1 = y;
             out2 = z;
 
             // make sure that sections can be defined in any order
-            @block  \n
+            @block
             y = increment(y);"
 		).send;
 		s.sync;
