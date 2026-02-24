@@ -3,6 +3,10 @@
 #include <string>
 #include <vector>
 
+#ifndef DEBUG_CODE_SECTIONS
+#    define DEBUG_CODE_SECTIONS 0
+#endif
+
 // forward declarations
 struct CodeLibrary;
 class DynGen;

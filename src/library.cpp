@@ -108,7 +108,7 @@ bool DynGenScript::parse(std::string_view script) {
     mBlock = blockCode;
     mSample = sampleCode;
 
-#if 0
+#if DEBUG_CODE_SECTIONS
     if (!mInit.empty()) {
         Print("--- @init ---\n");
         Print("%s\n", mInit.c_str());
