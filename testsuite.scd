@@ -2,6 +2,9 @@
 ~dynGenTests = (
 	allTests: [
 		\testBasic,
+		\testCodeSections,
+		\testDuplicateSections,
+		\testCodeBeforeSections,
 		\testSync,
 		\testUpdate,
 		\testNonExisting,
@@ -54,6 +57,94 @@
 			DynGen.ar(1, \testBasic);
 		}.loadToFloatArray(0.2, action: {|sig|
 			success = sig.any({|x| (x-0.5).abs <= 0.01});
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testCodeSections: {
+		var success = false;
+		var condition = Condition();
+		// also test function definitions across code sections!
+		DynGenDef(\testCodeSections, "
+            @init
+            x = 0.5;
+            function increment(i)
+            (
+                i + 1;
+            );
+
+            // add some trailing whitespace
+            @sample \n
+            z = increment(z);
+            out0 = x;
+            out1 = y;
+            out2 = z;
+
+            // make sure that sections can be defined in any order
+            @block  \n
+            y = increment(y);"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(3, \testCodeSections, sync: 1.0);
+		}.loadToFloatArray(0.1, action: {|sig|
+			var blockSize = s.options.blockSize;
+			success = true;
+			sig.clump(3).do { |array, i|
+				var x = array[0];
+				var y = array[1];
+				var z = array[2];
+				if (x != 0.5) { success = false };
+				if (y != (i.div(blockSize) + 1)) { success = false };
+				if (z != (i + 1)) { success = false };
+			};
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testDuplicateSections: {
+		var func = { |code|
+			var success = false;
+			var condition = Condition();
+			DynGenDef(\testDuplicateSections, code).send;
+			s.sync;
+			{
+				DynGen.ar(1, \testDuplicateSections, sync: 1.0);
+			}.loadToFloatArray(0.01, action: {|sig|
+				success = sig.every(_ == 0.0);
+				condition.unhang;
+			});
+			condition.hang;
+			success;
+		};
+		func.("@sample\n out0 = 1.0;\n @sample\n out0 = -1.0;") and:
+		func.("@sample\n out0 = 1.0;\n @init\n x = 0.0\n @sample\n out0 = -1.0;") and:
+		func.("@init\n x = 1.0;\n @init\n x = -1.0;\n @sample\n out0 = 1.0;") and:
+		func.("@init\n x = 1.0;\n @sample\n out0 = -1.0;\n @init\n x = 1.0;") and:
+		func.("@block\n x = 1.0;\n @block\n x = -1.0;\n @sample\n out0 = 1.0;") and:
+		func.("@block\n x = 1.0;\n @sample\n out0 = -1.0;\n @block\n x = 1.0; ")
+	},
+
+	testCodeBeforeSections: {
+		// currently, any code before the first section is silently ignored.
+		// TODO: make this a warning or error
+		var success = false;
+		var condition = Condition();
+		DynGenDef(\testCodeBeforeSections, "
+            out0 = 0.5;
+
+            @sample
+            out0 = -0.5;"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(1, \testCodeBeforeSections, sync: 1.0);
+		}.loadToFloatArray(0.01, action: {|sig|
+			success = sig.every(_ == -0.5);
 			condition.unhang;
 		});
 		condition.hang;

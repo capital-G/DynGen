@@ -143,6 +143,193 @@ Ndef(\z, {
 )
 ::
 
+
+SUBSECTION:: DynGen sections
+
+If no code section is declared, the whole script will be evaluated for each sample.
+While this works for simple scripts, it is often necessary to split the code into different sections that are evaluated at different times.
+
+You can declare the following sections:
+
+DEFINITIONLIST::
+## CODE::@init:: ||
+A section that starts with the CODE::@init:: header is only evaluated once (right before the very first block).
+CODE::in0::, CODE::in1::, etc. and all the parameters contain their initial values.
+
+This section is typically used to initialize variables or to allocate memory regions (see LINK::#Memory::).
+
+## CODE::@block:: ||
+A section that starts with CODE::@block:: is evaluated before each block, see LINK::Classes/ServerOptions#-blockSize:: (aka the rate that CODE::.kr:: is running at).
+CODE::in0::, CODE::in1::, etc. and all audio-rate parameters are set to the first sample of the new block.
+Control-rate parameters are set to their new value (without interpolation!).
+
+This section can be used to cache parameters that are not supposed to change during the CODE::@sample:: block.
+It is also necessary if you want to avoid interpolation of control-rate parameters (see below).
+
+## CODE::@sample:: ||
+A section that starts with CODE::@sample:: is evalated for each sample.
+::
+
+The CODE::@init:: and CODE::@block:: sections are optional and can be omitted.
+The CODE::@sample:: can be only be omitted if no other code section has been declared.
+
+You can define functions in any code section.
+However, they must be defined before they are called.
+
+CODE::
+(
+DynGenDef(\sections, "
+@init
+x = $pi;
+// variables are automatically initialized to 0,
+// so the following is not strictly necessary:
+y = 0;
+z = 0;
+
+// a function definition
+function increment(i)
+(
+    i + 1;
+);
+
+@block
+y = increment(y);
+
+@sample
+z = increment(z);
+
+out0 = x;
+out1 = y;
+out2 = z;
+").send;
+)
+::
+
+CODE::
+Ndef(\b, {DynGen.ar(3, \blocks).poll});
+::
+
+The CODE::@block:: section can be used to avoid interpolation with control-rate parameters.
+(See the documentation of the CODE::params:: argument in LINK::#*ar::.)
+
+For example, you really don't want to interpolate buffer numbers!
+
+CODE::
+(
+DynGenDef(\bufRead, "
+@block
+// cache the buffer number to avoid interpolation!
+buf = _buf;
+
+@sample
+// the _amp parameter, however, should be interpolated.
+out0 = bufReadC(buf, in0) * _amp;
+").send;
+)
+::
+
+
+SUBSECTION:: DynGen variables
+
+DynGen defines the following variables:
+
+TABLE::
+## STRONG::variable name:: || STRONG::comment::
+## CODE::in0::, CODE::in1::, etc. || contains the current sample value of the given input channel. If the channel number is out-of-range, the variable contains 0.0.
+## CODE::out0::, CODE::out1::, etc. || represents the current sample of the given output channel. If the channel number is out-of-range, any assignments will be ignored.
+## CODE::sampleNum:: || the number/index of the current sample in this block (starting from 0). This is only valid in the CODE::@sample:: section.
+## CODE::blockNum:: || the number of the current block, starting from 0.
+::
+
+SUBSECTION:: DynGen constants
+
+DynGen provides some constants which are accessible like normal variables.
+There is no const protection, so pay attention to not overwrite them.
+
+TABLE::
+## STRONG::variable name:: || STRONG::comment::
+## CODE::srate:: || same as LINK::Classes/ServerOptions#-sampleRate::
+## CODE::blockSize:: || same as LINK::Classes/ServerOptions#-blockSize::
+## CODE::numIn:: || the number of input channels
+## CODE::numOut:: || the number of output channels
+::
+
+SUBSECTION:: DynGen functions
+
+DynGen provides the following utility functions:
+
+TABLE::
+## STRONG::function:: || STRONG::comment::
+## CODE::in(channel):: || reads the n-th input channel; out-of-range channels return 0.0
+## CODE::out(channel):: || writes to the n-th output channel; out-of-range-channels are ignored
+## CODE::bufRead(bufNum, bufFrame, [bufChan]):: || reads the frame of a LINK::Classes/Buffer:: on the server. The CODE::bufChan:: parameter is optional and defaults to the 0-th channel. If the buffer does not exist or CODE::bufFrame/bufChan:: is out-of-bounds it will return 0.0.
+## CODE::bufReadL(bufNum, bufFrame, [bufChan]):: || Same as CODE::bufRead:: but uses linear interpolation.
+## CODE::bufReadC(bufNum, bufFrame, [bufChan]):: || Same as CODE::bufRead:: but uses cubic interpolation.
+## CODE::bufWrite(bufNum, bufFrame, bufVal, [bufChan]):: || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. The CODE::bufChan:: parameter is optional and defaults to the 0-th channel. If the buffer does not exist or CODE::bufFrame/bufChan:: is out-of-bounds it will not write to the buffer.
+## CODE::bufRate(bufNum):: || returns the buffer sample rate (or 0.0 if CODE::bufNum:: is out-of-range)
+## CODE::bufChannels(bufNum):: || returns the number of buffer channels (or 0.0 if CODE::bufNum:: is out-of-range)
+## CODE::bufFrames(bufNum):: || returns the number of buffer frames (or 0.0 if CODE::bufNum:: is out-of-range)
+## CODE::clip(in, lo, [hi]):: || Clips the signal, see LINK::Classes/Float#-clip::. If only two arguments are provided, LINK::Classes/Float#-clip2:: will be applied.
+## CODE::wrap(in, lo, [hi]):: || Wraps the signal, see LINK::Classes/Float#-wrap::. If only two arguments are provided, LINK::Classes/Float#-wrap2:: will be applied.
+## CODE::fold(in, lo, [hi]):: || Folds the signal, see LINK::Classes/Float#-fold::. If only two arguments are provided, LINK::Classes/Float#-fold2:: will be applied.
+## CODE::mod(in, hi):: || Mod of a float signal, see LINK::Classes/SimpleNumber#-mod::. EEL2's internal CODE::%:: only operates on an integer level.
+## CODE::lin(x, a, b):: || Linear interpolation between values a and b using MATH::a + x(b - a)::.
+## CODE::cubic(x, a, b, c, d):: || A 4-point, 3rd-order Hermite interpolation at position x.
+## CODE::delta(state, signal):: || Returns the delta of CODE::signal:: by using an intermediate DynGen variable CODE::state:: to store the previous value of CODE::signal::. Equivalent to CODE::x = signal - state; state = signal;::, where CODE::x:: is the return value of the function.
+## CODE::history(state, signal):: || Returns the previous value of CODE::signal:: by using an intermediate DynGen variable CODE::state::. Equivalent to CODE::x = state; state = signal;::, where CODE::x:: is the return value of the function. In order to set an initial value, set the CODE::state:: variable to the desired value in the CODE::@init:: section.
+## CODE::latch(state, signal, trigger):: || See LINK::Classes/Latch::. Holds the value of CODE::signal:: when CODE::trigger!=0.0::, which is different from LINK::Classes/Latch:: which triggers when the signal transitions from a non-positive to a positive value! The CODE::state:: variable is necessary to store the state of the latch. Equivalent to CODE::state = trigger ? signal : state; x = state;::, where CODE::x:: is the return value of the function. In order to set an initial value, set the CODE::state:: variable to the desired value in the CODE::@init:: section.
+## CODE::print(...):: || Print one or more numbers to the console.
+The function returns its first argument so you can use it inside expressions, similar to LINK::Classes/UGen#-poll::.
+## CODE::printMem(startIndex, size):: || Print the contents of a memory block.
+## CODE::poll(value, [rate]):: || Print a number to the console at the given rate (in Hertz). The default value for the CODE::rate:: argument is 10 Hz (= 10 times a second). The function returns its first argument so you can use it inside expressions, similar to LINK::Classes/UGen#-poll::.
+::
+
+An example of buffer playback
+
+CODE::
+~buffer = Buffer.read(s, path: ExampleFiles.apollo11);
+
+(
+// Play all channels of a buffer in a loop with variable playback rate.
+// This code works for any number of buffer channels!
+DynGenDef(\loopBuffer, "
+    @init
+    buf = -1;
+
+    @block
+    // update all buffer info at the start each block
+    _bufNum != buf ? (
+        buf = _bufNum;
+        channels = bufChannels(buf);
+        frames = bufFrames(buf);
+        advance = bufSampleRate(buf) / srate;
+    );
+
+    @sample
+    chan = 0;
+    loop(channels,
+        out(chan) = bufReadC(buf, pos, chan);
+        chan += 1;
+    );
+    pos += advance * _rate;
+    pos = wrap(pos, 0, frames);"
+).send;
+)
+
+(
+Ndef(\p, {
+	DynGen.ar(~buffer.numChannels, \loopBuffer, params: [
+		bufNum: ~buffer, rate: \rate.kr(1.0, spec: [-2.0, 2.0])
+	]).dup * 0.2;
+}).play.gui;
+)
+::
+
+NOTE::
+Since EEL2 internally works with 64-bit doubles, we can accurately address up to MATH::2^{53}:: samples, which translates to around 6000 years at 48 kHz.
+For comparison, the precision of LINK::Classes/BufRd:: is limited to MATH::2^{24}:: samples, which corresponds to only 6 minutes at 48 kHz.
+::
+
 SUBSECTION:: Multi-channel expansion
 
 NOTE::
@@ -357,167 +544,6 @@ Ndef(\oversample, {
 		],
 	) * 0.2;
 }).play.gui;
-)
-::
-
-SUBSECTION:: DynGen variables
-
-DynGen defines the following variables:
-
-TABLE::
-## STRONG::variable name:: || STRONG::comment::
-## CODE::in0::, CODE::in1::, etc. || contains the current sample value of the given input channel. If the channel number is out-of-range, the variable contains 0.0.
-## CODE::out0::, CODE::out1::, etc. || represents the current sample of the given output channel. If the channel number is out-of-range, any assignments will be ignored.
-## CODE::sampleNum:: || the number/index of the current sample in this block (starting from 0). This is only valid in the CODE::@sample:: section.
-## CODE::blockNum:: || the number of the current block, starting from 0.
-::
-
-SUBSECTION:: DynGen constants
-
-DynGen provides some constants which are accessible like normal variables.
-There is no const protection, so pay attention to not overwrite them.
-
-TABLE::
-## STRONG::variable name:: || STRONG::comment::
-## CODE::srate:: || same as LINK::Classes/ServerOptions#-sampleRate::
-## CODE::blockSize:: || same as LINK::Classes/ServerOptions#-blockSize::
-## CODE::numIn:: || the number of input channels
-## CODE::numOut:: || the number of output channels
-::
-
-SUBSECTION:: DynGen functions
-
-DynGen provides the following utility functions:
-
-TABLE::
-## STRONG::function:: || STRONG::comment::
-## CODE::in(channel):: || reads the n-th input channel; out-of-range channels return 0.0
-## CODE::out(channel):: || writes to the n-th output channel; out-of-range-channels are ignored
-## CODE::bufRead(bufNum, bufFrame, [bufChan]):: || reads the frame of a LINK::Classes/Buffer:: on the server. The CODE::bufChan:: parameter is optional and defaults to the 0-th channel. If the buffer does not exist or CODE::bufFrame/bufChan:: is out-of-bounds it will return 0.0.
-## CODE::bufReadL(bufNum, bufFrame, [bufChan]):: || Same as CODE::bufRead:: but uses linear interpolation.
-## CODE::bufReadC(bufNum, bufFrame, [bufChan]):: || Same as CODE::bufRead:: but uses cubic interpolation.
-## CODE::bufWrite(bufNum, bufFrame, bufVal, [bufChan]):: || writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample. The CODE::bufChan:: parameter is optional and defaults to the 0-th channel. If the buffer does not exist or CODE::bufFrame/bufChan:: is out-of-bounds it will not write to the buffer.
-## CODE::bufRate(bufNum):: || returns the buffer sample rate (or 0.0 if CODE::bufNum:: is out-of-range)
-## CODE::bufChannels(bufNum):: || returns the number of buffer channels (or 0.0 if CODE::bufNum:: is out-of-range)
-## CODE::bufFrames(bufNum):: || returns the number of buffer frames (or 0.0 if CODE::bufNum:: is out-of-range)
-## CODE::clip(in, lo, [hi]):: || Clips the signal, see LINK::Classes/Float#-clip::. If only two arguments are provided, LINK::Classes/Float#-clip2:: will be applied.
-## CODE::wrap(in, lo, [hi]):: || Wraps the signal, see LINK::Classes/Float#-wrap::. If only two arguments are provided, LINK::Classes/Float#-wrap2:: will be applied.
-## CODE::fold(in, lo, [hi]):: || Folds the signal, see LINK::Classes/Float#-fold::. If only two arguments are provided, LINK::Classes/Float#-fold2:: will be applied.
-## CODE::mod(in, hi):: || Mod of a float signal, see LINK::Classes/SimpleNumber#-mod::. EEL2's internal CODE::%:: only operates on an integer level.
-## CODE::lin(x, a, b):: || Linear interpolation between values a and b using MATH::a + x(b - a)::.
-## CODE::cubic(x, a, b, c, d):: || A 4-point, 3rd-order Hermite interpolation at position x.
-## CODE::delta(state, signal):: || Returns the delta of CODE::signal:: by using an intermediate DynGen variable CODE::state:: to store the previous value of CODE::signal::. Equivalent to CODE::x = signal - state; state = signal;::, where CODE::x:: is the return value of the function.
-## CODE::history(state, signal):: || Returns the previous value of CODE::signal:: by using an intermediate DynGen variable CODE::state::. Equivalent to CODE::x = state; state = signal;::, where CODE::x:: is the return value of the function. In order to set an initial value, set the CODE::state:: variable to the desired value in the CODE::@init:: section.
-## CODE::latch(state, signal, trigger):: || See LINK::Classes/Latch::. Holds the value of CODE::signal:: when CODE::trigger!=0.0::, which is different from LINK::Classes/Latch:: which triggers when the signal transitions from a non-positive to a positive value! The CODE::state:: variable is necessary to store the state of the latch. Equivalent to CODE::state = trigger ? signal : state; x = state;::, where CODE::x:: is the return value of the function. In order to set an initial value, set the CODE::state:: variable to the desired value in the CODE::@init:: section.
-## CODE::print(...):: || Print one or more numbers to the console.
-The function returns its first argument so you can use it inside expressions, similar to LINK::Classes/UGen#-poll::.
-## CODE::printMem(startIndex, size):: || Print the contents of a memory block.
-## CODE::poll(value, [rate]):: || Print a number to the console at the given rate (in Hertz). The default value for the CODE::rate:: argument is 10 Hz (= 10 times a second). The function returns its first argument so you can use it inside expressions, similar to LINK::Classes/UGen#-poll::.
-::
-
-An example of buffer playback
-
-CODE::
-~buffer = Buffer.read(s, path: ExampleFiles.apollo11);
-
-(
-// Play all channels of a buffer in a loop with variable playback rate.
-// This code works for any number of buffer channels!
-DynGenDef(\loopBuffer, "
-    @init
-    buf = -1;
-
-    @block
-    // update all buffer info at the start each block
-    _bufNum != buf ? (
-        buf = _bufNum;
-        channels = bufChannels(buf);
-        frames = bufFrames(buf);
-        advance = bufSampleRate(buf) / srate;
-    );
-
-    @sample
-    chan = 0;
-    loop(channels,
-        out(chan) = bufReadC(buf, pos, chan);
-        chan += 1;
-    );
-    pos += advance * _rate;
-    pos = wrap(pos, 0, frames);"
-).send;
-)
-
-(
-Ndef(\p, {
-	DynGen.ar(~buffer.numChannels, \loopBuffer, params: [
-		bufNum: ~buffer, rate: \rate.kr(1.0, spec: [-2.0, 2.0])
-	]).dup * 0.2;
-}).play.gui;
-)
-::
-
-NOTE::
-Since EEL2 internally works with 64-bit doubles, we can accurately address up to MATH::2^{53}:: samples, which translates to around 6000 years at 48 kHz.
-For comparison, the precision of LINK::Classes/BufRd:: is limited to MATH::2^{24}:: samples, which corresponds to only 6 minutes at 48 kHz.
-::
-
-SUBSECTION:: DynGen sections
-
-If no section block is given, the whole script will be evaluated for each sample.
-
-A section that starts with the CODE::@init:: header is only evaluated once during initialization.
-CODE::in0::, CODE::in1::, etc. and all the parameters contain their initial values.
-
-A section that starts with CODE::@block:: is evaluated before each block, see LINK::Classes/ServerOptions#-blockSize:: (aka the rate that CODE::.kr:: is running at).
-CODE::in0::, CODE::in1::, etc. and all audio-rate parameters are set to the first sample of the new block.
-Control-rate parameters are set to their new value (without interpolation!).
-
-If any of these two sections is provided, it is necessary to mark the per-sample script with the CODE::@sample:: header.
-
-The sections need to be in the order CODE::@init::, CODE::@block::, CODE::@sample::, where each section is optional except for CODE::@sample::.
-
-CODE::
-(
-DynGenDef(\blocks, "
-@init
-x = $pi;
-
-@block
-y += 1;
-
-@sample
-z += 1;
-
-out0 = x;
-out1 = y;
-out2 = z;
-").send;
-)
-::
-
-CODE::
-Ndef(\b, {DynGen.ar(3, \blocks).poll});
-::
-
-The CODE::@init:: section is typically used to initialize variables or to allocate memory regions (see LINK::#Memory::).
-
-The CODE::@block:: section is very useful for caching parameters that are not supposed to change during the CODE::@sample:: block.
-It is also necessary if you want to avoid interpolation with control-rate parameters.
-(See the documentation of the CODE::params:: argument in LINK::#*ar::.)
-
-For example, you really don't want to interpolate buffer numbers!
-
-CODE::
-(
-DynGenDef(\bufRead, "
-@block
-// cache the buffer number to avoid interpolation!
-buf = _buf;
-
-@sample
-// the _amp parameter, however, should be interpolated.
-out0 = bufReadC(buf, in0) * _amp;
-").send;
 )
 ::
 

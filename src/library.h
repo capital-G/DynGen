@@ -3,6 +3,10 @@
 #include <string>
 #include <vector>
 
+#ifndef DEBUG_CODE_SECTIONS
+#    define DEBUG_CODE_SECTIONS 0
+#endif
+
 // forward declarations
 struct CodeLibrary;
 class DynGen;
@@ -14,6 +18,8 @@ struct InterfaceTable;
 struct World;
 
 extern InterfaceTable* ft;
+
+enum class CodeSection { None, Init, Block, Sample };
 
 /*! @class DynGenScript
  *  @brief contains the code sections of an EEL2 script

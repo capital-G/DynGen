@@ -92,6 +92,17 @@ EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int 
     mWorld(world),
     mParent(parent) {}
 
+EEL2Adapter::~EEL2Adapter() {
+    if (mInitCode)
+        NSEEL_code_free(mInitCode);
+    if (mBlockCode)
+        NSEEL_code_free(mBlockCode);
+    if (mSampleCode)
+        NSEEL_code_free(mSampleCode);
+    if (mEelState)
+        NSEEL_VM_free(mEelState);
+}
+
 // this is not RT safe
 bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, int numParamIndices) {
     mEelState = NSEEL_VM_alloc();
@@ -140,8 +151,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     mBlockNum = NSEEL_VM_regvar(mEelState, "blockNum");
     mSampleNum = NSEEL_VM_regvar(mEelState, "sampleNum");
 
-    auto compileFlags = NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS | NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET
-        | NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
+    auto compileFlags = NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS | NSEEL_CODE_COMPILE_FLAG_NOFPSTATE;
 
     if (script.mSample.empty()) {
         Print("ERROR: DynGen sample code is missing\n");
@@ -471,15 +481,4 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPoll(void* opaque, const INT_PTR numParams
 
     // return first argument
     return *params[0];
-}
-
-EEL2Adapter::~EEL2Adapter() {
-    if (mSampleCode)
-        NSEEL_code_free(mSampleCode);
-    if (mInitCode)
-        NSEEL_code_free(mInitCode);
-    if (mBlockCode)
-        NSEEL_code_free(mBlockCode);
-    if (mEelState)
-        NSEEL_VM_free(mEelState);
 }
