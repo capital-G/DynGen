@@ -427,7 +427,17 @@ DynGenExpr {
 		// if can also be used w/o assignment
 		context.environment.dueStatements = context.environment.dueStatements.add(func);
 		^func;
+	}
 
+	// loop is inline optimized - so rename it to repeat
+	repeat {|code|
+		var func = DynGenFuncCall(
+			funcName: 'loop',
+			arguments: [this, code],
+		);
+		// loop can also be used w/o assignment
+		context.environment.dueStatements = context.environment.dueStatements.add(func);
+		^func;
 	}
 
 	asDynGen {
