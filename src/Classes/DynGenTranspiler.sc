@@ -434,8 +434,22 @@ DynGenExpr {
 		var func = DynGenFuncCall(
 			funcName: 'loop',
 			arguments: [this, code],
+			context: context,
 		);
 		// loop can also be used w/o assignment
+		context.environment.dueStatements = context.environment.dueStatements.add(func);
+		^func;
+	}
+
+	// only allow while with condition
+	// this is renamed to avoid inline optimization
+	doWhile {|code|
+		var func = DynGenDoWhile(
+			condition: this,
+			code: code,
+			context: context,
+		);
+		// while can also be used w/o assignment
 		context.environment.dueStatements = context.environment.dueStatements.add(func);
 		^func;
 	}
@@ -675,14 +689,35 @@ DynGenTernaryOp : DynGenExpr {
 	}
 }
 
+DynGenDoWhile : DynGenExpr {
+	var <>condition;
+	var <>code;
+
+	*new {|condition, code, context|
+		^super.new(context).initDoWhile(condition, code);
+	}
+
+	initDoWhile {|condition_, code_|
+		condition = condition_;
+		code = code_;
+	}
+
+	asDynGen {
+		^"while (%) (%)".format(
+			condition.asDynGen,
+			code.asDynGen,
+		);
+	}
+}
+
 DynGenVar : DynGenExpr {
 	var <name;
 
 	*new {|name, context|
-		^super.new(context).init(name);
+		^super.new(context).initVar(name);
 	}
 
-	init {|name_|
+	initVar {|name_|
 		name = name_;
 	}
 
