@@ -429,8 +429,7 @@ DynGenExpr {
 		^func;
 	}
 
-	// loop is inline optimized - so rename it to repeat
-	repeat {|code|
+	loop {|code|
 		var func = DynGenFuncCall(
 			funcName: 'loop',
 			arguments: [this, code],
