@@ -351,7 +351,7 @@ They are all optional and can be provided as positional arguments or keyword arg
 Keyword arguments can follow positional arguments, but not the opposite.
 Spaces before/after the equals sign (=) are permitted!
 
-Some examples:
+Examples:
 CODE::
 @param
 // all properties
@@ -365,6 +365,8 @@ buf: type=step
 // mix of positional and keyword args.
 feedback: 0.5, min = 0.0, max = 0.9999
 ::
+
+SUBSUBSECTION:: Parameter properties
 
 DEFINITIONLIST::
 ## CODE::<name>:: || the parameter name EMPHASIS::without:: the underscore
@@ -382,10 +384,11 @@ DynGen trigger signals are EMPHASIS::stateless::: they trigger when the value is
 
 NOTE::
 If the parameter is not modulated and CODE::<init>:: is positive, it will trigger exactly once in the beginning.
+This is consistent with the behavior of UGen trigger inputs such as LINK::Classes/PlayBuf::.
 ::
 ::
-## CODE::<min>:: || the lower limit. Parameter modulation is automatically clipped to this value. By the default, there is no limit.
-## CODE::<max>:: || the higher limit. Parameter modulation is automatically clipped to this value. By the default, there is no limit.
+## CODE::<min>:: || the lower limit. Parameter modulation is automatically clipped to this value. By default, there is no limit.
+## CODE::<max>:: || the upper limit. Parameter modulation is automatically clipped to this value. By default, there is no limit.
 ::
 
 Here is an example for parameter init, min. and max. values:
