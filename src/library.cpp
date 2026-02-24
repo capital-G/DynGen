@@ -48,9 +48,8 @@ namespace {
  */
 CodeSection findCodeSection(std::string_view line) {
     auto matchName = [&](std::string_view name, size_t start) {
-        return line.compare(start, name.size(), name) == 0 &&
-               ((line.size() - start) == name.size() ||
-                isWhitespace(line[start + name.size()]));
+        return line.compare(start, name.size(), name) == 0
+            && ((line.size() - start) == name.size() || isWhitespace(line[start + name.size()]));
     };
 
     for (size_t pos = 0; pos < line.size(); ++pos) {
@@ -165,7 +164,7 @@ namespace {
 std::optional<double> parseDouble(std::string_view sv) {
     double value;
     auto [ptr, err] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
-    if (err == std::errc{}) {
+    if (err == std::errc {}) {
         return value;
     } else {
         return std::nullopt;
@@ -191,8 +190,7 @@ std::optional<ParamSpec> parseParameter(std::string_view line) {
     if (colonPos == std::string_view::npos) {
         // no colon -> only parameter string.
         // ignore everything after the first whitespace character.
-        auto end = std::find_if(line.begin(), line.end(),
-                               [](auto c) { return isWhitespace(c); });
+        auto end = std::find_if(line.begin(), line.end(), [](auto c) { return isWhitespace(c); });
         auto name = line.substr(0, end - line.begin());
         spec.name = std::string("_") += name;
         return spec;
@@ -220,8 +218,8 @@ std::optional<ParamSpec> parseParameter(std::string_view line) {
         if (auto number = parseDouble(value)) {
             spec.initValue = *number;
         } else {
-            Print("ERROR: parameter '%s': bad init value '%s'\n",
-                  std::string(name).c_str(), std::string(value).c_str());
+            Print("ERROR: parameter '%s': bad init value '%s'\n", std::string(name).c_str(),
+                  std::string(value).c_str());
             parseError = true;
         }
     };
@@ -230,8 +228,7 @@ std::optional<ParamSpec> parseParameter(std::string_view line) {
         if (auto type = getParamTypeFromString(value)) {
             spec.type = *type;
         } else {
-            Print("ERROR: parameter '%s': bad type '%s'\n",
-                  std::string(name).c_str(), std::string(value).c_str());
+            Print("ERROR: parameter '%s': bad type '%s'\n", std::string(name).c_str(), std::string(value).c_str());
             parseError = true;
         }
     };
@@ -240,8 +237,8 @@ std::optional<ParamSpec> parseParameter(std::string_view line) {
         if (auto number = parseDouble(value)) {
             spec.minValue = *number;
         } else {
-            Print("ERROR: parameter '%s': bad min. value '%s'\n",
-                  std::string(name).c_str(), std::string(value).c_str());
+            Print("ERROR: parameter '%s': bad min. value '%s'\n", std::string(name).c_str(),
+                  std::string(value).c_str());
             parseError = true;
         }
     };
@@ -250,63 +247,66 @@ std::optional<ParamSpec> parseParameter(std::string_view line) {
         if (auto number = parseDouble(value)) {
             spec.maxValue = *number;
         } else {
-            Print("ERROR: parameter '%s': bad max. value '%s'\n",
-                  std::string(name).c_str(), std::string(value).c_str());
+            Print("ERROR: parameter '%s': bad max. value '%s'\n", std::string(name).c_str(),
+                  std::string(value).c_str());
             parseError = true;
         }
     };
 
-    forEachLine(line, [&](std::string_view arg, size_t) {
-        // remove all surrounding whitespace!
-        arg = trim(arg);
+    forEachLine(
+        line,
+        [&](std::string_view arg, size_t) {
+            // remove all surrounding whitespace!
+            arg = trim(arg);
 
-        if (auto eqPos = arg.find('='); eqPos != std::string_view::npos) {
-            // keyword argument
-            auto key = trim(arg.substr(0, eqPos));
-            auto value = trim(arg.substr(eqPos + 1));
-            if (key == "init") {
-                parseInitValue(value);
-            } else if (key == "type") {
-                parseType(value);
-            } else if (key == "min") {
-                parseMinValue(value);
-            } else if (key == "max") {
-                parseMaxValue(value);
-            } else if (key == "warp" || key == "step" || key == "unit") {
-                // silently ignore
-            } else {
-                Print("ERROR: parameter '%s': unknown key '%s'\n",
-                      std::string(name).c_str(), std::string(key).c_str());
-                parseError = true;
-            }
+            if (auto eqPos = arg.find('='); eqPos != std::string_view::npos) {
+                // keyword argument
+                auto key = trim(arg.substr(0, eqPos));
+                auto value = trim(arg.substr(eqPos + 1));
+                if (key == "init") {
+                    parseInitValue(value);
+                } else if (key == "type") {
+                    parseType(value);
+                } else if (key == "min") {
+                    parseMinValue(value);
+                } else if (key == "max") {
+                    parseMaxValue(value);
+                } else if (key == "warp" || key == "step" || key == "unit") {
+                    // silently ignore
+                } else {
+                    Print("ERROR: parameter '%s': unknown key '%s'\n", std::string(name).c_str(),
+                          std::string(key).c_str());
+                    parseError = true;
+                }
 
-            gotKeywordArg = true;
-        } else if (!gotKeywordArg) {
-            // positional argument
-            if (argCount == 0) {
-                // init value
-                parseInitValue(arg);
-            } else if (argCount == 1) {
-                // type
-                parseType(arg);
-            } else if (argCount == 2) {
-                // min. value
-                parseMinValue(arg);
-            } else if (argCount == 3) {
-                // max. value
-                parseMaxValue(arg);
-            } else if (argCount < 7) {
-                // silently ignore "warp", "step" and "unit" arguments.
+                gotKeywordArg = true;
+            } else if (!gotKeywordArg) {
+                // positional argument
+                if (argCount == 0) {
+                    // init value
+                    parseInitValue(arg);
+                } else if (argCount == 1) {
+                    // type
+                    parseType(arg);
+                } else if (argCount == 2) {
+                    // min. value
+                    parseMinValue(arg);
+                } else if (argCount == 3) {
+                    // max. value
+                    parseMaxValue(arg);
+                } else if (argCount < 7) {
+                    // silently ignore "warp", "step" and "unit" arguments.
+                } else {
+                    Print("WARNING: parameter '%s': ignore extra argument '%s'\n", std::string(name).c_str(),
+                          std::string(arg).c_str());
+                }
+                argCount++;
             } else {
-                Print("WARNING: parameter '%s': ignore extra argument '%s'\n",
-                      std::string(name).c_str(), std::string(arg).c_str());
+                Print("WARNING: parameter '%s': ignore argument '%s' after keyword args\n", std::string(name).c_str(),
+                      std::string(arg).c_str());
             }
-            argCount++;
-        } else {
-            Print("WARNING: parameter '%s': ignore argument '%s' after keyword args\n",
-                  std::string(name).c_str(), std::string(arg).c_str());
-        }
-    }, ',');
+        },
+        ',');
 
     if (!parseError) {
         return spec;
@@ -348,8 +348,8 @@ bool DynGenScript::parseParameters(std::string_view text, char** paramNames, int
         // try to find parameter names in declared parameters. If not found, use default specs.
         for (int i = 0; i < numParams; ++i) {
             auto name = paramNames[i];
-            auto it = std::find_if(params.begin(), params.end(),
-                                   [name](const auto& spec) { return spec.name == name; });
+            auto it =
+                std::find_if(params.begin(), params.end(), [name](const auto& spec) { return spec.name == name; });
             if (it != params.end()) {
                 mParameters.push_back(*it);
             } else {

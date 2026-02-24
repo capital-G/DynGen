@@ -5,9 +5,7 @@
 /*! @brief check if the given character is considered whitespace.
  *  This matches the behavior of std::isspace under the default locale.
  */
-inline bool isWhitespace(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
-}
+inline bool isWhitespace(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v'; }
 
 /*! @brief iterate over all lines in the given std::string_view.
  *  'func' receives the line as a std::string_view, followed by the position of the line in the string.

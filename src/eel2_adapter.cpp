@@ -128,8 +128,8 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     // not modulated by the UGen because they have to be handled specially.
     // ("trig" parameters with a non-positive init value just stay at 0.0.)
     auto& scriptParams = script.mParameters;
-    double** initTriggers = script.mParameters.size() > 0 ?
-                static_cast<double**>(alloca(scriptParams.size() * sizeof(double*))) : nullptr;
+    double** initTriggers =
+        script.mParameters.size() > 0 ? static_cast<double**>(alloca(scriptParams.size() * sizeof(double*))) : nullptr;
     int numInitTriggers = 0;
 
     for (int i = 0; i < scriptParams.size(); ++i) {
@@ -138,8 +138,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
         *var = std::clamp(param.initValue, param.minValue, param.maxValue);
         // NOTE: only "trig" parameters with *positive* init value!
         if (param.type == ParamType::Trigger && param.initValue > 0.0) {
-            if (auto end = parameterIndices + numParamIndices;
-                std::find(parameterIndices, end, i) == end) {
+            if (auto end = parameterIndices + numParamIndices; std::find(parameterIndices, end, i) == end) {
                 // not modulated by UGen
                 assert(initTriggers != nullptr);
                 initTriggers[numInitTriggers] = var;
@@ -168,7 +167,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
             // ignore out-of-range parameter indices
             Print("ERROR: Parameter index %d out of range\n", i);
             mParameters[i] = nullptr;
-            mParamSpecs[i] = Param{};
+            mParamSpecs[i] = Param {};
         }
     }
 
@@ -436,7 +435,7 @@ EEL_F EEL2Adapter::eelLatch(void*, EEL_F* state, EEL_F* signal, EEL_F* trigger) 
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_F** params) {
-    std::array<char, 2048> buffer;
+    std::array<char, 16384> buffer;
 
     auto it = buffer.data();
     auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
@@ -481,7 +480,7 @@ EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelPrintMem(EEL_F** blocks, EEL_F* start,
         return start;
     }
 
-    std::array<char, 2048> buffer;
+    std::array<char, 16384> buffer;
 
     auto it = buffer.data();
     auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
