@@ -9,6 +9,7 @@
 #include <SC_World.h>
 
 #include "library.h"
+#include "dyngen_script.h"
 
 #include <algorithm>
 #include <memory>

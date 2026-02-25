@@ -108,6 +108,7 @@ add_library(DynGen_common INTERFACE)
 
 target_sources(DynGen_common INTERFACE
         src/dyngen.h src/dyngen.cpp
+        src/dyngen_script.h src/dyngen_script.cpp
         src/eel2_adapter.h src/eel2_adapter.cpp
         src/library.h src/library.cpp
         src/string_utils.h
