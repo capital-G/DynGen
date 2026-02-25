@@ -16,6 +16,8 @@
 		\testBufWrite,
 		\testBufInfo,
 		\testBufInfoOutOfRange,
+		\testSetDone,
+		\testDoneAction,
 		\testVars,
 		\testConstants,
 		\testDelete,
@@ -360,6 +362,52 @@
 			DynGen.ar(3, \testBufInfoOutOfRange, params: [bufnum: bufnum], sync: 1.0);
 		}.loadToFloatArray(0.01, action: { |sig|
 			success = sig[0..2].every(_ == 0.0);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testSetDone: {
+		var success = false;
+		var condition = Condition();
+		// set the 'done' flag after 256 samples
+		DynGenDef(\testSetDone, "
+            out0 = 0;
+            elapsed += 1;
+            elapsed == 256 ? setDone(1);"
+		).send;
+		s.sync;
+		{
+			var sig = DynGen.ar(1, \testSetDone, sync: 1.0);
+			var done = Done.kr(sig);
+			K2A.ar(done).floor;
+		}.loadToFloatArray(0.01, action: { |sig|
+			success = sig.every { |out, i|
+				if (i < 256) { out == 0 } { out == 1 }
+			};
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testDoneAction: {
+		var success = false;
+		var condition = Condition();
+		// perform done action (2 = free self) after 256 samples
+		DynGenDef(\testDoneAction, "
+            out0 = 1;
+            elapsed += 1;
+            elapsed == 256 ? doneAction(2);"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(1, \testDoneAction, sync: 1.0);
+		}.loadToFloatArray(0.01, action: { |sig|
+			success = sig.every { |out, i|
+				if (i < 256) { out == 1 } { out == 0 }
+			};
 			condition.unhang;
 		});
 		condition.hang;

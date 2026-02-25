@@ -13,8 +13,8 @@ class DynGen;
 struct DynGenStub;
 struct DynGenCallbackData;
 struct EEL2Adapter;
-struct Graph;
 struct InterfaceTable;
+struct Unit;
 struct World;
 
 extern InterfaceTable* ft;
@@ -138,8 +138,8 @@ struct DynGenCallbackData {
     int blockSize;
     /*! @brief necessary to access params such as sample rate and RTFree */
     World* world;
-    /*! @brief necessary for accessing local buffers */
-    Graph* parent;
+    /*! @brief necessary for done actions and accessing local buffers */
+    Unit* unit;
 
     /*! @brief since the Unit is not guaranteed to stay alive during an
      * asynchronous command, so we have to make a temporary copy of the

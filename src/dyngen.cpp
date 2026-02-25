@@ -51,7 +51,7 @@ DynGen::DynGen() {
         // Since the VM init seems to be often fast enough we allow the user
         // to decide, yet this is not the default case.
         auto vm =
-            new EEL2Adapter(mNumDynGenInputs, mNumOutputs, static_cast<int>(sampleRate()), mBufLength, mWorld, mParent);
+            new EEL2Adapter(mNumDynGenInputs, mNumOutputs, static_cast<int>(sampleRate()), mBufLength, mWorld, this);
 
         if (vm->init(*mCodeLibrary->mScript, mParameterIndices, mNumDynGenParameters)) {
             mVm = vm;
@@ -76,7 +76,7 @@ void DynGen::next(int numSamples) {
     }
 }
 
-bool DynGen::updateCode(const DynGenScript* script) const {
+bool DynGen::updateCode(const DynGenScript* script) {
     // If we already have a VM, our code is being updated.
     // In this case, the input at UpdateIndex controls the update behavior.
     if (mVm != nullptr) {
@@ -99,7 +99,7 @@ bool DynGen::updateCode(const DynGenScript* script) const {
         payload->sampleRate = static_cast<int>(sampleRate());
         payload->blockSize = mBufLength;
         payload->world = mWorld;
-        payload->parent = mParent;
+        payload->unit = this;
         payload->oldVm = nullptr;
         payload->script = script;
 
@@ -148,7 +148,7 @@ bool DynGen::createVmAndCompile(World* world, void* rawCallbackData) {
 
     callbackData->vm =
         new EEL2Adapter(callbackData->numInputChannels, callbackData->numOutputChannels, callbackData->sampleRate,
-                        callbackData->blockSize, callbackData->world, callbackData->parent);
+                        callbackData->blockSize, callbackData->world, callbackData->unit);
 
     auto success =
         callbackData->vm->init(*callbackData->script, callbackData->parameterIndices, callbackData->numParameters);

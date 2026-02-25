@@ -60,6 +60,10 @@ void EEL2Adapter::setup() {
     NSEEL_addfunc_retval("bufChannels", 1, NSEEL_PProc_THIS, &eelBufChannels);
     NSEEL_addfunc_retval("bufFrames", 1, NSEEL_PProc_THIS, &eelBufFrames);
 
+    // done actions
+    NSEEL_addfunc_retval("setDone", 1, NSEEL_PProc_THIS, &eelSetDone);
+    NSEEL_addfunc_retval("doneAction", 1, NSEEL_PProc_THIS, &eelDoneAction);
+
     // signal functions
     NSEEL_addfunc_varparm("clip", 2, NSEEL_PProc_THIS, &eelClip);
     NSEEL_addfunc_varparm("wrap", 2, NSEEL_PProc_THIS, &eelWrap);
@@ -84,13 +88,13 @@ void EEL2Adapter::setup() {
 }
 
 EEL2Adapter::EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
-                         Graph* parent):
+                         Unit* unit):
     mNumInputChannels(numInputChannels),
     mNumOutputChannels(numOutputChannels),
     mSampleRate(sampleRate),
     mBlockSize(blockSize),
     mWorld(world),
-    mParent(parent) {}
+    mUnit(unit) {}
 
 EEL2Adapter::~EEL2Adapter() {
     if (mInitCode)
@@ -309,6 +313,19 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelBufChannels(void* opaque, EEL_F* bufNum) {
     } else {
         return 0.0;
     }
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelSetDone(void* opaque, EEL_F* param) {
+    const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+    eel2Adapter->mUnit->mDone = (*param != 0.0);
+    return 0.0;
+}
+
+EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelDoneAction(void* opaque, EEL_F* param) {
+    const auto eel2Adapter = static_cast<EEL2Adapter*>(opaque);
+    const int doneAction = static_cast<int>(*param);
+    DoneAction(doneAction, eel2Adapter->mUnit);
+    return 0.0;
 }
 
 EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelIn(void* opaque, EEL_F* param) {
