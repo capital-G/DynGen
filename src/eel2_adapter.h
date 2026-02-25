@@ -167,6 +167,8 @@ public:
             // copy out0, out1, etc. variables to output buffer.
             for (int outChannel = 0; outChannel < mNumOutputChannels; outChannel++) {
                 outBuf[outChannel][i] = static_cast<float>(*mOutputs[outChannel]);
+                // clear the variable so it never contains garbage from previous iterations.
+                *mOutputs[outChannel] = 0.0;
             }
 
             mSampleCounter++;
