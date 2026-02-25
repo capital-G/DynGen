@@ -25,7 +25,7 @@ public:
     static void setup();
 
     EEL2Adapter(uint32 numInputChannels, uint32 numOutputChannels, int sampleRate, int blockSize, World* world,
-                Graph* parent);
+                Unit* unit);
 
     ~EEL2Adapter();
 
@@ -39,6 +39,9 @@ public:
     static EEL_F eelBufSampleRate(void* opaque, EEL_F* bufNum);
     static EEL_F eelBufFrames(void* opaque, EEL_F* bufNum);
     static EEL_F eelBufChannels(void* opaque, EEL_F* bufNum);
+
+    static EEL_F eelSetDone(void* opaque, EEL_F* done);
+    static EEL_F eelDoneAction(void* opaque, EEL_F* doneAction);
 
     static EEL_F eelIn(void* opaque, EEL_F* channel);
     static EEL_F* eelOut(void* opaque, EEL_F* channel);
@@ -209,7 +212,7 @@ private:
     std::unique_ptr<double[]> mPrevParamValues;
 
     World* mWorld;
-    Graph* mParent;
+    Unit* mUnit;
 
     /*! @brief cache the latest sndbuf b/c it is likely that we
      * stick to one sndbuf
@@ -239,8 +242,8 @@ private:
             // NOTE: 'localMaxBufNum' actually holds the max. number of local
             // sound buffers. It is *not* the max. local buffer number!
             // As of SC 3.14, all the Server code gets this wrong...
-            if (localBufNum < mParent->localMaxBufNum) {
-                mSndBuf = mParent->mLocalSndBufs + localBufNum;
+            if (localBufNum < mUnit->mParent->localMaxBufNum) {
+                mSndBuf = mUnit->mParent->mLocalSndBufs + localBufNum;
             }
         }
 
