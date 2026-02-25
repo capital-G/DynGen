@@ -10,6 +10,7 @@
 		\testNonExisting,
 		\testCodeAfterUGen,
 		\testDynamicIO,
+		\testClearOutVariables,
 		\testParam,
 		\testMultiParam,
 		\testBufRead,
@@ -246,6 +247,35 @@
 			var left = (sig[0]-0.5).abs < 0.01;
 			var right = (sig[1]-20.0).abs < 0.01;
 			success = left.and(right);
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	\testClearOutVariables: {
+		var success = false;
+		var condition = Condition();
+		// set channel count from 4 to 0 after 256 samples
+		DynGenDef(\testClearOutVariables, "
+            n = elapsed < 256 ? 4 : 0;
+            i = 0;
+            loop(n, out(i) = i + 1; i += 1);
+            elapsed += 1;"
+		).send;
+		s.sync;
+		{
+			DynGen.ar(4, \testClearOutVariables, sync: 1.0);
+		}.loadToFloatArray(0.01, action: {|sig|
+			success = sig.clump(4).every { |array, i|
+				if (i < 256) {
+					array.every { |out, chan|
+						out == (chan + 1);
+					}
+				} {
+					array.every(_ == 0.0);
+				}
+			};
 			condition.unhang;
 		});
 		condition.hang;
