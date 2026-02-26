@@ -217,11 +217,11 @@ DynGenDef {
 
 	*prRemoveComments {|code|
 		// dyngen code does not allow for strings,
-		// so we can get away with using regex here
-		// remove single line comments //
-		code = code.replaceRegexp("\/\/.*?$", "");
-		// remove multi line comments /* */
+		// so we can get away with using regex here.
+		// First remove multi line comments /* */
 		code = code.replaceRegexp("\\/\\*.*?\\*\\/", "");
+		// Only then remove single line comments //
+		code = code.replaceRegexp("\/\/.*?$", "");
 		^code;
 	}
 }
