@@ -37,6 +37,26 @@ DynGenDef {
 		^this.new(name).load(path);
 	}
 
+	compile {|sample, init, block|
+		var c = "";
+		if(init.notNil, {
+			c = "@init\n%\n".format(
+				DynGenTranspiler(init).compile,
+			);
+		});
+		if(block.notNil, {
+			c = c ++ "\n@block\n%\n".format(
+				DynGenTranspiler(block).compile,
+			);
+		});
+		if(sample.notNil, {
+			c = c ++ "\n@sample\n%\n".format(
+				DynGenTranspiler(sample).compile,
+			);
+		});
+		code = c;
+	}
+
 	load {|path|
 		try {
 			code = File.readAllString(path);
