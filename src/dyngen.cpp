@@ -67,7 +67,8 @@ DynGen::DynGen() {
 }
 
 void DynGen::next(int numSamples) {
-    if (mVm == nullptr) {
+    bool pause = in0(PauseIndex) != 0.f;
+    if (mVm == nullptr || pause) {
         for (int i = 0; i < mNumOutputs; i++) {
             Clear(numSamples, mOutBuf[i]);
         }

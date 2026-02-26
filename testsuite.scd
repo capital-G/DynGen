@@ -6,6 +6,7 @@
 		\testDuplicateSections,
 		\testCodeBeforeSections,
 		\testSync,
+		\testPause,
 		\testUpdate,
 		\testNonExisting,
 		\testCodeAfterUGen,
@@ -196,8 +197,28 @@
 		s.sync;
 		{
 			DynGen.ar(1, \testSync, sync: 1.0);
-		}.loadToFloatArray(0.2, action: {|sig|
+		}.loadToFloatArray(0.01, action: {|sig|
 			success = (sig[0] - 0.5).abs < 0.01;
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	testPause: {
+		var success = false;
+		var condition = Condition();
+		DynGenDef(\testPause, "out0=0.5;").send;
+		s.sync;
+		{
+			// ramp from 1 to 0 over the duration of two blocks.
+			var pause = Trig1.kr(1, ControlDur.ir * 2);
+			DynGen.ar(1, \testPause, sync: 1.0, pause: pause);
+		}.loadToFloatArray(0.01, action: {|sig|
+			var blockSize = s.options.blockSize;
+			success = sig.every { |out, i|
+				if (i < (blockSize * 2)) { out == 0.0 } { out == 0.5 };
+			};
 			condition.unhang;
 		});
 		condition.hang;
