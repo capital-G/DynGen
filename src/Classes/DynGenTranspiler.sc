@@ -451,7 +451,7 @@ DynGenExpr {
 
 	// only allow while with condition
 	// this is renamed to avoid inline optimization
-	doWhile {|code|
+	whileTrue {|code|
 		var func = PrDynGenDoWhile_(
 			condition: this,
 			code: code,
