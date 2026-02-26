@@ -1,14 +1,14 @@
 // translates sclang code to DynGen code
 // and stores the necessary context
 DynGenTranspiler {
-	var <>environment;
+	var <environment;
 
 	*new {|func|
 		^super.newCopyArgs().init(func);
 	}
 
 	init {|func|
-		environment = DynGenEnvironment(this);
+		environment = PrDynGenEnvironment_(this);
 		environment.use({func.value(environment)});
 	}
 
@@ -17,13 +17,13 @@ DynGenTranspiler {
 	}
 }
 
-DynGenEnvironment : EnvironmentRedirect {
-	var <>context;
-	var <>sequence;
+PrDynGenEnvironment_ : EnvironmentRedirect {
+	var <context;
+	var <sequence;
 	// due statements are emitted while parsing the statements
 	// if the statement is not assigned, it will be put into
 	// the sequence such that it gets executed, else it will be discarded.
-	var <>dueStatements;
+	var <dueStatements;
 
 	*new {|context|
 		^super.new.init(context);
@@ -32,16 +32,20 @@ DynGenEnvironment : EnvironmentRedirect {
 	init {|context_|
 		context = context_;
 		dueStatements = [];
-		sequence = DynGenSequence([], context);
-		envir.put(\p, DynGenParamAccessor(context));
+		sequence = PrDynGenSequence_([], context);
+		envir.put(\p, PrDynGenParamAccessor_(context));
 	}
 
 	makeVar {|name|
-		^DynGenVar(name, this.context);
+		^PrDynGenVar_(name, this.context);
 	}
 
 	addStatement { |statement|
 		sequence = sequence.add(statement);
+	}
+
+	addDueStatement {|dueStatement|
+		dueStatements = dueStatements.add(dueStatement);
 	}
 
 	at { |key|
@@ -61,13 +65,13 @@ DynGenEnvironment : EnvironmentRedirect {
 
 		this.prFlushDueStatements(value);
 
-		dgVar = DynGenVar(key, context);
+		dgVar = PrDynGenVar_(key, context);
 
 		// if value/rhs is a function, we use a custom wrapper
 		statement = if(value.isKindOf(Function), {
-			DynGenUserFunc(key, value, context);
+			PrDynGenUserFunc_(key, value, context);
 		}, {
-			 DynGenAssignment(
+			 PrDynGenAssignment_(
 				lhs: dgVar,
 				rhs: value.asDynGen,
 				context: context,
@@ -95,9 +99,9 @@ DynGenEnvironment : EnvironmentRedirect {
 	}
 }
 
-
+// kept "public" b/c of autocomplete
 DynGenExpr {
-	var <>context;
+	var <context;
 
 	*new {|context|
 		^super.newCopyArgs(context);
@@ -105,303 +109,303 @@ DynGenExpr {
 
 	// functions
 	wrap {|min, max|
-		^DynGenFuncCall(\wrap, [this, min, max], context);
+		^PrDynGenFuncCall_(\wrap, [this, min, max], context);
 	}
 
 	clip {|lo, hi|
-		^DynGenFuncCall(\clip, [this, lo, hi], context);
+		^PrDynGenFuncCall_(\clip, [this, lo, hi], context);
 	}
 
 	fold {|lo, hi|
-		^DynGenFuncCall(\fold, [this, lo, hi], context);
+		^PrDynGenFuncCall_(\fold, [this, lo, hi], context);
 	}
 
 	mod {|hi|
-		^DynGenFuncCall(\mod, [this, hi], context);
+		^PrDynGenFuncCall_(\mod, [this, hi], context);
 	}
 
 	lin {|a, b|
-		^DynGenFuncCall(\lin, [this, a, b], context);
+		^PrDynGenFuncCall_(\lin, [this, a, b], context);
 	}
 
 	cubic {|a, b, c, d|
-		^DynGenFuncCall(\cubic, [this, a, b, c, d], context);
+		^PrDynGenFuncCall_(\cubic, [this, a, b, c, d], context);
 	}
 
 	bufRead {|frame, chan=0|
-		^DynGenFuncCall(\bufRead, [this, frame, chan], context);
+		^PrDynGenFuncCall_(\bufRead, [this, frame, chan], context);
 	}
 
 	bufReadL{|frame, chan=0|
-		^DynGenFuncCall(\bufReadL, [this, frame, chan], context);
+		^PrDynGenFuncCall_(\bufReadL, [this, frame, chan], context);
 	}
 
 	bufReadC {|frame, chan=0|
-		^DynGenFuncCall(\bufReadC, [this, frame, chan], context);
+		^PrDynGenFuncCall_(\bufReadC, [this, frame, chan], context);
 	}
 
 	bufWrite {|bufNum, frame, chan=0|
-		^DynGenFuncCall(\bufWrite, [bufNum, frame, this, chan], context);
+		^PrDynGenFuncCall_(\bufWrite, [bufNum, frame, this, chan], context);
 	}
 
 	bufRate {
-		^DynGenFuncCall(\bufRate, [this], context);
+		^PrDynGenFuncCall_(\bufRate, [this], context);
 	}
 
 	bufChannels {
-		^DynGenFuncCall(\bufChannels, [this], context);
+		^PrDynGenFuncCall_(\bufChannels, [this], context);
 	}
 
 	bufFrames {
-		^DynGenFuncCall(\bufFrames, [this], context);
+		^PrDynGenFuncCall_(\bufFrames, [this], context);
 	}
 
 	in {
-		^DynGenFuncCall(\in, [this], context);
+		^PrDynGenFuncCall_(\in, [this], context);
 	}
 
 	// maybe this is too hacky?
 	out {|chan|
-		^DynGenBinOp("=", "out(%)".format(chan), this, context);
+		^PrDynGenBinOp_("=", "out(%)".format(chan), this, context);
 	}
 
 	delta {|state|
-		^DynGenFuncCall(\delta, [state, this], context);
+		^PrDynGenFuncCall_(\delta, [state, this], context);
 	}
 
 	history {|state|
-		^DynGenFuncCall(\history, [state, this], context);
+		^PrDynGenFuncCall_(\history, [state, this], context);
 	}
 
 	latch {|trigger, state|
-		^DynGenFuncCall(\latch, [state, this, trigger], context);
+		^PrDynGenFuncCall_(\latch, [state, this, trigger], context);
 	}
 
 	print {
-		^DynGenFuncCall(\print, [this], context);
+		^PrDynGenFuncCall_(\print, [this], context);
 	}
 
 	printMem {|size|
-		^DynGenFuncCall(\printMem, [this, size], context);
+		^PrDynGenFuncCall_(\printMem, [this, size], context);
 	}
 
 	poll {|rate=10.0|
-		^DynGenFuncCall(\poll, [this, rate], context);
+		^PrDynGenFuncCall_(\poll, [this, rate], context);
 	}
 
 	// eel2 built-in unary functions
 	sign {
-		^DynGenFuncCall(\sign, [this], context);
+		^PrDynGenFuncCall_(\sign, [this], context);
 	}
 
 	rand {
-		^DynGenFuncCall(\rand, [this], context);
+		^PrDynGenFuncCall_(\rand, [this], context);
 	}
 
 	floor {
-		^DynGenFuncCall(\floor, [this], context);
+		^PrDynGenFuncCall_(\floor, [this], context);
 	}
 
 	ceil {
-		^DynGenFuncCall(\ceil, [this], context);
+		^PrDynGenFuncCall_(\ceil, [this], context);
 	}
 
 	invsqrt {
-		^DynGenFuncCall(\invsqrt, [this], context);
+		^PrDynGenFuncCall_(\invsqrt, [this], context);
 	}
 
 	sin {
 		"Perform sin on %".format(this);
-		^DynGenFuncCall(\sin, [this], context);
+		^PrDynGenFuncCall_(\sin, [this], context);
 	}
 
 	cos {
-		^DynGenFuncCall(\cos, [this], context);
+		^PrDynGenFuncCall_(\cos, [this], context);
 	}
 
 	tan {
-		^DynGenFuncCall(\tan, [this], context);
+		^PrDynGenFuncCall_(\tan, [this], context);
 	}
 
 	asin {
-		^DynGenFuncCall(\asin, [this], context);
+		^PrDynGenFuncCall_(\asin, [this], context);
 	}
 
 	acos {
-		^DynGenFuncCall(\acos, [this], context);
+		^PrDynGenFuncCall_(\acos, [this], context);
 	}
 
 	atan {
-		^DynGenFuncCall(\atan, [this], context);
+		^PrDynGenFuncCall_(\atan, [this], context);
 	}
 
 	sqr {
-		^DynGenFuncCall(\sqr, [this], context);
+		^PrDynGenFuncCall_(\sqr, [this], context);
 	}
 
 	sqrt {
-		^DynGenFuncCall(\sqrt, [this], context);
+		^PrDynGenFuncCall_(\sqrt, [this], context);
 	}
 
 	exp {
-		^DynGenFuncCall(\exp, [this], context);
+		^PrDynGenFuncCall_(\exp, [this], context);
 	}
 
 	log {
-		^DynGenFuncCall(\log, [this], context);
+		^PrDynGenFuncCall_(\log, [this], context);
 	}
 
 	log10 {
-		^DynGenFuncCall(\log10, [this], context);
+		^PrDynGenFuncCall_(\log10, [this], context);
 	}
 
 	// unary ops
 	not {
-		^DynGenUnaryOp("!", this, context);
+		^PrDynGenUnaryOp_("!", this, context);
 	}
 
 	neg {
-		^DynGenUnaryOp("-", this, context);
+		^PrDynGenUnaryOp_("-", this, context);
 	}
 
 	// binops
 	// can't implement ^ - use pow instead
 
 	% { |denominator|
-		^DynGenBinOp('%', this, denominator, context);
+		^PrDynGenBinOp_('%', this, denominator, context);
 	}
 
 	<< {|shiftAmount|
-		^DynGenBinOp('<<', this, shiftAmount, context);
+		^PrDynGenBinOp_('<<', this, shiftAmount, context);
 	}
 
 	>> {|shiftAmount|
-		^DynGenBinOp('>>', this, shiftAmount, context);
+		^PrDynGenBinOp_('>>', this, shiftAmount, context);
 	}
 
 	+ {|other|
-		^DynGenBinOp('+', this, other, context);
+		^PrDynGenBinOp_('+', this, other, context);
 	}
 
 	- {|other|
-		^DynGenBinOp('-', this, other, context);
+		^PrDynGenBinOp_('-', this, other, context);
 	}
 
 	* {|other|
-		^DynGenBinOp('*', this, other, context);
+		^PrDynGenBinOp_('*', this, other, context);
 	}
 
 	/ {|divisor|
-		^DynGenBinOp('/', this, divisor, context);
+		^PrDynGenBinOp_('/', this, divisor, context);
 	}
 
 	| {|other|
-		^DynGenBinOp('|', this, other, context);
+		^PrDynGenBinOp_('|', this, other, context);
 	}
 
 	& {|other|
-		^DynGenBinOp('&', this, other, context);
+		^PrDynGenBinOp_('&', this, other, context);
 	}
 
 	// can't use ~ - this is xor
 	xor {|other|
-		^DynGenBinOp('~', this, other, context);
+		^PrDynGenBinOp_('~', this, other, context);
 	}
 
 	== {|other|
-		^DynGenBinOp('==', this, other, context);
+		^PrDynGenBinOp_('==', this, other, context);
 	}
 
 	=== {|other|
-		^DynGenBinOp('===', this, other, context);
+		^PrDynGenBinOp_('===', this, other, context);
 	}
 
 	!= {|other|
-		^DynGenBinOp('!=', this, other, context);
+		^PrDynGenBinOp_('!=', this, other, context);
 	}
 
 	!== {|other|
-		^DynGenBinOp('!==', this, other, context);
+		^PrDynGenBinOp_('!==', this, other, context);
 	}
 
 	< {|other|
-		^DynGenBinOp('<', this, other, context);
+		^PrDynGenBinOp_('<', this, other, context);
 	}
 
 	> {|other|
-		^DynGenBinOp('>', this, other, context);
+		^PrDynGenBinOp_('>', this, other, context);
 	}
 
 	<= {|other|
-		^DynGenBinOp('<=', this, other, context);
+		^PrDynGenBinOp_('<=', this, other, context);
 	}
 
 	>= {|other|
-		^DynGenBinOp('>=', this, other, context);
+		^PrDynGenBinOp_('>=', this, other, context);
 	}
 
 	|| {|other|
-		^DynGenBinOp('||', this, other, context);
+		^PrDynGenBinOp_('||', this, other, context);
 	}
 
 	&& {|other|
-		^DynGenBinOp('&&', this, other, context);
+		^PrDynGenBinOp_('&&', this, other, context);
 	}
 
 	*= {|other|
-		^DynGenBinOp('*=', this, other, context);
+		^PrDynGenBinOp_('*=', this, other, context);
 	}
 
 	/= {|divisor|
-		^DynGenBinOp('/=', this, divisor, context);
+		^PrDynGenBinOp_('/=', this, divisor, context);
 	}
 
 	%= {|divisor|
-		^DynGenBinOp('%=', this, divisor, context);
+		^PrDynGenBinOp_('%=', this, divisor, context);
 	}
 
 	// do not implement ^=
 
 	+= {|other|
-		^DynGenBinOp('+=', this, other, context);
+		^PrDynGenBinOp_('+=', this, other, context);
 	}
 
 	-= {|other|
-		^DynGenBinOp('-=', this, other, context);
+		^PrDynGenBinOp_('-=', this, other, context);
 	}
 
 	|= {|other|
-		^DynGenBinOp('|=', this, other, context);
+		^PrDynGenBinOp_('|=', this, other, context);
 	}
 
 	&= {|other|
-		^DynGenBinOp('&=', this, other, context);
+		^PrDynGenBinOp_('&=', this, other, context);
 	}
 
 	min {|other|
-		^DynGenFuncCall(\min, [this, other], context);
+		^PrDynGenFuncCall_(\min, [this, other], context);
 	}
 
 	max {|other|
-		^DynGenFuncCall(\max, [this, other], context);
+		^PrDynGenFuncCall_(\max, [this, other], context);
 	}
 
 	atan2 {|other|
-		^DynGenFuncCall(\atan2, [this, other], context);
+		^PrDynGenFuncCall_(\atan2, [this, other], context);
 	}
 
 	pow {|exponent|
-		^DynGenFuncCall(\pow, [this, exponent], context);
+		^PrDynGenFuncCall_(\pow, [this, exponent], context);
 	}
 
 	at {|offset|
-		^DynGenMemoryAccess(this, offset, context);
+		^PrDynGenMemoryAccess_(this, offset, context);
 	}
 
 	// put is an assignment - e.g. x[20] = sin(0.5);
 	put {|offset, value|
-		var lhs = DynGenMemoryAccess(this, offset, context);
-		var assignment = DynGenAssignment(
+		var lhs = PrDynGenMemoryAccess_(this, offset, context);
+		var assignment = PrDynGenAssignment_(
 			lhs: lhs,
 			rhs: value,
 			context: context,
@@ -412,14 +416,14 @@ DynGenExpr {
 
 	ifTrue {|trueFunc, falseFunc|
 		var func = if(falseFunc.isNil, {
-			DynGenBinOp(
+			PrDynGenBinOp_(
 				op: '?',
 				left: this,
 				right: trueFunc,
 				context: context,
 			);
 		}, {
-			DynGenTernaryOp(
+			PrDynGenTernaryOp_(
 				opA: '?',
 				opB: ':',
 				selector: this,
@@ -430,31 +434,31 @@ DynGenExpr {
 		});
 
 		// if can also be used w/o assignment
-		context.environment.dueStatements = context.environment.dueStatements.add(func);
+		context.environment.addDueStatement(func);
 		^func;
 	}
 
 	loop {|code|
-		var func = DynGenFuncCall(
+		var func = PrDynGenFuncCall_(
 			funcName: 'loop',
 			arguments: [this, code],
 			context: context,
 		);
 		// loop can also be used w/o assignment
-		context.environment.dueStatements = context.environment.dueStatements.add(func);
+		context.environment.addDueStatement(func);
 		^func;
 	}
 
 	// only allow while with condition
 	// this is renamed to avoid inline optimization
 	doWhile {|code|
-		var func = DynGenDoWhile(
+		var func = PrDynGenDoWhile_(
 			condition: this,
 			code: code,
 			context: context,
 		);
 		// while can also be used w/o assignment
-		context.environment.dueStatements = context.environment.dueStatements.add(func);
+		context.environment.addDueStatement(func);
 		^func;
 	}
 
@@ -467,8 +471,8 @@ DynGenExpr {
 	}
 }
 
-DynGenParamAccessor {
-	var <>context;
+PrDynGenParamAccessor_ {
+	var <context;
 
 	*new {|context|
 		^super.newCopyArgs(context);
@@ -480,7 +484,7 @@ DynGenParamAccessor {
 	}
 
 	createParam {|name, default=0.0, spec=\unipolar|
-		^DynGenParam(
+		^PrDynGenParam_(
 			name,
 			default,
 			spec,
@@ -493,10 +497,10 @@ DynGenParamAccessor {
 	}
 }
 
-DynGenParam : DynGenExpr {
-	var <>name;
-	var <>default;
-	var <>spec;
+PrDynGenParam_ : DynGenExpr {
+	var <name;
+	var <default;
+	var <spec;
 
 	*new {|name, default, spec, context|
 		^super.new(context).initParam(name, default, spec);
@@ -513,9 +517,9 @@ DynGenParam : DynGenExpr {
 	}
 }
 
-DynGenAssignment : DynGenExpr {
-	var <>lhs;
-	var <>rhs;
+PrDynGenAssignment_ : DynGenExpr {
+	var <lhs;
+	var <rhs;
 
 	*new {|lhs, rhs, context|
 		^super.new(context).initAssignment(lhs, rhs);
@@ -531,8 +535,8 @@ DynGenAssignment : DynGenExpr {
 	}
 }
 
-DynGenSequence : DynGenExpr {
-	var <>expressions;
+PrDynGenSequence_ : DynGenExpr {
+	var <expressions;
 
 	*new {|expressions, context|
 		^super.new(context).initSequence(expressions);
@@ -553,9 +557,9 @@ DynGenSequence : DynGenExpr {
 	}
 }
 
-DynGenFuncCall : DynGenExpr {
-	var <>funcName;
-	var <>arguments;
+PrDynGenFuncCall_ : DynGenExpr {
+	var <funcName;
+	var <arguments;
 
 	*new {|funcName, arguments, context|
 		^super.new(context).initFuncCall(funcName, arguments);
@@ -576,9 +580,9 @@ DynGenFuncCall : DynGenExpr {
 	}
 }
 
-DynGenLiteral : DynGenExpr {
-	var <> context;
-	var <> value;
+PrDynGenLiteral_ : DynGenExpr {
+	var <context;
+	var <value;
 
 	*new {|value, context|
 		^super.new(context).initLiteral(value);
@@ -597,9 +601,9 @@ DynGenLiteral : DynGenExpr {
 	}
 }
 
-DynGenMemoryAccess : DynGenExpr {
-	var <>variable;
-	var <>offset;
+PrDynGenMemoryAccess_ : DynGenExpr {
+	var <variable;
+	var <offset;
 
 	*new {|variable, offset, context|
 		^super.new(context).initMemoryAccess(variable, offset);
@@ -615,9 +619,9 @@ DynGenMemoryAccess : DynGenExpr {
 	}
 }
 
-DynGenUnaryOp : DynGenExpr {
-	var <>op;
-	var <>value;
+PrDynGenUnaryOp_ : DynGenExpr {
+	var <op;
+	var <value;
 
 	*new {|op, value, context|
 		^super.new(context).initUnaryOp(op, value);
@@ -633,10 +637,10 @@ DynGenUnaryOp : DynGenExpr {
 	}
 }
 
-DynGenBinOp : DynGenExpr {
-	var <>op;
-	var <>left;
-	var <>right;
+PrDynGenBinOp_ : DynGenExpr {
+	var <op;
+	var <left;
+	var <right;
 
 	*new {|op, left, right, context|
 		^super.new(context).initBinOp(op, left, right);
@@ -657,12 +661,12 @@ DynGenBinOp : DynGenExpr {
 	}
 }
 
-DynGenTernaryOp : DynGenExpr {
-	var <>opA;
-	var <>opB;
-	var <>selector;
-	var <>branchA;
-	var <>branchB;
+PrDynGenTernaryOp_ : DynGenExpr {
+	var <opA;
+	var <opB;
+	var <selector;
+	var <branchA;
+	var <branchB;
 
 	*new {|opA, opB, selector, branchA, branchB, context|
 		^super.new(context).initTernaryOp(
@@ -693,9 +697,9 @@ DynGenTernaryOp : DynGenExpr {
 	}
 }
 
-DynGenDoWhile : DynGenExpr {
-	var <>condition;
-	var <>code;
+PrDynGenDoWhile_ : DynGenExpr {
+	var <condition;
+	var <code;
 
 	*new {|condition, code, context|
 		^super.new(context).initDoWhile(condition, code);
@@ -714,7 +718,7 @@ DynGenDoWhile : DynGenExpr {
 	}
 }
 
-DynGenVar : DynGenExpr {
+PrDynGenVar_ : DynGenExpr {
 	var <name;
 
 	*new {|name, context|
@@ -726,12 +730,12 @@ DynGenVar : DynGenExpr {
 	}
 
 	value {|...args|
-		var call = DynGenFuncCall(
+		var call = PrDynGenFuncCall_(
 			funcName: name,
 			arguments: args,
 			context: context,
 		);
-		context.environment.dueStatements = context.environment.dueStatements.add(call);
+		context.environment.addDueStatement(call);
 		^call;
 	}
 
@@ -740,9 +744,9 @@ DynGenVar : DynGenExpr {
 	}
 }
 
-DynGenUserFunc : DynGenExpr {
-	var <>name;
-	var <>func;
+PrDynGenUserFunc_ : DynGenExpr {
+	var <name;
+	var <func;
 
 	*new {|name, func, context|
 		^super.new(context).initUserFunc(name, func);
@@ -786,8 +790,8 @@ DynGenUserFunc : DynGenExpr {
 	}
 }
 
-DynGenCollection : DynGenExpr {
-	var <>elements;
+PrDynGenCollection_ : DynGenExpr {
+	var <elements;
 
 	*new {|elements, context|
 		^super.new(context).initCollection(elements);
@@ -817,20 +821,20 @@ DynGenCollection : DynGenExpr {
 
 + Integer {
 	asDynGen {
-		^DynGenLiteral(this, nil);
+		^PrDynGenLiteral_(this, nil);
 	}
 }
 
 + Float {
 	asDynGen {
-		^DynGenLiteral(this, nil);
+		^PrDynGenLiteral_(this, nil);
 	}
 }
 
 + Collection {
 	asDynGen {
 		// @todo do some checks on the content of the collection!
-		^DynGenCollection(this, this.first.context);
+		^PrDynGenCollection_(this, this.first.context);
 	}
 }
 
