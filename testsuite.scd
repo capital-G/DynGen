@@ -1065,12 +1065,15 @@ and nothing
 here
 */
 you;
+/* _foo // _bar */
 ";
 		var extract = DynGenDef.prRemoveComments(code);
+		var before = extract.contains("hello;");
 		var inline = extract.contains("world").not;
 		var multiLine = extract.contains("nothing").not;
 		var afterLine = extract.contains("you;");
-		inline.and(multiLine).and(afterLine);
+		var slashes = extract.contains("_foo").not and: { extract.contains("_bar").not };
+		before.and(inline).and(multiLine).and(afterLine).and(slashes);
 	},
 
 	testExtractParameters: {
