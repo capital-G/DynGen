@@ -56,20 +56,25 @@ DynGenEnvironment : EnvironmentRedirect {
 	}
 
 	put {|key, value|
-		var assignment;
+		var statement;
 		var dgVar;
 
 		this.prFlushDueStatements(value);
 
 		dgVar = DynGenVar(key, context);
 
-		assignment = DynGenAssignment(
-			lhs: dgVar,
-			rhs: value.asDynGen,
-			context: context,
-		);
+		// if value/rhs is a function, we use a custom wrapper
+		statement = if(value.isKindOf(Function), {
+			DynGenUserFunc(key, value, context);
+		}, {
+			 DynGenAssignment(
+				lhs: dgVar,
+				rhs: value.asDynGen,
+				context: context,
+			);
+		});
 
-		this.addStatement(assignment);
+		this.addStatement(statement);
 
 		super.put(key, dgVar);
 		^dgVar;
@@ -720,8 +725,64 @@ DynGenVar : DynGenExpr {
 		name = name_;
 	}
 
+	value {|...args|
+		var call = DynGenFuncCall(
+			funcName: name,
+			arguments: args,
+			context: context,
+		);
+		context.environment.dueStatements = context.environment.dueStatements.add(call);
+		^call;
+	}
+
 	asDynGen {
 		^name.asString;
+	}
+}
+
+DynGenUserFunc : DynGenExpr {
+	var <>name;
+	var <>func;
+
+	*new {|name, func, context|
+		^super.new(context).initUserFunc(name, func);
+	}
+
+	initUserFunc {|name_, func_|
+		name = name_;
+		func = func_;
+	}
+
+	asDynGen {
+		var locals = this.prLocalNames;
+		if(locals.size>0, {
+			^"function %(%) local(%) %".format(
+				name,
+				this.prArgNames.join(" "),
+				locals.join(" "),
+				func.asDynGen,
+			);
+		}, {
+			^"function %(%) %".format(
+				name,
+				func.argNames.join(" "),
+				func.asDynGen
+			);
+		});
+	}
+
+	prArgNames {
+		^func.argNames.select({|name|
+			name.asString.beginsWith("l_").not;
+		});
+	}
+
+	prLocalNames {
+		^func.argNames.select({|name|
+			name.asString.beginsWith("l_");
+		}).collect({|name|
+			name.asString.replace("l_", "").asSymbol;
+		});
 	}
 }
 
