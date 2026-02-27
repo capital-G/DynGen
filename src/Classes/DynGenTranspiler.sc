@@ -382,6 +382,10 @@ DynGenExpr {
 		^PrDynGenBinOp_('&=', this, other, context);
 	}
 
+	abs {
+		^PrDynGenFuncCall_(\abs, [this], context);
+	}
+
 	min {|other|
 		^PrDynGenFuncCall_(\min, [this, other], context);
 	}
@@ -638,9 +642,9 @@ PrDynGenUnaryOp_ : DynGenExpr {
 }
 
 PrDynGenBinOp_ : DynGenExpr {
-	var <op;
-	var <left;
-	var <right;
+	var <>op;
+	var <>left;
+	var <>right;
 
 	*new {|op, left, right, context|
 		^super.new(context).initBinOp(op, left, right);
