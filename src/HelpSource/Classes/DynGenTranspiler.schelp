@@ -1,7 +1,7 @@
 TITLE:: DynGenTranspiler
 summary:: Transpiles sclang functions to DynGen source code
 categories:: UGens>Dynamic
-related:: Classes/DynGenDef, Classes/DynGen
+related:: Classes/DynGenDef, Classes/DynGen, Classes/DynGenExpr
 
 DESCRIPTION::
 
