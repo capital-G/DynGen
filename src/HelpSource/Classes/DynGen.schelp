@@ -1,7 +1,7 @@
 TITLE:: DynGen
 summary:: Evaluates dynamic code on the server
 categories:: UGens>Dynamic
-related:: Classes/DynGenDef
+related:: Classes/DynGenDef, Classes/DynGenTranspiler
 
 DESCRIPTION::
 This UGen evaluates LINK::https://www.cockos.com/EEL2/##EEL2:: (expression evaluation library/realtime compiler) code in a VM which runs on the server.
