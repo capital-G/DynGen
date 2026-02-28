@@ -242,7 +242,7 @@ Evaluates the value, and if nonzero, evaluates the following code parameter, and
 This is similar to a C style while() construct.
 argument:: code
 
-SUBSECTION:: Memory access
+SUBSECTION:: Memory
 
 METHOD:: put
 Accesses a memory location using CODE::PrDynGenMemoryAccess_::
@@ -252,6 +252,126 @@ argument:: value
 METHOD:: at
 Accesses a memory location using CODE::PrDynGenMemoryAccess_::
 argument:: offset
+
+METHOD:: memCopy
+The memcopy function provides the ability to quickly copy regions of the local memory buffer.
+If the buffers overlap and either buffer crosses a 65,536 item boundary, the results may be undefined.
+argument:: length
+argument:: dest
+
+METHOD:: freemBuf
+The freemBuf function provides a facility for you to notify the memory manager that you are no longer using a portion of the local memory buffer.
+For example, if the user changed a parameter on your effect halving your memory requirements, you should use the lowest indices possible, and call this function with the highest index you are using plus 1, i.e. if you are using 128,000 items, you should call freembuf(128001); If you are no longer using any memory, you should call freembuf(0);
+Note that calling this does not guarantee that the memory is freed or cleared, it just provides a hint that it is OK to free it.
+
+METHOD:: memSet
+The memSet function provides the ability to quickly set a region of the local memory buffer to a particular value.
+argument:: length
+argument:: dest
+
+METHOD:: memMultiplySum
+Sums the products of length items of this buffer and the other buffer.
+If the other buffer is exactly -1, then sums the squares of items in this buffer.
+If other buffer is exactly -2 then sums the absolute values of this buffer.
+If other buffer is exactly -3 then sums the values of this buffer.
+If other buffer is another negative value, the result is undefined.
+argument:: length
+argument:: other
+
+METHOD:: memInsertShuffle
+Shuffles buf to the right by one element, inserting value as buf[0], and returning the previous buf[len-1].
+argument:: length
+argument:: value
+
+METHOD:: memTop
+Returns the maximum memory words available to the script (read/writes to memTop()[-1] will succeed, but memTop()[0] will not).
+
+SUBSUBSECTION:: Stack
+
+METHOD:: stackPush
+Pushes value onto the user stack, returns a reference to the value.
+
+METHOD:: stackPop
+Pops a value from the user stack into value, or into a temporary buffer if value is not specified, and returns a reference to where the stack was popped.
+Note that no checking is done to determine if the stack is empty, and as such stack_pop() will never fail.
+
+METHOD:: stackPeek
+Returns a reference to the item on the top of the stack (if index is 0), or to the Nth item on the stack if index is greater than 0.
+
+METHOD:: stackExchange
+Exchanges a value with the top of the stack, and returns a reference to the parameter (with the new value).
+
+SUBSECTION:: FFT
+
+METHOD:: fft
+Example
+CODE::
+~buffer = 0;
+~dummyA = fft(~buffer, 512);
+~dummyB = fftPermute(~buffer, 512);
+~buffer[32] = 0;
+~dummyC = fftiPermute(~buffer, 512);
+~dummyD = ifft(~buffer, 512);
+// need to scale output by 1/512.0, too.
+::
+
+Performs a FFT (or inverse in the case of ifft()) on the data in the local memory buffer at the offset specified by the first parameter. The size of the FFT is specified by the second parameter, which must be 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, or 32768. The outputs are permuted, so if you plan to use them in-order, call fft_permute(buffer, size) before and fft_ipermute(buffer,size) after your in-order use. Your inputs or outputs will need to be scaled down by 1/size, if used.
+
+Note that the FFT/IFFT require real/imaginary input pairs (so a 256 point FFT actually works with 512 items).
+
+Note that the FFT/IFFT must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.
+
+The CODE::fftReal()::/CODE::ifftReal():: variants operate on a set of size real inputs, and produce CODE::size/2:: complex outputs.
+The first output pair is DC, nyquist.
+Normally this is used with CODE::fft_permute(buffer,size/2)::.
+argument:: size
+
+METHOD:: ifft
+Inverse fft
+argument:: size
+
+METHOD:: fftReal
+The CODE::fftReal()::/CODE::ifftReal():: variants operate on a set of size real inputs, and produce CODE::size/2:: complex outputs.
+argument:: size
+
+METHOD:: ifftReal
+argument:: size
+
+METHOD:: fftPermute
+argument:: size
+
+METHOD:: fftiPermute
+argument:: size
+
+METHOD:: convolveC
+Example:
+Used to convolve two buffers, typically after FFTing them.
+CODE::convolveC:: works with complex numbers.
+The sizes specify number of items (the number of complex number pairs).
+
+Note that the convolution must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.
+argument:: size
+argument:: dest
+
+METHOD:: mdct
+Example:
+CODE::
+mdct(0, 512);
+::
+
+Performs a modified DCT (or inverse in the case of imdct()) on the data in the local memory buffer at the offset specified by the first parameter.
+The second parameter controls the size of the MDCT, and it MUST be one of the following: 64, 128, 256, 512, 1024, 2048, or 4096.
+The MDCT takes the number of inputs provided, and replaces the first half of them with the results.
+The IMDCT takes CODE::size/2:: inputs, and gives size results.
+
+Note that the MDCT must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.
+
+The MDCT/IMDCT provided also provide windowing, so your code is not required to window the overlapped results, but simply add them. See the example effects for more information.
+argument:: size
+
+METHOD:: imdct
+argument:: size
+
 
 SUBSECTION:: Buffer methods
 

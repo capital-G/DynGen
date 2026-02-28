@@ -481,6 +481,161 @@ DynGenExpr {
 		^func;
 	}
 
+	// fft
+	mdct {|size|
+		^PrDynGenFuncCall_(
+			funcName: 'mdct',
+			arguments: [this, size],
+			context: context,
+		);
+	}
+
+	imdct {|size|
+		^PrDynGenFuncCall_(
+			arguments: 'imdct',
+			context: [this, size],
+			funcName: context,
+		);
+	}
+
+	fft {|size|
+		^PrDynGenFuncCall_(
+			funcName: 'fft',
+			arguments: [this, size],
+			context: context,
+		);
+	}
+
+	ifft {|size|
+		^PrDynGenFuncCall_(
+			funcName: 'ifft',
+			arguments: [this, size],
+			context: context,
+		);
+	}
+
+	fftReal {|size|
+		^PrDynGenFuncCall_(
+			funcName: 'fft_real',
+			arguments: [this, size],
+			context: context,
+		);
+	}
+
+	ifftReal {|size|
+		^PrDynGenFuncCall_(
+			funcName: 'ifft_real',
+			arguments: [this, size],
+			context: context,
+		);
+	}
+
+	fftPermute {|size|
+		^PrDynGenFuncCall_(
+			funcName: 'fft_permute',
+			arguments: [this, size],
+			context: context,
+		);
+	}
+
+	fftiPermute {|size|
+		^PrDynGenFuncCall_(
+			funcName: 'fft_ipermute',
+			arguments: [this, size],
+			context: context,
+		);
+	}
+
+	convolveC {|size, dest|
+		^PrDynGenFuncCall_(
+			funcName: 'convolve_c',
+			arguments: [dest, this, size],
+			context: context,
+		);
+	}
+
+	// memory
+	freemBuf {
+		^PrDynGenFuncCall_(
+			funcName: 'freembuf',
+			arguments: [this],
+			context: context,
+		);
+	}
+
+	memCopy {|length, dest|
+		^PrDynGenFuncCall_(
+			funcName: 'memcopy',
+			arguments: [dest, this, length],
+			context: context,
+		);
+	}
+
+	memSet {|length, dest|
+		^PrDynGenFuncCall_(
+			funcName: 'memset',
+			arguments: [dest, this, length],
+			context: context,
+		)
+	}
+
+	memMultiplySum {|length, other|
+		^PrDynGenFuncCall_(
+			funcName: 'mem_multiply_sum',
+			arguments: [this, other, length],
+			context: context,
+		);
+	}
+
+	memInsertShuffle {|length, value|
+		^PrDynGenFuncCall_(
+			funcName: 'mem_insert_shuffle',
+			arguments: [this, length, value],
+			context: context,
+		);
+	}
+
+	memTop {
+		^PrDynGenFuncCall_(
+			funcName: '__memtop',
+			arguments: [],
+			context: context,
+		);
+	}
+
+	// stack
+	stackPush {
+		^PrDynGenFuncCall_(
+			funcName: 'stack_push',
+			arguments: [this],
+			context: context,
+		);
+	}
+
+	stackPop {
+		^PrDynGenFuncCall_(
+			funcName: 'stack_pop',
+			arguments: [this],
+			context: context,
+		);
+	}
+
+	stackPeek {
+		^PrDynGenFuncCall_(
+			funcName: 'stack_peek',
+			arguments: [this],
+			context: context,
+		);
+	}
+
+	stackExchange {
+		^PrDynGenFuncCall_(
+			funcName: 'stack_exch',
+			arguments: [this],
+			context: context,
+		);
+	}
+
 	asDynGen {
 		^this;
 	}
