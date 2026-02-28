@@ -262,7 +262,10 @@ Ndef(\sync, {
 			~overSample.loop({
 				~phaseA = (~phaseA + ~incA).wrap(0.0, 1.0);
 				~phaseB = (~phaseB + ~incB).wrap(0.0, 1.0);
-				ifTrue(~phaseA.delta(~phaseADelta).abs > 0.5, {
+				// delta takes a parameter for state management,
+				// but if not set, the compiler will fill this
+				// with a temp variable
+				ifTrue(~phaseA.delta.abs > 0.5, {
 					// reset ~phaseB
 					~phaseB = 0.0;
 				});

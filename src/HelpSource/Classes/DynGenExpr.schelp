@@ -330,6 +330,7 @@ state = signal;
 where x is the return value of the function.
 argument:: state
 Variable where to store the necessary state of the function.
+If not provided, this will be set to a temp variable by the compiler.
 
 METHOD:: history
 Returns the previous value of signal by using an intermediate DynGen variable state.
@@ -341,6 +342,8 @@ state = signal;
 where x is the return value of the function.
 In order to set an initial value, set the state variable to the desired value in the CODE::@init:: section.
 argument:: state
+Variable where to store the necessary state of the function.
+If not provided, this will be set to a temp variable by the compiler.
 
 METHOD:: latch
 See LINK::Classes/Latch::.
@@ -355,6 +358,8 @@ where x is the return value of the function.
 In order to set an initial value, set the state variable to the desired value in the @init section.
 argument:: trigger
 argument:: state
+Variable where to store the necessary state of the function.
+If not provided, this will be set to a temp variable by the compiler.
 
 SUBSUBSECTION:: Signal limitation
 

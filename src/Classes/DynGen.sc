@@ -41,17 +41,17 @@ DynGenDef {
 		var c = "";
 		if(init.notNil, {
 			c = "@init\n%\n".format(
-				DynGenTranspiler(init).compile,
+				DynGenTranspiler(init, "tempInit").compile,
 			);
 		});
 		if(block.notNil, {
 			c = c ++ "\n@block\n%\n".format(
-				DynGenTranspiler(block).compile,
+				DynGenTranspiler(block, "tempBlock").compile,
 			);
 		});
 		if(sample.notNil, {
 			c = c ++ "\n@sample\n%\n".format(
-				DynGenTranspiler(sample).compile,
+				DynGenTranspiler(sample, "temp").compile,
 			);
 		});
 		code = c;

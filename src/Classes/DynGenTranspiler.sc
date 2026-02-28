@@ -3,12 +3,12 @@
 DynGenTranspiler {
 	var <environment;
 
-	*new {|func|
-		^super.newCopyArgs().init(func);
+	*new {|func, tempPrefix|
+		^super.newCopyArgs().init(func, tempPrefix);
 	}
 
-	init {|func|
-		environment = PrDynGenEnvironment_(this);
+	init {|func, tempPrefix|
+		environment = PrDynGenEnvironment_(this, tempPrefix);
 		environment.use({func.value(environment)});
 	}
 
@@ -24,14 +24,17 @@ PrDynGenEnvironment_ : EnvironmentRedirect {
 	// if the statement is not assigned, it will be put into
 	// the sequence such that it gets executed, else it will be discarded.
 	var <dueStatements;
+	var <>tempVariableCount = 0;
+	var <>tempPrefix;
 
-	*new {|context|
-		^super.new.init(context);
+	*new {|context, tempPrefix|
+		^super.new.init(context, tempPrefix);
 	}
 
-	init {|context_|
+	init {|context_, tempPrefix_|
 		context = context_;
 		dueStatements = [];
+		tempPrefix = (tempPrefix_ ? "temp").asString;
 		sequence = PrDynGenSequence_([], context);
 		envir.put(\p, PrDynGenParamAccessor_(context));
 	}
@@ -87,6 +90,15 @@ PrDynGenEnvironment_ : EnvironmentRedirect {
 	compile {
 		this.prFlushDueStatements;
 		^sequence.asDynGen;
+	}
+
+	nextTempVariable {
+		var temp = PrDynGenVar_("%%".format(
+			tempPrefix,
+			tempVariableCount,
+		), context);
+		tempVariableCount = tempVariableCount + 1;
+		^temp;
 	}
 
 	prFlushDueStatements {|currentStatement|
@@ -170,14 +182,17 @@ DynGenExpr {
 	}
 
 	delta {|state|
+		state = state ? context.environment.nextTempVariable;
 		^PrDynGenFuncCall_(\delta, [state, this], context);
 	}
 
 	history {|state|
+		state = state ? context.environment.nextTempVariable;
 		^PrDynGenFuncCall_(\history, [state, this], context);
 	}
 
 	latch {|trigger, state|
+		state = state ? context.environment.nextTempVariable;
 		^PrDynGenFuncCall_(\latch, [state, this, trigger], context);
 	}
 
