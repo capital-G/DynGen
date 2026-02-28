@@ -76,7 +76,7 @@ PrDynGenEnvironment_ : EnvironmentRedirect {
 		}, {
 			 PrDynGenAssignment_(
 				lhs: dgVar,
-				rhs: value.asDynGen,
+				rhs: value,
 				context: context,
 			);
 		});
@@ -230,7 +230,6 @@ DynGenExpr {
 	}
 
 	sin {
-		"Perform sin on %".format(this);
 		^PrDynGenFuncCall_(\sin, [this], context);
 	}
 
