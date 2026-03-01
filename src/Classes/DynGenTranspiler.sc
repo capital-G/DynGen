@@ -10,6 +10,7 @@ DynGenTranspiler {
 	init {|func, tempPrefix|
 		environment = PrDynGenEnvironment_(this, tempPrefix);
 		environment.use({func.value(environment)});
+		environment.prFlushDueStatements;
 	}
 
 	compile {
@@ -88,7 +89,6 @@ PrDynGenEnvironment_ : EnvironmentRedirect {
 	}
 
 	compile {
-		this.prFlushDueStatements;
 		^sequence.asDynGen;
 	}
 
