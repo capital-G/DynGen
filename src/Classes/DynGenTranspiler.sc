@@ -646,9 +646,14 @@ DynGenExpr {
 
 PrDynGenParamAccessor_ {
 	var <context;
+	var <params;
 
 	*new {|context|
-		^super.newCopyArgs(context);
+		^super.newCopyArgs(context).initParamAccessor;
+	}
+
+	initParamAccessor {
+		params = ();
 	}
 
 	at {|key|
@@ -657,12 +662,14 @@ PrDynGenParamAccessor_ {
 	}
 
 	createParam {|name, default=0.0, spec=\unipolar|
-		^PrDynGenParam_(
+		var param = PrDynGenParam_(
 			name,
 			default,
 			spec,
 			context,
 		);
+		params[name.asSymbol] = param;
+		^param;
 	}
 
 	doesNotUnderstand {|selector ...args, kwargs|
