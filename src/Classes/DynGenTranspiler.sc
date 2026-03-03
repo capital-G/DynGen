@@ -6,12 +6,12 @@ DynGenTranspiler {
 	classvar >tempCounter = 0;
 	var <environment;
 
-	*new {|func, tempPrefix|
-		^super.newCopyArgs().init(func, tempPrefix);
+	*new {|func|
+		^super.newCopyArgs().init(func);
 	}
 
-	init {|func, tempPrefix|
-		environment = PrDynGenEnvironment_(this, tempPrefix);
+	init {|func|
+		environment = PrDynGenEnvironment_(this);
 		environment.use({func.value(environment)});
 		environment.prFlushDueStatements;
 	}
@@ -23,7 +23,7 @@ DynGenTranspiler {
 	*nextTempVariable {|context|
 		var temp = PrDynGenVar_("temp%".format(
 			tempCounter,
-		), context);
+		).asSymbol, context);
 		tempCounter = tempCounter + 1;
 		^temp;
 	}
@@ -37,16 +37,14 @@ PrDynGenEnvironment_ : EnvironmentRedirect {
 	// the sequence such that it gets executed, else it will be discarded.
 	var <dueStatements;
 	var tempVariableCount = 0;
-	var <>tempPrefix;
 
-	*new {|context, tempPrefix|
-		^super.new.init(context, tempPrefix);
+	*new {|context|
+		^super.new.init(context);
 	}
 
-	init {|context_, tempPrefix_|
+	init {|context_|
 		context = context_;
 		dueStatements = [];
-		tempPrefix = (tempPrefix_ ? "temp").asString;
 		sequence = PrDynGenSequence_([], context);
 		envir.put(\p, PrDynGenParamAccessor_(context));
 	}
