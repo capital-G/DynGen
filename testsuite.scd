@@ -406,6 +406,8 @@
 		test.("@param a: max=foo \n out0 = _a;") and:
 		// bad keyword
 		test.("@param a: foo=bar \n out0 = _a;") and:
+		// duplicate equals
+		test.("@param a: min=max=0.5 \n out0 = _a;") and:
 		// parameter name not alphanumeric
 		test.("@param foo!bar: 0.5 \n out0 = _a;")
 	},
