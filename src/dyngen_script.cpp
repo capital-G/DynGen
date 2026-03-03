@@ -6,6 +6,7 @@
 #include "dyngen_script.h"
 #include "string_utils.h"
 
+#include <cassert>
 #include <charconv>
 #include <sstream>
 
@@ -36,6 +37,7 @@ const char* paramTypeString(ParamType type) {
     case ParamType::Const:
         return "const";
     }
+    assert(false);
     return "?";
 }
 
