@@ -145,7 +145,7 @@ Ndef(\z, {
 
 If such a parameter is not modulated by a matching UGen input, its value is 0.0.
 
-Control-rate UGen inputs use linear interpolation by default, just like LINK::Classes/K2A::.
+By default, control-rate UGen inputs use linear interpolation to convert the values to an audio-rate signal, just like LINK::Classes/K2A::.
 
 If you want to set default values, change the control-rate behavior or use trigger inputs, see LINK::#Advanced parameters::.
 
@@ -434,7 +434,9 @@ y1 = out0;
 )
 
 // play with default values
-{ DynGen.ar(1, \fbSin) ! 2 * 0.1 }.play;
+x = { DynGen.ar(1, \fbSin) ! 2 * 0.1 }.play;
+
+x.free;
 
 // play with parameter modulation. Notice how the the 'freq'
 // parameter is clipped to the specified range!
@@ -506,21 +508,26 @@ pos >= 0 ? (
 ").send;
 )
 ::
-CODE::
 
+CODE::
 // load Buffer
 ~buffer = Buffer.read(s, path: ExampleFiles.apollo11);
 
 // only default values: play once at regular speed
-{ DynGen.ar(1, \playBuf, nil, [ buf: ~buffer ]) ! 2 * 0.1 }.play;
+x = { DynGen.ar(1, \playBuf, nil, [ buf: ~buffer ]) ! 2 * 0.1 }.play;
+
+x.free;
 
 // play once backwards
-{ DynGen.ar(1, \playBuf, nil, [ rate: -1, buf: ~buffer ]) ! 2 * 0.1 }.play;
+x = { DynGen.ar(1, \playBuf, nil, [ rate: -1, buf: ~buffer ]) ! 2 * 0.1 }.play;
+
+x.free;
 ::
+
 CODE::
 // play repeatedly at random rates
 (
-{
+x = {
 	var trig = Dust.ar(MouseX.kr.linexp(0, 1, 0.25, 50));
 	var rate = pow(2, TRand.ar(-2, 2, trig));
 	DynGen.ar(1, \playBuf, params: [
@@ -528,6 +535,8 @@ CODE::
 	]) ! 2 * 0.1;
 }.play;
 )
+
+x.free;
 ::
 
 
