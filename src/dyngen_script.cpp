@@ -85,25 +85,26 @@ ParamSpec parseParameterSpec(std::string_view line) {
 
     // remove leading whitespace
     line = trimLeft(line);
-    auto colonPos = line.find(':');
-    if (colonPos == std::string_view::npos) {
-        // no colon -> only parameter string.
+    auto nameEndPos = line.find(':');
+    size_t argStartPos = 0;
+    if (nameEndPos != std::string_view::npos) {
+        // skip colon
+        argStartPos = nameEndPos + 1;
+    } else {
+        // no colon -> only parameter string
         // ignore everything after the first whitespace character.
         auto end = std::find_if(line.begin(), line.end(), [](auto c) { return isWhitespace(c); });
-        auto name = line.substr(0, end - line.begin());
-        if (!isAlphaNumeric(name)) {
-            throw std::runtime_error("parameter name '" + std::string(name) + "' is not alphanumeric");
-        }
-        spec.name = std::string("_") += name;
-        return spec;
+        nameEndPos = end - line.begin();
+        argStartPos = nameEndPos;
     }
-    auto name = line.substr(0, colonPos);
+    auto name = line.substr(0, nameEndPos);
     if (!isAlphaNumeric(name)) {
         throw std::runtime_error("parameter name '" + std::string(name) + "' is not alphanumeric");
     }
     spec.name = std::string("_") += name;
+
     // get arguments without surrounding whitespace
-    line = trim(line.substr(colonPos + 1));
+    line = trim(line.substr(argStartPos));
     // remove trailing commas
     while (!line.empty() && line.back() == ',') {
         line.remove_suffix(1);
