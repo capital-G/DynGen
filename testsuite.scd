@@ -65,7 +65,14 @@
 		\testTransWhileTrue,
 		\testTransLoop,
 		\testTransMemory,
+		\testTransUserFunction,
 		\testTransMeta,
+		\testTransNested,
+		\testTransNoAssignment,
+		\testTransNoAssignmentFunc,
+		\testTransTempVariable,
+		\testTransOutput,
+		\testTransDynGenDefCompile,
 	],
 
 	testBasic: {
@@ -1539,6 +1546,108 @@ out1 = __gain2;
 
 			exprs[2].rhs.asDynGen == "(((0 + foo0) + foo1) / 2)",
 		];
+		checks.every({|x| x});
+	},
+
+	testTransNested: {
+		var code = DynGenTranspiler(#{
+			~x = ~a = ~y.pow(~z = ~w + 1; 2);
+		});
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs.size == 3,
+
+			exprs[0].lhs.name == \z,
+			exprs[0].rhs.left.name == \w,
+
+			exprs[1].lhs.name == \a,
+			exprs[1].rhs.funcName == \pow,
+
+			exprs[2].lhs.name == \x,
+			exprs[2].rhs.funcName == \pow,
+			exprs[2].rhs.arguments[0].name == \y,
+			exprs[2].rhs.arguments[1] == 2,
+		];
+		checks.every({|x| x});
+	},
+
+	testTransNoAssignment: {
+		var code = DynGenTranspiler({
+			~x + 2;
+		});
+
+		var exprs = code.environment.sequence.expressions;
+
+		exprs.size == 0;
+	},
+
+	testTransNoAssignmentFunc: {
+		var code = DynGenTranspiler({
+			~foo = {|x|
+				~x*2;
+			};
+		});
+
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs[0].name == \foo,
+			exprs[0].func.asDynGen == "()",
+		];
+		checks.every({|x| x});
+	},
+
+	testTransTempVariable: {
+		var code;
+		var exprs;
+		var checks;
+		DynGenTranspiler.tempCounter = 0;
+
+		code = DynGenTranspiler({
+			~out0 = ~in0.delta;
+		});
+		exprs = code.environment.sequence.expressions;
+
+		checks = [
+			exprs.size == 1,
+
+			exprs[0].lhs.name == \out0,
+			exprs[0].rhs.funcName == \delta,
+			exprs[0].rhs.arguments[0].name == \temp0,
+			exprs[0].rhs.arguments[1].name == \in0,
+		];
+		checks.every({|x| x});
+	},
+
+	testTransOutput: {
+		var code = DynGenTranspiler({
+			~out0 = ~in0 * 2.0;
+		}).compile;
+
+		code == "out0 = (in0 * 2.0);";
+	},
+
+	testTransDynGenDefCompile: {
+		var def = DynGenDef(\transcompile).compile(
+			sample: {
+				~out0 = ~in0 * 2.0;
+			},
+			init: {
+				~some = pi;
+			},
+			block: {
+				~myBlock = 42;
+			},
+		);
+		var code = def.code;
+
+		var checks = [
+			code.beginsWith("@init\nsome = 3.141"),
+			code.contains("@block\nmyBlock = 42;"),
+			code.contains("@sample\nout0 = (in0 * 2.0);"),
+		];
+
 		checks.every({|x| x});
 	},
 
