@@ -126,10 +126,9 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     }
 
     // Initialize all script parameter variables to the specified value.
-    // The init value may be overwritten later by parameter UGen inputs
-    // in the process() method.
-    // Also catch "trig" parameters with a *positive* init value that are
-    // not modulated by the UGen because they have to be handled specially.
+    // The init value may be overwritten later by parameter UGen inputs in the process() method.
+    // Also catch so called "init triggers". These are "trig" parameters with a *positive* init
+    // value that are not modulated by the UGen because they have to be handled specially.
     // ("trig" parameters with a non-positive init value just stay at 0.0.)
     auto& scriptParams = script.mParameters;
     double** initTriggers =
@@ -152,10 +151,9 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     }
 
     // Obtain handles to modulated paramater variables.
-    // Since the parameter indices are fixed at synth creation time,
-    // we only have to get pointers to the parameters at these indices.
-    // Note that parameter indices are stable because parameter names
-    // are append-only.
+    // Since the parameter indices are fixed at synth creation time, we only have to
+    // get pointers to the parameters at these indices. Note that parameter indices
+    // are stable because parameter names are append-only.
     mParameters = std::make_unique<double*[]>(numParamIndices + numInitTriggers);
     mParamSpecs = std::make_unique<Param[]>(numParamIndices);
     for (int i = 0; i < numParamIndices; i++) {
@@ -175,7 +173,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
         }
     }
 
-    // Add init triggers to parameter variable list
+    // Add "init triggers "to parameter variable list
     for (int i = 0; i < numInitTriggers; ++i) {
         mParameters[numParamIndices + i] = initTriggers[i];
     }

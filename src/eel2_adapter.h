@@ -78,6 +78,11 @@ public:
             }
         }
 
+        // "init triggers" are "trig" parameters with a positive default value that are not modulated.
+        // They should trigger exactly once on the very first sample. The variable pointers come right
+        // after the modulated parameter variables.
+        double** initTriggers = &mParameters[mNumParameters];
+
         // update "blockNum" variable
         *mBlockNum = static_cast<double>(mBlockCounter);
 
@@ -111,9 +116,9 @@ public:
                 for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
                     *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][0]);
                 }
-                // init triggers
+                // "init triggers" start with a positive value
                 for (int i = 0; i < mNumInitTriggers; ++i) {
-                    *mParameters[mNumParameters + i] = 1.0;
+                    *initTriggers[i] = 1.0;
                 }
 
                 NSEEL_code_execute(mInitCode);
@@ -161,9 +166,9 @@ public:
                     }
                 }
             }
-            // init triggers
+            // "init triggers" are only positive on the very first block
             for (int i = 0; i < mNumInitTriggers; ++i) {
-                *mParameters[mNumParameters + i] = mBlockCounter == 0 ? 1.0 : 0.0;
+                *initTriggers[i] = mBlockCounter == 0 ? 1.0 : 0.0;
             }
 
             NSEEL_code_execute(mBlockCode);
@@ -254,9 +259,9 @@ public:
                     }
                 }
             }
-            // init triggers
+            // "init triggers" are only positive on the very first sample
             for (int i = 0; i < mNumInitTriggers; ++i) {
-                *mParameters[mNumParameters + i] = mSampleCounter == 0 ? 1.0 : 0.0;
+                *initTriggers[i] = mSampleCounter == 0 ? 1.0 : 0.0;
             }
 
             NSEEL_code_execute(mSampleCode);
