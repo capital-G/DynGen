@@ -11,14 +11,14 @@
 
 //-------------------- ParamType -------------------//
 
-std::optional<ParamType> getParamTypeFromString(std::string_view sv) {
-    if (sv == "lin") {
+std::optional<ParamType> getParamTypeFromString(std::string_view string) {
+    if (string == "lin") {
         return ParamType::Linear;
-    } else if (sv == "step") {
+    } else if (string == "step") {
         return ParamType::Step;
-    } else if (sv == "trig") {
+    } else if (string == "trig") {
         return ParamType::Trigger;
-    } else if (sv == "const") {
+    } else if (string == "const") {
         return ParamType::Const;
     } else {
         return std::nullopt;
@@ -46,20 +46,20 @@ namespace {
 /*! @brief try to parse a std::string_view as a floating point number.
  *  'sv' should already be trimmed. Returns an empty optional on failure.
  */
-std::optional<double> parseDouble(std::string_view sv) {
-    if (sv == "-inf")
+std::optional<double> parseDouble(std::string_view string) {
+    if (string == "-inf")
         return std::numeric_limits<double>::lowest();
-    if (sv == "inf")
+    if (string == "inf")
         return std::numeric_limits<double>::max();
 
 #if defined(__APPLE__)
     // Apple Clang does not ship std::from_chars for doubles. This sucks...
     try {
-        return std::stod(std::string(sv));
+        return std::stod(std::string(string));
     } catch (...) { return std::nullopt; }
 #else
     double value;
-    auto [ptr, err] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+    auto [ptr, err] = std::from_chars(string.data(), string.data() + string.size(), value);
     if (err == std::errc {}) {
         return value;
     } else {
