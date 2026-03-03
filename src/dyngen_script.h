@@ -21,7 +21,26 @@ enum class CodeDirective { None, Param, Init, Block, Sample, Unknown };
 
 enum class CodeSection { None, Init, Block, Sample };
 
-enum class ParamType { Linear, Step, Trigger, Const };
+/*! @brief The different parameter types */
+enum class ParamType {
+    /*! If the parameter input is control-rate, it is converted to audio-rate
+     *  with linear interpolation, just like the K2A.ar UGen. This is the default.
+     */
+    Linear,
+    /*! The parameter is never interpolated. Control-rate inputs are converted
+     *  to audio-rate with zero-order hold. This is important for certain kinds of
+     *  parameters, such as buffer numbers or channel indices.
+     */
+    Step,
+    /*! The parameter is a SC-style trigger input. DynGen automatically converts
+     *  (stateful) SC-style triggers to (stateless) single-sample trigger signals.
+     */
+    Trigger,
+    /*! The parameter is read only once at the very beginning and is guaranteed
+     *  not to change after that.
+     */
+    Const
+};
 
 std::optional<ParamType> getParamTypeFromString(std::string_view sv);
 
