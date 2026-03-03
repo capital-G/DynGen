@@ -1,6 +1,9 @@
 // translates sclang code to DynGen code
 // and stores the necessary context
 DynGenTranspiler {
+	// this is public such that the value can be fixed
+	// for testing etc.
+	classvar >tempCounter = 0;
 	var <environment;
 
 	*new {|func, tempPrefix|
@@ -16,6 +19,14 @@ DynGenTranspiler {
 	compile {
 		^environment.compile;
 	}
+
+	*nextTempVariable {|context|
+		var temp = PrDynGenVar_("temp%".format(
+			tempCounter,
+		), context);
+		tempCounter = tempCounter + 1;
+		^temp;
+	}
 }
 
 PrDynGenEnvironment_ : EnvironmentRedirect {
@@ -25,7 +36,7 @@ PrDynGenEnvironment_ : EnvironmentRedirect {
 	// if the statement is not assigned, it will be put into
 	// the sequence such that it gets executed, else it will be discarded.
 	var <dueStatements;
-	var <>tempVariableCount = 0;
+	var tempVariableCount = 0;
 	var <>tempPrefix;
 
 	*new {|context, tempPrefix|
@@ -90,15 +101,6 @@ PrDynGenEnvironment_ : EnvironmentRedirect {
 
 	compile {
 		^sequence.asDynGen;
-	}
-
-	nextTempVariable {
-		var temp = PrDynGenVar_("%%".format(
-			tempPrefix,
-			tempVariableCount,
-		), context);
-		tempVariableCount = tempVariableCount + 1;
-		^temp;
 	}
 
 	prFlushDueStatements {|currentStatement|
@@ -182,17 +184,17 @@ DynGenExpr {
 	}
 
 	delta {|state|
-		state = state ? context.environment.nextTempVariable;
+		state = state ? DynGenTranspiler.nextTempVariable(context);
 		^PrDynGenFuncCall_(\delta, [state, this], context);
 	}
 
 	history {|state|
-		state = state ? context.environment.nextTempVariable;
+		state = state ? DynGenTranspiler.nextTempVariable(context);
 		^PrDynGenFuncCall_(\history, [state, this], context);
 	}
 
 	latch {|trigger, state|
-		state = state ? context.environment.nextTempVariable;
+		state = state ? DynGenTranspiler.nextTempVariable(context);
 		^PrDynGenFuncCall_(\latch, [state, this, trigger], context);
 	}
 
