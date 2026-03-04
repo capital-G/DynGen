@@ -122,9 +122,9 @@ ParamSpec parseParameterSpec(std::string_view line) {
         if (auto number = parseDouble(value)) {
             spec.initValue = *number;
         } else {
-            std::stringstream ss;
-            ss << "parameter '" << spec.name << "': bad init value '" << value << "'";
-            throw std::runtime_error(ss.str());
+            std::stringstream stream;
+            stream << "parameter '" << spec.name << "': bad init value '" << value << "'";
+            throw std::runtime_error(stream.str());
         }
     };
 
@@ -132,9 +132,9 @@ ParamSpec parseParameterSpec(std::string_view line) {
         if (auto type = getParamTypeFromString(value)) {
             spec.type = *type;
         } else {
-            std::stringstream ss;
-            ss << "parameter '" << spec.name << "': bad type '" << value << "'";
-            throw std::runtime_error(ss.str());
+            std::stringstream stream;
+            stream << "parameter '" << spec.name << "': bad type '" << value << "'";
+            throw std::runtime_error(stream.str());
         }
     };
 
@@ -142,9 +142,9 @@ ParamSpec parseParameterSpec(std::string_view line) {
         if (auto number = parseDouble(value)) {
             spec.minValue = *number;
         } else {
-            std::stringstream ss;
-            ss << "parameter '" << spec.name << "': bad min. value '" << value << "'";
-            throw std::runtime_error(ss.str());
+            std::stringstream stream;
+            stream << "parameter '" << spec.name << "': bad min. value '" << value << "'";
+            throw std::runtime_error(stream.str());
         }
     };
 
@@ -152,9 +152,9 @@ ParamSpec parseParameterSpec(std::string_view line) {
         if (auto number = parseDouble(value)) {
             spec.maxValue = *number;
         } else {
-            std::stringstream ss;
-            ss << "parameter '" << spec.name << "': bad max. value '" << value << "'";
-            throw std::runtime_error(ss.str());
+            std::stringstream stream;
+            stream << "parameter '" << spec.name << "': bad max. value '" << value << "'";
+            throw std::runtime_error(stream.str());
         }
     };
 
@@ -179,9 +179,9 @@ ParamSpec parseParameterSpec(std::string_view line) {
                 } else if (key == "warp" || key == "step" || key == "unit") {
                     // silently ignore
                 } else {
-                    std::stringstream ss;
-                    ss << "parameter '" << spec.name << "': unknown key '" << key << "'";
-                    throw std::runtime_error(ss.str());
+                    std::stringstream stream;
+                    stream << "parameter '" << spec.name << "': unknown key '" << key << "'";
+                    throw std::runtime_error(stream.str());
                 }
 
                 gotKeywordArg = true;
