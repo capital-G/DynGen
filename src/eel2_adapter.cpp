@@ -138,7 +138,7 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     for (int i = 0; i < scriptParams.size(); ++i) {
         auto& param = scriptParams[i];
         double* var = NSEEL_VM_regvar(mEelState, param.name.c_str());
-        *var = std::clamp(param.initValue, param.minValue, param.maxValue);
+        *var = param.initValue;
         // NOTE: only "trig" parameters with *positive* init value!
         if (param.type == ParamType::Trigger && param.initValue > 0.0) {
             if (auto end = parameterIndices + numParamIndices; std::find(parameterIndices, end, i) == end) {
@@ -155,21 +155,18 @@ bool EEL2Adapter::init(const DynGenScript& script, const int* parameterIndices, 
     // get pointers to the parameters at these indices. Note that parameter indices
     // are stable because parameter names are append-only.
     mParameters = std::make_unique<double*[]>(numParamIndices + numInitTriggers);
-    mParamSpecs = std::make_unique<Param[]>(numParamIndices);
+    mParameterTypes = std::make_unique<ParamType[]>(numParamIndices);
     for (int i = 0; i < numParamIndices; i++) {
         auto paramIndex = parameterIndices[i];
         if (paramIndex >= 0 && paramIndex < scriptParams.size()) {
             auto& spec = scriptParams[paramIndex];
             mParameters[i] = NSEEL_VM_regvar(mEelState, spec.name.c_str());
-            // the following specs are needed in the process method
-            mParamSpecs[i].type = spec.type;
-            mParamSpecs[i].minValue = spec.minValue;
-            mParamSpecs[i].maxValue = spec.maxValue;
+            mParameterTypes[i] = spec.type;
         } else {
             // ignore out-of-range parameter indices
             Print("ERROR: Parameter index %d out of range\n", i);
             mParameters[i] = nullptr;
-            mParamSpecs[i] = Param {};
+            mParameterTypes[i] = ParamType::Linear;
         }
     }
 

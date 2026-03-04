@@ -336,42 +336,37 @@
             // comments are ok
             @param a: 0.5
             // test placeholder
-            @param b: 0.5, _, -1, 1
+            @param b: 0.5, _
             // test keyword args in arbitrary order
-            @param c: type=lin, max=1, min=-1, init=0.5
+            @param c: type=lin, init=0.5
             // can use keyword args after positional args
             @param d: 0.5, type=lin
             // whitespace around commas is ok
-            @param e: 0.5 , lin , 0 , 1
+            @param e: 0.5 , lin
             // whitespace around = is ok
-            @param f: init = 0.5, type = lin, min = 0, max = 1
+            @param f: init = 0.5, type = lin
             // without any whitespace
-            @param g:0.5,lin,min=-1,max=1
+            @param g:0.5,lin
             // trailing commas are ignored
             @param h: 0.5, lin,
 
             out0 = _a;
-            out1 = _b;
-            out2 = _c;
-            out3 = _d;"
+            out1 = _b;"
 		).send;
 		s.sync;
 		{
 			var noise = WhiteNoise.ar * 10;
-			DynGen.ar(4, \testParamSpecs, params: [
+			DynGen.ar(2, \testParamSpecs, params: [
 				// do not modulate 'a' to check init value behavior
-				// check range clipping for 'b' (ar) and 'c' (kr)
 				b: noise, c: A2K.kr(noise),
 				// make sure that 'd' is not clipped
 				d: noise
 			], sync: 1.0) ++ noise;
 		}.loadToFloatArray(0.1, action: {|sig|
-			success = sig.clump(5).every { |array|
+			success = sig.clump(3).every { |array|
 				var a = array[0] == 0.5;
-				var b = array[1] >= -1 and: { array[1] <= 1 };
-				var c = array[2] >= -1 and: { array[2] <= 1 };
-				var d = array[3] == array[4];
-				a && b && c && d;
+				var b = array[1] == array[2];
+				(array[0] == 0.5) and: { array[1] == array[2] }
 			};
 			condition.unhang;
 		});
@@ -400,14 +395,10 @@
 		test.("@param a: foo\n out0 = _a;") and:
 		// bad type
 		test.("@param a: type=foo\n out0 = _a;") and:
-		// bad min. value
-		test.("@param a: min=foo \n out0 = _a;") and:
-		// bad max. value
-		test.("@param a: max=foo \n out0 = _a;") and:
 		// bad keyword
 		test.("@param a: foo=bar \n out0 = _a;") and:
 		// duplicate equals
-		test.("@param a: min=max=0.5 \n out0 = _a;") and:
+		test.("@param a: init=type=0.5 \n out0 = _a;") and:
 		// parameter name not alphanumeric
 		test.("@param foo!bar: 0.5 \n out0 = _a;")
 	},

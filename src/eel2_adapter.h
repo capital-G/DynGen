@@ -14,10 +14,6 @@
 #include <algorithm>
 #include <memory>
 
-#ifndef CLIP_PARAMS
-#    define CLIP_PARAMS 1
-#endif
-
 /*! @class EEL2Adapter
  *  @brief wraps a EEL2 VM and injects special functions and variables
  *  for the usage within SuperCollider.
@@ -76,13 +72,7 @@ public:
                 // Parameter automations come as index-value pairs, so we only take every second odd element.
                 Wire* wire = parameterPairs[i * 2 + 1];
                 double value = static_cast<double>(wire->mBuffer[0]);
-                // Clamp value to the specified range!
-                auto& spec = mParamSpecs[i];
-#if CLIP_PARAMS
-                newParamValues[i] = std::clamp(value, spec.minValue, spec.maxValue);
-#else
                 newParamValues[i] = value;
-#endif
             }
         }
 
@@ -106,7 +96,7 @@ public:
             // defined in the parameter specs.)
             for (int i = 0; i < mNumParameters; ++i) {
                 if (double* param = mParameters[i]) {
-                    if (mParamSpecs[i].type == ParamType::Trigger) {
+                    if (mParameterTypes[i] == ParamType::Trigger) {
                         // Handle "trig" parameter. NOTE: the cache value must remain 0.0, otherwise
                         // the parameter couldn't trigger on the first sample in the @sample section!
                         *param = newParamValues[i] > 0.0 ? 1.0 : 0.0;
@@ -157,8 +147,8 @@ public:
             // but not in both.
             for (int i = 0; i < mNumParameters; ++i) {
                 if (double* param = mParameters[i]) {
-                    auto& spec = mParamSpecs[i];
-                    if (spec.type == ParamType::Trigger) {
+                    auto type = mParameterTypes[i];
+                    if (type == ParamType::Trigger) {
                         // This will miss triggers for audio-rate trigger inputs, but it's better
                         // than just setting the value as is. "trig" parameters probably shouldn't
                         // be used in the @block section unless the user is 100% certain that the
@@ -168,7 +158,7 @@ public:
                         } else {
                             *param = 0.0;
                         }
-                    } else if (mParamSpecs[i].type != ParamType::Const) {
+                    } else if (type != ParamType::Const) {
                         // Do not update "const" parameters!
                         *param = newParamValues[i];
                     }
@@ -196,8 +186,8 @@ public:
             // update automated parameters.
             for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
                 if (double* param = mParameters[paramNum]) {
-                    auto& spec = mParamSpecs[paramNum];
-                    if (spec.type == ParamType::Const) {
+                    auto type = mParameterTypes[paramNum];
+                    if (type == ParamType::Const) {
                         // do not update "const" parameters!
                         continue;
                     }
@@ -206,7 +196,7 @@ public:
                     if (wire->mCalcRate == calc_FullRate) {
                         // 1. audio rate
                         double value = static_cast<double>(wire->mBuffer[i]);
-                        if (spec.type == ParamType::Trigger) {
+                        if (type == ParamType::Trigger) {
                             // "trig" parameter -> convert SC-style trigger to (stateless)
                             // single-sample trigger signal
                             if (value > 0.0 && prevParamValues[paramNum] <= 0.0) {
@@ -222,16 +212,11 @@ public:
                             // last sample in the block, but this way we avoid yet another branch.
                             newParamValues[paramNum] = value;
                         } else {
-#if CLIP_PARAMS
-                            // "lin" or "step" parameter -> clamp to specified range
-                            *param = std::clamp(value, spec.minValue, spec.maxValue);
-#else
                             *param = value;
-#endif
                         }
                     } else if (wire->mCalcRate == calc_BufRate) {
                         // 2. control rate
-                        if (spec.type == ParamType::Trigger) {
+                        if (type == ParamType::Trigger) {
                             // "trig" parameter -> convert SC-style trigger to (stateless) single-sample
                             // trigger signal.
                             // Only check the first sample in the block because the remaining samples
@@ -241,7 +226,7 @@ public:
                             } else {
                                 *param = 0.0;
                             }
-                        } else if (spec.type == ParamType::Linear) {
+                        } else if (type == ParamType::Linear) {
                             // "lin" parameter -> ramp to new value if it has changed
                             double newValue = newParamValues[paramNum];
                             double prevValue = prevParamValues[paramNum];
@@ -259,7 +244,7 @@ public:
                         }
                     } else {
                         // 3. init rate
-                        if (spec.type == ParamType::Trigger) {
+                        if (type == ParamType::Trigger) {
                             // only check the very first sample
                             if (mSampleCounter == 0 && newParamValues[paramNum] > 0.0) {
                                 *param = 1.0;
@@ -296,12 +281,6 @@ public:
     }
 
 private:
-    struct Param {
-        ParamType type;
-        double minValue;
-        double maxValue;
-    };
-
     NSEEL_VMCTX mEelState = nullptr;
     NSEEL_CODEHANDLE mInitCode = nullptr;
     NSEEL_CODEHANDLE mBlockCode = nullptr;
@@ -322,7 +301,7 @@ private:
     std::unique_ptr<double*[]> mInputs;
     std::unique_ptr<double*[]> mOutputs;
     std::unique_ptr<double*[]> mParameters;
-    std::unique_ptr<Param[]> mParamSpecs;
+    std::unique_ptr<ParamType[]> mParameterTypes;
     std::unique_ptr<double[]> mPrevParamValues;
 
     World* mWorld;

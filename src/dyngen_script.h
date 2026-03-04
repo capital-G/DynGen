@@ -50,8 +50,6 @@ struct ParamSpec {
     std::string name;
     ParamType type = ParamType::Linear;
     double initValue = 0.0;
-    double minValue = std::numeric_limits<double>::lowest();
-    double maxValue = std::numeric_limits<double>::max();
 };
 
 /*! @class DynGenScript

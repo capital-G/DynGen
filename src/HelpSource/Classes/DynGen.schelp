@@ -364,11 +364,11 @@ SUBSECTION:: Advanced parameters
 If the default behavior of parameters does not suit your needs, you can specify the exact behavior by declaring the parameters with the CODE::@param:: option.
 The syntax is as follows:
 CODE::
-@param <name>: [init=]<init>, [type=]<type>, [min=]<min>, [max=]<max>
+@param <name>: [init=]<init>, [type=]<type>
 ::
 
 Parameter properties are separated by commas.
-They are all optional and can be provided as positional arguments or keyword arguments (in any order).
+They are all optional and can be provided as positional arguments, keyword arguments (in any order) or as a mix of both.
 Keyword arguments can follow positional arguments, but not the opposite.
 Positional parameters can be skipped with the CODE:: _ :: placeholder.
 Spaces before/after commas and equal signs (=) are optional.
@@ -376,17 +376,17 @@ Spaces before/after commas and equal signs (=) are optional.
 Examples:
 CODE::
 // all properties
-@param amp: 1.0, lin, 0.0, 1.0
+@param amp: 1.0, lin
 // placeholder
-@param mix: 0.75, _, 0.0, 1.0
+@param buf: _, step
 // only init value
 @param freq: 440
-// init value and type
-@param trig: 1, trig
+// keyword arguments
+@param trigger: init=1, type=trig
 // only type via keyword arg
-@param buf: type=step
+@param channel: type=step
 // mix of positional and keyword args.
-@param feedback: 0.5, min = 0.0, max = 0.9999
+@param feedback: 0.5, type=lin
 ::
 
 SUBSUBSECTION:: Parameter properties
@@ -410,17 +410,15 @@ If the parameter is not modulated and CODE::<init>:: is positive, it will trigge
 This is consistent with the behavior of UGen trigger inputs such as LINK::Classes/PlayBuf::.
 ::
 ::
-## CODE::<min>:: || the lower limit. Parameter modulation is automatically clipped to this value. By default, there is no limit.
-## CODE::<max>:: || the upper limit. Parameter modulation is automatically clipped to this value. By default, there is no limit.
 ::
 
-Here is an example for parameter init, min. and max. values:
+Here is an example for parameter init values:
 
 CODE::
 (
 DynGenDef(\fbSin, "
-@param freq: 440, _, 100, 4000
-@param feedback: 0.25, _, 0, 2
+@param freq: 440
+@param feedback: 0.25
 
 @init
 advance = 2*$pi / srate;
@@ -438,8 +436,7 @@ x = { DynGen.ar(1, \fbSin) ! 2 * 0.1 }.play;
 
 x.free;
 
-// play with parameter modulation. Notice how the the 'freq'
-// parameter is clipped to the specified range!
+// play with parameter modulation.
 (
 Ndef(\fbSin2, {
 	DynGen.ar(1, \fbSin,
@@ -460,7 +457,7 @@ CODE::
 (
 DynGenDef(\bufRead, "
 // 'amp' should be interpolated
-@param amp: 1.0, lin, 0.0, 1.0
+@param amp: 1.0
 // 'buf' should *not* be interpolated
 @param buf: type=step
 

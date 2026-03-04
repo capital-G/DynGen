@@ -90,35 +90,15 @@ void parseType(ParamSpec& spec, std::string_view value) {
     }
 }
 
-void parseMinValue(ParamSpec& spec, std::string_view value) {
-    if (auto number = parseDouble(value)) {
-        spec.minValue = *number;
-    } else {
-        std::stringstream stream;
-        stream << "parameter '" << spec.name << "': bad min. value '" << value << "'";
-        throw std::runtime_error(stream.str());
-    }
-}
-
-void parseMaxValue(ParamSpec& spec, std::string_view value) {
-    if (auto number = parseDouble(value)) {
-        spec.maxValue = *number;
-    } else {
-        std::stringstream stream;
-        stream << "parameter '" << spec.name << "': bad max. value '" << value << "'";
-        throw std::runtime_error(stream.str());
-    }
-}
-
 /*! @brief try to parse a line as a parameter declaration.
  *  'line' must contain non-whitespace characters and must not be a comment.
  *  Throws an exception on failure (e.g. syntax error)
  *
  *  Syntax:
- *  <name>: [init=]<init>, [type=]<type>, [min=]<min>, [max=]max, [warp=]<warp>, [step=]<step>, [unit=]<unit>
+ *  <name>: [init=]<init>, [type=]<type>
  *
- *  @note Only <init>, <type>, <min> and <max> are used by the DynGen UGen.
- *  <warp>, <step> and <unit> are only meaningful to Clients, e.g. for representing parameters in GUIs.
+ *  More properties might be added in the future, e.g. <min>, <max>, <warp>, <step>, <unit>, etc.
+ *  For example, these could be used by Clients for GUI representations (e.g. ControlSpec in SC)
  */
 ParamSpec parseParameterSpec(std::string_view line) {
     ParamSpec spec;
@@ -172,12 +152,6 @@ ParamSpec parseParameterSpec(std::string_view line) {
                     parseInitValue(spec, value);
                 } else if (key == "type") {
                     parseType(spec, value);
-                } else if (key == "min") {
-                    parseMinValue(spec, value);
-                } else if (key == "max") {
-                    parseMaxValue(spec, value);
-                } else if (key == "warp" || key == "step" || key == "unit") {
-                    // silently ignore
                 } else {
                     std::stringstream stream;
                     stream << "parameter '" << spec.name << "': unknown key '" << key << "'";
@@ -195,14 +169,6 @@ ParamSpec parseParameterSpec(std::string_view line) {
                     } else if (argCount == 1) {
                         // type
                         parseType(spec, arg);
-                    } else if (argCount == 2) {
-                        // min. value
-                        parseMinValue(spec, arg);
-                    } else if (argCount == 3) {
-                        // max. value
-                        parseMaxValue(spec, arg);
-                    } else if (argCount < 7) {
-                        // silently ignore "warp", "step" and "unit" arguments.
                     } else {
                         Print("WARNING: parameter '%s': ignore extra argument '%s'\n", std::string(name).c_str(),
                               std::string(arg).c_str());
