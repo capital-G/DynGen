@@ -70,6 +70,46 @@ std::optional<double> parseDouble(std::string_view string) {
 #endif
 }
 
+void parseInitValue(ParamSpec& spec, std::string_view value) {
+    if (auto number = parseDouble(value)) {
+        spec.initValue = *number;
+    } else {
+        std::stringstream stream;
+        stream << "parameter '" << spec.name << "': bad init value '" << value << "'";
+        throw std::runtime_error(stream.str());
+    }
+}
+
+void parseType(ParamSpec& spec, std::string_view value) {
+    if (auto type = getParamTypeFromString(value)) {
+        spec.type = *type;
+    } else {
+        std::stringstream stream;
+        stream << "parameter '" << spec.name << "': bad type '" << value << "'";
+        throw std::runtime_error(stream.str());
+    }
+}
+
+void parseMinValue(ParamSpec& spec, std::string_view value) {
+    if (auto number = parseDouble(value)) {
+        spec.minValue = *number;
+    } else {
+        std::stringstream stream;
+        stream << "parameter '" << spec.name << "': bad min. value '" << value << "'";
+        throw std::runtime_error(stream.str());
+    }
+}
+
+void parseMaxValue(ParamSpec& spec, std::string_view value) {
+    if (auto number = parseDouble(value)) {
+        spec.maxValue = *number;
+    } else {
+        std::stringstream stream;
+        stream << "parameter '" << spec.name << "': bad max. value '" << value << "'";
+        throw std::runtime_error(stream.str());
+    }
+}
+
 /*! @brief try to parse a line as a parameter declaration.
  *  'line' must contain non-whitespace characters and must not be a comment.
  *  Throws an exception on failure (e.g. syntax error)
@@ -118,46 +158,6 @@ ParamSpec parseParameterSpec(std::string_view line) {
     int argCount = 0;
     bool gotKeywordArg = false;
 
-    auto parseInitValue = [&](std::string_view value) {
-        if (auto number = parseDouble(value)) {
-            spec.initValue = *number;
-        } else {
-            std::stringstream stream;
-            stream << "parameter '" << spec.name << "': bad init value '" << value << "'";
-            throw std::runtime_error(stream.str());
-        }
-    };
-
-    auto parseType = [&](std::string_view value) {
-        if (auto type = getParamTypeFromString(value)) {
-            spec.type = *type;
-        } else {
-            std::stringstream stream;
-            stream << "parameter '" << spec.name << "': bad type '" << value << "'";
-            throw std::runtime_error(stream.str());
-        }
-    };
-
-    auto parseMinValue = [&](std::string_view value) {
-        if (auto number = parseDouble(value)) {
-            spec.minValue = *number;
-        } else {
-            std::stringstream stream;
-            stream << "parameter '" << spec.name << "': bad min. value '" << value << "'";
-            throw std::runtime_error(stream.str());
-        }
-    };
-
-    auto parseMaxValue = [&](std::string_view value) {
-        if (auto number = parseDouble(value)) {
-            spec.maxValue = *number;
-        } else {
-            std::stringstream stream;
-            stream << "parameter '" << spec.name << "': bad max. value '" << value << "'";
-            throw std::runtime_error(stream.str());
-        }
-    };
-
     forEachLine(
         line,
         [&](std::string_view arg, size_t) {
@@ -169,13 +169,13 @@ ParamSpec parseParameterSpec(std::string_view line) {
                 auto key = trim(arg.substr(0, eqPos));
                 auto value = trim(arg.substr(eqPos + 1));
                 if (key == "init") {
-                    parseInitValue(value);
+                    parseInitValue(spec, value);
                 } else if (key == "type") {
-                    parseType(value);
+                    parseType(spec, value);
                 } else if (key == "min") {
-                    parseMinValue(value);
+                    parseMinValue(spec, value);
                 } else if (key == "max") {
-                    parseMaxValue(value);
+                    parseMaxValue(spec, value);
                 } else if (key == "warp" || key == "step" || key == "unit") {
                     // silently ignore
                 } else {
@@ -191,16 +191,16 @@ ParamSpec parseParameterSpec(std::string_view line) {
                 if (arg != "_") {
                     if (argCount == 0) {
                         // init value
-                        parseInitValue(arg);
+                        parseInitValue(spec, arg);
                     } else if (argCount == 1) {
                         // type
-                        parseType(arg);
+                        parseType(spec, arg);
                     } else if (argCount == 2) {
                         // min. value
-                        parseMinValue(arg);
+                        parseMinValue(spec, arg);
                     } else if (argCount == 3) {
                         // max. value
-                        parseMaxValue(arg);
+                        parseMaxValue(spec, arg);
                     } else if (argCount < 7) {
                         // silently ignore "warp", "step" and "unit" arguments.
                     } else {
