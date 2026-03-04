@@ -14,6 +14,10 @@
 #include <algorithm>
 #include <memory>
 
+#ifndef CLIP_PARAMS
+#    define CLIP_PARAMS 1
+#endif
+
 /*! @class EEL2Adapter
  *  @brief wraps a EEL2 VM and injects special functions and variables
  *  for the usage within SuperCollider.
@@ -74,7 +78,11 @@ public:
                 double value = static_cast<double>(wire->mBuffer[0]);
                 // Clamp value to the specified range!
                 auto& spec = mParamSpecs[i];
+#if CLIP_PARAMS
                 newParamValues[i] = std::clamp(value, spec.minValue, spec.maxValue);
+#else
+                newParamValues[i] = value;
+#endif
             }
         }
 
@@ -214,8 +222,12 @@ public:
                             // last sample in the block, but this way we avoid yet another branch.
                             newParamValues[paramNum] = value;
                         } else {
+#if CLIP_PARAMS
                             // "lin" or "step" parameter -> clamp to specified range
                             *param = std::clamp(value, spec.minValue, spec.maxValue);
+#else
+                            *param = value;
+#endif
                         }
                     } else if (wire->mCalcRate == calc_BufRate) {
                         // 2. control rate
