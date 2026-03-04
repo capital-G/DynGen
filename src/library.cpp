@@ -1,156 +1,9 @@
-// NOTE: include eel2_adapter.h before dyngen.h to prevent collision
-// with IN and OUT macros on Windows!
-#include "eel2_adapter.h"
-
 #include "library.h"
 #include "dyngen.h"
+#include "dyngen_script.h"
 
 #include <fstream>
 #include <memory>
-
-//-------------------- DynGenScript -------------------//
-
-namespace {
-
-/*! @brief iterate over all lines in the given std::string_view.
- *  'func' receives the line as a std::string_view, followed by the position
- *  of the line in the string. The newline character is included in the result!
- */
-template <typename Func> void forEachLine(std::string_view string, Func&& func) {
-    size_t pos = 0;
-    while (pos < string.size()) {
-        size_t next = string.find('\n', pos);
-        if (next != std::string_view::npos) {
-            next++;
-            func(string.substr(pos, next - pos), pos);
-            pos = next;
-        } else {
-            // till the end of the string
-            func(string.substr(pos), pos);
-            break;
-        }
-    }
-}
-
-/*! @brief try to find a code section name in the given line.
- *  Make sure that everything before and after the name is whitespace.
- *  'start' is the position of the @ character in the line.
- */
-CodeSection findCodeSection(std::string_view line) {
-    auto matchName = [&](std::string_view name, size_t start) {
-        // name must be followed by at least one whitespace character
-        return line.compare(start, name.size(), name) == 0 && std::isspace(line[start + name.size()]);
-    };
-
-    for (size_t pos = 0; pos < line.size(); ++pos) {
-        auto c = line[pos];
-        if (c == '@') {
-            if (matchName("@init", pos)) {
-                return CodeSection::Init;
-            } else if (matchName("@block", pos)) {
-                return CodeSection::Block;
-            } else if (matchName("@sample", pos)) {
-                return CodeSection::Sample;
-            }
-        } else if (!std::isspace(c)) {
-            break;
-        }
-    }
-    return CodeSection::None;
-}
-
-} // namespace
-
-bool DynGenScript::parse(std::string_view script) {
-    CodeSection currentSection = CodeSection::None;
-    size_t currentSectionStart = 0;
-
-    std::string_view initCode;
-    std::string_view blockCode;
-    std::string_view sampleCode;
-
-    auto closeSection = [&](std::string_view code) {
-        if (currentSection == CodeSection::Init) {
-            if (initCode.empty()) {
-                initCode = code;
-            } else {
-                throw std::runtime_error("duplicate @init section");
-            }
-        } else if (currentSection == CodeSection::Block) {
-            if (blockCode.empty()) {
-                blockCode = code;
-            } else {
-                throw std::runtime_error("duplicate @block section");
-            }
-        } else if (currentSection == CodeSection::Sample) {
-            if (sampleCode.empty()) {
-                sampleCode = code;
-            } else {
-                throw std::runtime_error("duplicate @sample section");
-            }
-        }
-    };
-
-    try {
-        forEachLine(script, [&](std::string_view line, size_t linePos) {
-            auto newSection = findCodeSection(line);
-            if (newSection != CodeSection::None) {
-                // close current section
-                if (currentSection != CodeSection::None) {
-                    size_t currentSize = linePos - currentSectionStart;
-                    auto code = script.substr(currentSectionStart, currentSize);
-                    closeSection(code);
-                }
-                // start new section
-                currentSection = newSection;
-                currentSectionStart = linePos + line.size(); // skip header!
-            }
-        });
-
-        // close open section
-        if (currentSection != CodeSection::None) {
-            auto code = script.substr(currentSectionStart);
-            closeSection(code);
-        } else {
-            // no sections -> the whole script is used as the @sample section
-            sampleCode = script;
-        }
-    } catch (const std::exception& e) {
-        Print("ERROR: %s\n", e.what());
-        return false;
-    }
-
-    if (sampleCode.empty()) {
-        Print("ERROR: DynGen script requires a @sample section!\n");
-        return false;
-    }
-
-    mInit = initCode;
-    mBlock = blockCode;
-    mSample = sampleCode;
-
-#if DEBUG_CODE_SECTIONS
-    if (!mInit.empty()) {
-        Print("--- @init ---\n");
-        Print("%s\n", mInit.c_str());
-    }
-    if (!mBlock.empty()) {
-        Print("--- @block ---\n");
-        Print("%s\n", mBlock.c_str());
-    }
-    if (!mSample.empty()) {
-        Print("--- @sample ---\n");
-        Print("%s\n", mSample.c_str());
-    }
-#endif
-
-    return true;
-}
-
-bool DynGenScript::tryCompile() {
-    EEL2Adapter state(0, 0, 0, 0, nullptr, nullptr);
-    return state.init(*this, nullptr, 0);
-}
 
 //-------------------- CodeLibrary --------------------//
 
@@ -376,18 +229,13 @@ void Library::cleanup() {
 bool Library::loadCodeToDynGenLibrary(NewDynGenLibraryEntry* newLibraryEntry, std::string_view code) {
     auto script = std::make_unique<DynGenScript>();
 
-    if (!script->parse(code)) {
+    if (!script->parse(code, newLibraryEntry->parameterNamesRT, newLibraryEntry->numParameters)) {
         return false;
     }
 
     // already try to compile before creating/updating any DynGen instances.
     if (!script->tryCompile()) {
         return false;
-    }
-
-    // create parameter list
-    for (int i = 0; i < newLibraryEntry->numParameters; i++) {
-        script->mParameters.push_back(newLibraryEntry->parameterNamesRT[i]);
     }
 
     newLibraryEntry->script = script.release();

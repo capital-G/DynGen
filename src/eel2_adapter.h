@@ -9,6 +9,7 @@
 #include <SC_World.h>
 
 #include "library.h"
+#include "dyngen_script.h"
 
 #include <algorithm>
 #include <memory>
@@ -64,36 +65,58 @@ public:
     void process(float** inBuf, float** outBuf, Wire** parameterPairs, int numSamples) {
         double* newParamValues = nullptr;
         if (mNumParameters > 0) {
-            // copy new parameter values to the stack. Let's do this for *all* parameters, not only
+            // Copy new parameter values to the stack. Let's do this for *all* parameters, not only
             // for control-rate parameters, because we might need them in the @init and @block sections.
             newParamValues = static_cast<double*>(alloca(mNumParameters * sizeof(double)));
             for (int i = 0; i < mNumParameters; ++i) {
                 // Parameter automations come as index-value pairs, so we only take every second odd element.
                 Wire* wire = parameterPairs[i * 2 + 1];
-                newParamValues[i] = static_cast<double>(wire->mBuffer[0]);
+                double value = static_cast<double>(wire->mBuffer[0]);
+                newParamValues[i] = value;
             }
         }
+
+        // "init triggers" are "trig" parameters with a positive default value that are not modulated.
+        // They should trigger exactly once on the very first sample. The variable pointers come right
+        // after the modulated parameter variables.
+        double** initTriggers = &mParameters[mNumParameters];
 
         // update "blockNum" variable
         *mBlockNum = static_cast<double>(mBlockCounter);
 
         if (mBlockCounter == 0) {
-            // First block: initialize script parameters and the parameter cache!
-            // This is necessary so that control-rate parameters really start with their original value.
-            // The parameter cache itself is used in the @sample section to compare the new (control-rate)
-            // parameter value with the previous one. If the value has changed, we need to interpolate;
-            // otherwise we keep the script parameter at its previous value.
+            // First block -> initialize script parameter variables
+            //
+            // Strictly speaking, "lin", "step" and "trig" parameter variables only have to be set
+            // if there is an @init section. However, since we have to set all "const" parameters
+            // and also initialize the parameter cache for "lin" parameters, we just go ahead and
+            // set all parameter variables.
+            //
+            // (If a parameter is not set/modulated here, it simply keeps the initial value as
+            // defined in the parameter specs.)
             for (int i = 0; i < mNumParameters; ++i) {
                 if (double* param = mParameters[i]) {
-                    *param = newParamValues[i];
+                    if (mParameterTypes[i] == ParamType::Trigger) {
+                        // Handle "trig" parameter. NOTE: the cache value must remain 0.0, otherwise
+                        // the parameter couldn't trigger on the first sample in the @sample section!
+                        *param = newParamValues[i] > 0.0 ? 1.0 : 0.0;
+                    } else {
+                        *param = newParamValues[i];
+                        // We must initialize the parameter cache for "lin" parameters so that they
+                        // immediately start with the initial value.
+                        mPrevParamValues[i] = newParamValues[i];
+                    }
                 }
             }
-            std::copy_n(newParamValues, mNumParameters, mPrevParamValues.get());
 
             if (mInitCode) {
                 // initialize in0, in1, etc. variables to first input sample
                 for (int inChannel = 0; inChannel < mNumInputChannels; inChannel++) {
                     *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][0]);
+                }
+                // "init triggers" start with a positive value
+                for (int i = 0; i < mNumInitTriggers; ++i) {
+                    *initTriggers[i] = 1.0;
                 }
 
                 NSEEL_code_execute(mInitCode);
@@ -102,7 +125,7 @@ public:
 
         double* prevParamValues = nullptr;
         if (mNumParameters > 0) {
-            // copy previous parameter values on the stack so they are not reloaded from memory.
+            // Copy previous parameter values on the stack so they are not reloaded from memory.
             // IMPORTANT: do this *after* we have initialized the cache on the first block!
             prevParamValues = static_cast<double*>(alloca(mNumParameters * sizeof(double)));
             std::copy_n(mPrevParamValues.get(), mNumParameters, prevParamValues);
@@ -114,19 +137,36 @@ public:
                 *mInputs[inChannel] = static_cast<double>(inBuf[inChannel][0]);
             }
 
-            // update parameters, but do *not* update the cache!
-            // NOTE: the behavior of control-rate parameters slightly differs
-            // between the @block section and the @sample section:
-            // The @block section always shows the new value whereas the @sample
-            // section starts with the *previous* value because of the interpolation.
-            // This shouldn't be a problem because you would use the parameter in
-            // either the @block section *or* the @sample section, but not in both.
-            // Sometimes it is even necessary to capture the parameter in the @block
-            // section to avoid any interpolation. A good example are buffer numbers!
+            // Update parameters, but do *not* update the cache!
+            //
+            // NOTE: the behavior of control-rate parameters slightly differs between the @block
+            // section and the @sample section:
+            // The @block section always shows the new value whereas the @sample section starts with
+            // the *previous* value because of the interpolation. This shouldn't be a problem because
+            // you would use the parameter in either the @block section *or* the @sample section,
+            // but not in both.
             for (int i = 0; i < mNumParameters; ++i) {
                 if (double* param = mParameters[i]) {
-                    *param = newParamValues[i];
+                    auto type = mParameterTypes[i];
+                    if (type == ParamType::Trigger) {
+                        // This will miss triggers for audio-rate trigger inputs, but it's better
+                        // than just setting the value as is. "trig" parameters probably shouldn't
+                        // be used in the @block section unless the user is 100% certain that the
+                        // parameter is not modulated at audio-rate.
+                        if (newParamValues[i] > 0.0 && prevParamValues[i] <= 0.0) {
+                            *param = 1.0;
+                        } else {
+                            *param = 0.0;
+                        }
+                    } else if (type != ParamType::Const) {
+                        // Do not update "const" parameters!
+                        *param = newParamValues[i];
+                    }
                 }
+            }
+            // "init triggers" are only positive on the very first block
+            for (int i = 0; i < mNumInitTriggers; ++i) {
+                *initTriggers[i] = mBlockCounter == 0 ? 1.0 : 0.0;
             }
 
             NSEEL_code_execute(mBlockCode);
@@ -146,23 +186,79 @@ public:
             // update automated parameters.
             for (int paramNum = 0; paramNum < mNumParameters; paramNum++) {
                 if (double* param = mParameters[paramNum]) {
+                    auto type = mParameterTypes[paramNum];
+                    if (type == ParamType::Const) {
+                        // do not update "const" parameters!
+                        continue;
+                    }
+
                     Wire* wire = parameterPairs[paramNum * 2 + 1];
                     if (wire->mCalcRate == calc_FullRate) {
-                        // audio rate
-                        *param = static_cast<double>(wire->mBuffer[i]);
-                    } else if (wire->mCalcRate == calc_BufRate) {
-                        // control rate
-                        double newValue = newParamValues[paramNum];
-                        double curValue = prevParamValues[paramNum];
-                        if (newValue != curValue) {
-                            // the value has changed -> ramp to new value
-                            double slope = (newValue - curValue) * slopeFactor;
-                            *param = curValue + slope * i;
+                        // 1. audio rate
+                        double value = static_cast<double>(wire->mBuffer[i]);
+                        if (type == ParamType::Trigger) {
+                            // "trig" parameter -> convert SC-style trigger to (stateless)
+                            // single-sample trigger signal
+                            if (value > 0.0 && prevParamValues[paramNum] <= 0.0) {
+                                *param = 1.0;
+                            } else {
+                                *param = 0.0;
+                            }
+                            // Update the parameter cache!
+                            prevParamValues[paramNum] = value;
+                            // 'newParamValues' will be copied *unconditionally* to 'mPrevParamValues'
+                            // at the end of the process() function! This makes the update very cheap.
+                            // Actually, we'd only have to update our 'newParamValues' entry on the
+                            // last sample in the block, but this way we avoid yet another branch.
+                            newParamValues[paramNum] = value;
+                        } else {
+                            *param = value;
                         }
-                        // otherwise just keep the previous value
+                    } else if (wire->mCalcRate == calc_BufRate) {
+                        // 2. control rate
+                        if (type == ParamType::Trigger) {
+                            // "trig" parameter -> convert SC-style trigger to (stateless) single-sample
+                            // trigger signal.
+                            // Only check the first sample in the block because the remaining samples
+                            // are guaranteed to be zero.
+                            if (i == 0 && newParamValues[paramNum] > 0.0 && prevParamValues[paramNum] <= 0.0) {
+                                *param = 1.0;
+                            } else {
+                                *param = 0.0;
+                            }
+                        } else if (type == ParamType::Linear) {
+                            // "lin" parameter -> ramp to new value if it has changed
+                            double newValue = newParamValues[paramNum];
+                            double prevValue = prevParamValues[paramNum];
+                            if (newValue != prevValue) {
+                                double slope = (newValue - prevValue) * slopeFactor;
+                                *param = prevValue + slope * i;
+                            } else {
+                                *param = newValue;
+                            }
+                        } else {
+                            // "step" parameter -> just set it as is.
+                            // (Actually, we only need to do this for the first sample in the block,
+                            // but repeatedly setting the variable might be cheaper than a branch.)
+                            *param = newParamValues[paramNum];
+                        }
+                    } else {
+                        // 3. init rate
+                        if (type == ParamType::Trigger) {
+                            // only check the very first sample
+                            if (mSampleCounter == 0 && newParamValues[paramNum] > 0.0) {
+                                *param = 1.0;
+                            } else {
+                                *param = 0.0;
+                            }
+                        }
+                        // We don't need to do anything for "lin" and "step" parameters.
                     }
-                    // don't need to do anything for init rate
                 }
+            }
+            // "init triggers" are only positive on the very first sample
+            for (int i = 0; i < mNumInitTriggers; ++i) {
+                *initTriggers[i] = mSampleCounter == 0 ? 1.0 : 0.0;
             }
 
             NSEEL_code_execute(mSampleCode);
@@ -177,16 +273,9 @@ public:
             mSampleCounter++;
         }
 
-        // update all parameters (including the cache!) to the *exact* new value.
-        // Let's do this for *all* parameters because it simplifies the code and avoids
-        // some branching. Note that control-rate parameters are only updated in the
-        // @sample section if the new value differs from the last value.
-        for (int i = 0; i < mNumParameters; i++) {
-            if (double* param = mParameters[i]) {
-                *param = newParamValues[i];
-                mPrevParamValues[i] = newParamValues[i];
-            }
-        }
+        // Update the parameter cache. Although the parameter cache is only used by certain parameter
+        // types and rates, let's do it for *all* parameters because it's a simply memcpy().
+        std::copy_n(newParamValues, mNumParameters, mPrevParamValues.get());
 
         mBlockCounter++;
     }
@@ -199,7 +288,8 @@ private:
 
     int mNumInputChannels = 0;
     int mNumOutputChannels = 0;
-    int mNumParameters = 0; // number of automated parameters
+    int mNumParameters = 0; // number of modulated parameters
+    int mNumInitTriggers = 0; // (positive) "trig" parameters that are not modulated
 
     int mBlockSize = 0;
     double mSampleRate = 0;
@@ -211,6 +301,7 @@ private:
     std::unique_ptr<double*[]> mInputs;
     std::unique_ptr<double*[]> mOutputs;
     std::unique_ptr<double*[]> mParameters;
+    std::unique_ptr<ParamType[]> mParameterTypes;
     std::unique_ptr<double[]> mPrevParamValues;
 
     World* mWorld;

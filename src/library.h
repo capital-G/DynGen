@@ -1,15 +1,11 @@
 #pragma once
 
-#include <string>
-#include <vector>
-
-#ifndef DEBUG_CODE_SECTIONS
-#    define DEBUG_CODE_SECTIONS 0
-#endif
+#include <string_view>
 
 // forward declarations
 struct CodeLibrary;
 class DynGen;
+class DynGenScript;
 struct DynGenStub;
 struct DynGenCallbackData;
 struct EEL2Adapter;
@@ -18,31 +14,6 @@ struct Unit;
 struct World;
 
 extern InterfaceTable* ft;
-
-enum class CodeSection { None, Init, Block, Sample };
-
-/*! @class DynGenScript
- *  @brief contains the code sections of an EEL2 script
- *  plus a list of exposed parameter names.
- */
-class DynGenScript {
-public:
-    /*! @brief Splits the DynGen scripts into its sections.
-     *  non rt safe! */
-    bool parse(std::string_view script);
-    /*! @brief Try to compile the code sections; print error on failure.
-     *  non rt safe! */
-    bool tryCompile();
-
-    std::string mInit;
-    std::string mBlock;
-    std::string mSample;
-
-    /*! @brief parameters which need to be exposed - referenced by the integer
-     *  position within the array
-     */
-    std::vector<std::string> mParameters;
-};
 
 /*! @brief Wraps a DynGen with a ref counter.
  *  RT owned
