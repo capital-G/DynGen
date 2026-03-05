@@ -20,6 +20,32 @@ DynGenTranspiler {
 		^environment.compile;
 	}
 
+	paramCompile {
+		^DynGenTranspiler.paramCompile([this]);
+	}
+
+	*paramCompile {|transpilers|
+		// combine params of all transpilers
+		var params = ();
+		var output = "";
+		transpilers.asArray.do({|transpiler|
+			transpiler.environment[\p].params.pairsDo({|key, value|
+				if(params[key.asSymbol].isNil, {
+					params[key] = value;
+				});
+			})
+		});
+		params.pairsDo({|key, value|
+			output = "%@param %: init = %, type = %\n".format(
+				output,
+				key,
+				value.init ? 0.0,
+				value.type ? "lin",
+			);
+		});
+		^output;
+	}
+
 	*nextTempVariable {|context|
 		var temp = PrDynGenVar_("temp%".format(
 			tempCounter,
@@ -661,15 +687,19 @@ PrDynGenParamAccessor_ {
 		^createParam(key);
 	}
 
-	createParam {|name, default=0.0, spec=\unipolar|
-		var param = PrDynGenParam_(
-			name,
-			default,
-			spec,
-			context,
-		);
-		params[name.asSymbol] = param;
-		^param;
+	createParam {|name, init=0.0, type=\lin, spec=\unipolar|
+		var res = params[name.asSymbol];
+		if(res.isNil, {
+			res = PrDynGenParam_(
+				name,
+				init,
+				type,
+				spec,
+				context,
+			);
+			params[name.asSymbol] = res;
+		});
+		^res;
 	}
 
 	doesNotUnderstand {|selector ...args, kwargs|
@@ -679,16 +709,18 @@ PrDynGenParamAccessor_ {
 
 PrDynGenParam_ : DynGenExpr {
 	var <name;
-	var <default;
+	var <init;
+	var <type;
 	var <spec;
 
-	*new {|name, default, spec, context|
-		^super.new(context).initParam(name, default, spec);
+	*new {|name, init, type, spec, context|
+		^super.new(context).initParam(name, init, type, spec);
 	}
 
-	initParam {|name_, default_, spec_|
+	initParam {|name_, init_, type_, spec_|
 		name = name_;
-		default = default_;
+		init = init_;
+		type = type_;
 		spec = spec_;
 	}
 

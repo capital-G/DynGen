@@ -420,7 +420,7 @@ Any non assigned variable will default to CODE::nil:: - but this is not good in 
 
 Becuase we want to allow operations such as CODE::+:: on a DynGen variable and want to capture any message instead of applying it directly, we do not default to CODE::nil:: within a DynGen environment, but default to CODE::PrDynGenVar_::, which is based on LINK::Classes/DynGenExpr::.
 
-LINK::DynGenExpr:: implements the message CODE::+:: and when it is called, it will return a CODE::PrDynGenBinOp_::, which is also based on LINK::Classes/DynGenExpr::.
+LINK::Classes/DynGenExpr:: implements the message CODE::+:: and when it is called, it will return a CODE::PrDynGenBinOp_::, which is also based on LINK::Classes/DynGenExpr::.
 
 CODE::
 ~binOp = PrDynGenVar_("y") + 42;  // a PrDynGenBinOp_
@@ -441,10 +441,24 @@ https://craftinginterpreters.com/representing-code.html offers further informati
 
 CLASSMETHODS::
 
+PRIVATE:: nextTempVariable
+PRIVATE:: tempCounter
+
 METHOD:: new
 argument:: func
 A function which gets evaluated within a DynGen LINK::Classes/Environment::.
 This environment will be passed into the function as its first parameter.
+
+METHOD:: paramCompile
+Returns the param section of a collection of transpilers.
+CODE::
+DynGenTranspiler({~out0 = ~p.foo * 0.5}).paramCompile;
+// returns the string
+// @param foo: init = 0.0, type = lin
+::
+argument:: transpilers
+Since a DynGen script consists of multiple sections (which are represented by multiple transpilers), but the option CODE::@param:: acts global, it is necessary to combine them from different transpilers.
+The first observation of a param will be considered.
 
 INSTANCEMETHODS::
 
@@ -453,3 +467,7 @@ PRIVATE:: environment
 
 METHOD:: compile
 Returns the transpiled DynGen script as a LINK::Classes/String::.
+
+METHOD:: paramCompile
+
+Passes itself to LINK::#*paramCompile::.

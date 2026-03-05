@@ -71,6 +71,8 @@
 		\testTransNoAssignment,
 		\testTransNoAssignmentFunc,
 		\testTransTempVariable,
+		\testTransParamCompiler,
+		\testTransParamOutput,
 		\testTransOutput,
 		\testTransDynGenDefCompile,
 	],
@@ -1407,13 +1409,21 @@ out1 = __gain2;
 
 	testTransParam: {
 		var code = DynGenTranspiler({
-			~x = ~x.wrap(0.0, ~p.max);
-			~y = ~y.wrap(0.0, ~p.max);
+			~x = ~x.wrap(0.0, ~p.max(1.0, \step, \freq));
+			~y = ~y.wrap(0.0, ~p.min(init: -1.0, type: \const, spec: \freq));
+			~z = ~x * ~p.max;
 		});
 		var params = code.environment[\p].params;
-		var success = params.keys.size == 1;
+		var success = params.keys.size == 2;
 		success = success.and(
-			params[\max].notNil;
+			params[\max].notNil,
+			params[\max].type == \step,
+			params[\max].init == 1.0,
+			params[\max].spec == \freq,
+
+			params[\min].notNil,
+			params[\min].type == \const,
+			params[\min].spec == \freq,
 		);
 		success;
 	},
@@ -1616,6 +1626,45 @@ out1 = __gain2;
 			exprs[0].rhs.funcName == \delta,
 			exprs[0].rhs.arguments[0].name == \temp0,
 			exprs[0].rhs.arguments[1].name == \in0,
+		];
+		checks.every({|x| x});
+	},
+
+	testTransParamCompiler: {
+		var checks = [
+			DynGenTranspiler.paramCompile([]) == "",
+
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo})
+			]) == "@param foo: init = 0.0, type = lin\n",
+
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)})
+			]) == "@param foo: init = 0.5, type = step\n",
+
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)})
+			]) == "@param foo: init = 0.5, type = step\n",
+
+			// do not overwrite, but accumulate - the order of bar/foo
+			// seems to be deterministic?
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)}),
+				DynGenTranspiler({~out0 = ~p.foo; ~out1 = ~p.bar})
+			]) == "@param bar: init = 0.0, type = lin\n@param foo: init = 0.5, type = step\n",
+		];
+		checks.every({|x| x});
+	},
+
+	testTransParamOutput: {
+		var def = DynGenDef(\transParamOutput).compile(
+			init: {~freq = ~p.freq(200.0, \lin, \freq)},
+			block: {},
+			sample: {~out0 = ~p.freq},
+		);
+		var checks = [
+			def.code.beginsWith("@param freq: init = 200.0, type = lin\n"),
+			def.code.contains("out0 = _freq;"),
 		];
 		checks.every({|x| x});
 	},
