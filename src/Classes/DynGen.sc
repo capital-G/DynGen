@@ -37,6 +37,42 @@ DynGenDef {
 		^this.new(name).load(path);
 	}
 
+	compile {|sample, init, block|
+		var output = "";
+		var transpilerInit;
+		var transpilerBlock;
+		var transpilerSample;
+
+		if(init.notNil, {
+			transpilerInit = DynGenTranspiler(init);
+			output = "@init\n%\n".format(
+				transpilerInit.compile,
+			);
+		});
+		if(block.notNil, {
+			transpilerBlock = DynGenTranspiler(block);
+			output = output ++ "\n@block\n%\n".format(
+				transpilerBlock.compile,
+			);
+		});
+		if(sample.notNil, {
+			transpilerSample = DynGenTranspiler(sample);
+			output = output ++ "\n@sample\n%\n".format(
+				transpilerSample.compile,
+			);
+		});
+
+		output = DynGenTranspiler.paramCompile(
+			transpilers: [
+				transpilerInit,
+				transpilerBlock,
+				transpilerSample,
+			].select(_.notNil)
+		) ++ output;
+
+		code = output;
+	}
+
 	load {|path|
 		try {
 			code = File.readAllString(path);

@@ -1,0 +1,514 @@
+TITLE:: DynGenExpr
+summary:: DynGen expression
+categories:: UGens>Dynamic
+related:: Classes/DynGen, Classes/DynGenTranspiler, Classes/SynthDef
+
+DESCRIPTION::
+
+This documents the available functions and expressions within a DynGen environment.
+
+CLASSMETHODS::
+
+METHOD:: new
+argument:: context
+Context is a LINK::Classes/DynGenTranspiler::.
+
+INSTANCEMETHODS::
+
+PRIVATE:: performBinaryOpOnSimpleNumber
+PRIVATE:: context
+
+METHOD:: asDynGen
+Converts the expression into a LINK::Classes/String::.
+
+SUBSECTION:: Simple math functions
+
+METHOD:: +
+Adds two values and returns the sum.
+argument:: other
+
+METHOD:: +=
+Adds two values and stores the sum back into the value.
+argument:: other
+
+METHOD:: -
+Subtracts two values and returns the difference.
+argument:: other
+
+METHOD:: -=
+Subtracts other from this and stores the difference into this
+argument:: other
+
+METHOD:: *
+Multiplies two values and returns the product.
+argument:: other
+
+METHOD:: *=
+Multiplies two values and stores the product back into this.
+argument:: other
+
+METHOD:: /
+Divides two values and returns the quotient.
+argument:: divisor
+
+METHOD:: /=
+Divides two values and stores the quotient back into the value
+argument:: divisor
+
+METHOD:: neg
+Multiplies the value with CODE::-1::.
+
+METHOD:: pow
+Returns the value raised to the exponent power.
+argument:: exponent
+
+METHOD:: exp
+Returns the number CODE::e:: (approx 2.718) raised to the power.
+This function is significantly faster than LINK::#-pow::.
+
+METHOD:: sqr
+Returns the square of the parameter.
+Similar to CODE::x*x::, though only evaluating CODE::x:: once.
+
+METHOD:: sqrt
+Returns the square root of the parameter.
+
+METHOD:: invsqrt
+Returns a fast inverse square root CODE::(1/sqrt(x)):: approximation of the parameter.
+
+METHOD:: %
+Converts the absolute values of numerator and denominator to integers (may be 32-bit or 64-bit integers depending on platform/OS/etc), returns the remainder of numerator divided by denominator.
+argument:: denominator
+
+METHOD:: mod
+Converts the absolute values of numerator and denominator to integers (may be 32-bit or 64-bit integers depending on platform/OS/etc), returns the remainder of numerator divided by denominator.
+argument:: hi
+
+METHOD:: %=
+Converts the absolute values of y and divisor to integers (may be 32-bit or 64-bit integers depending on platform/OS/etc), returns and sets y to the remainder of y divided by divisor.
+argument:: divisor
+
+METHOD:: floor
+Rounds the value to the lowest integer possible
+CODE::
+floor(3.9)==3;
+floor(-3.1)==-4;
+::
+
+METHOD:: abs
+Returns the absolute value of the parameter.
+
+METHOD:: sign
+Returns the sign of the parameter, -1, 0, or 1.
+
+METHOD:: min
+Returns the minimum value of the two parameters.
+argument:: other
+
+METHOD:: max
+Returns the maximum value of both values.
+argument:: other
+
+METHOD:: rand
+Returns a psuedorandom number between 0 and the value.
+
+METHOD:: log
+Returns the natural logarithm (base e) of the parameter.
+
+METHOD:: log10
+Returns the logarithm (base 10) of the parameter.
+
+METHOD:: ceil
+Rounds the value to the highest integer possible
+CODE::
+ceil(3.1)==4;
+ceil(-3.9)==-3);
+::
+
+METHOD:: >>
+Converts both values to 32 bit integers, bitwise right shifts the first value by the second, with sign-extension (negative values of y produce non-positive results).
+Note that shifts by more than 32 or less than 0 produce undefined results.
+argument:: shiftAmount
+
+METHOD:: <<
+Converts both values to 32 bit integers, bitwise left shifts the first value by the second.
+Note that shifts by more than 32 or less than 0 produce undefined results.
+argument:: shiftAmount
+
+SUBSECTION:: Boolean operations
+
+METHOD:: ==
+Compares two values, returns 1 if difference is less than 0.00001, 0 if not.
+argument:: other
+
+METHOD:: ===
+Compares two values, returns 1 if exactly equal, 0 if not.
+argument:: other
+
+METHOD:: !=
+Compares two values, returns 0 if difference is less than 0.00001, 1 if not.
+argument:: other
+
+METHOD:: !==
+Compares two values, returns 0 if exactly equal, 1 if not.
+argument:: other
+
+METHOD:: not
+Negates a boolean.
+
+METHOD:: <
+Compares two values, returns 1 if this value is less than other.
+argument:: other
+
+METHOD:: >
+Compares two values, returns 1 if the value is greater than other.
+argument:: other
+
+METHOD:: >=
+Compares two values, returns 1 if value is greater than or equal to the other.
+argument:: other
+
+METHOD:: <=
+Compares both values, returns 1 if value is less than or equal to the other.
+argument:: other
+
+METHOD:: &
+Converts both values to integers (may be 32-bit or 64-bit integers depending on platform/OS/etc), and returns bitwise AND of values.
+argument:: other
+
+METHOD:: &=
+Converts both values to integer, and stores the bitwise AND into the value.
+argument:: other
+
+METHOD:: &&
+Returns logical AND of values. If the value is zero, other is not evaluated.
+argument:: other
+
+METHOD:: |
+Converts both values to integers (may be 32-bit or 64-bit integers depending on platform/OS/etc), and returns bitwise OR of values.
+argument:: other
+
+METHOD:: |=
+Converts both values to integer, and stores the bitwise OR into the value.
+argument:: other
+
+METHOD:: xor
+Converts both values to integers (may be 32-bit or 64-bit integers depending on platform/OS/etc), bitwise XOR the values
+argument:: other
+
+METHOD:: ||
+Returns logical OR of values.
+If this is nonzero, CODE::other:: is not evaluated.
+argument:: other
+
+SUBSUBSECTION:: Trigonometric functions
+
+METHOD:: sin
+Returns the Sine of the angle specified (specified in radians -- to convert from degrees to radians, multiply by pi/180, or 0.017453)
+
+METHOD:: cos
+Returns the Cosine of the angle specified (specified in radians).
+
+METHOD:: tan
+Returns the Tangent of the angle specified (specified in radians).
+
+METHOD:: asin
+Returns the Arc Sine of the value specified (return value is in radians).
+
+METHOD:: acos
+Returns the Arc Cosine of the value specified (return value is in radians).
+
+METHOD:: atan
+Returns the Arc Tangent of the value specified (return value is in radians).
+
+METHOD:: atan2
+Returns the Arc Tangent of this divided by other (return value is in radians).
+argument:: other
+
+SUBSECTION:: Control structures
+
+METHOD:: ifTrue
+Conditional branching - if the value is non-zero, the trueFunc branch will be evaluated, else the falseFunc branch gets evaluated.
+argument:: trueFunc
+argument:: falseFunc
+
+METHOD:: loop
+Evaluates the value once in order to determine a loop count.
+If the loop count is less than 1, the parameter code is not evaluated.
+argument:: code
+
+METHOD:: whileTrue
+Evaluates the value, and if nonzero, evaluates the following code parameter, and repeats.
+This is similar to a C style while() construct.
+argument:: code
+
+SUBSECTION:: Memory
+
+METHOD:: put
+Accesses a memory location using CODE::PrDynGenMemoryAccess_::
+argument:: offset
+argument:: value
+
+METHOD:: at
+Accesses a memory location using CODE::PrDynGenMemoryAccess_::
+argument:: offset
+
+METHOD:: memCopy
+The memcopy function provides the ability to quickly copy regions of the local memory buffer.
+If the buffers overlap and either buffer crosses a 65,536 item boundary, the results may be undefined.
+argument:: length
+argument:: dest
+
+METHOD:: freemBuf
+The freemBuf function provides a facility for you to notify the memory manager that you are no longer using a portion of the local memory buffer.
+For example, if the user changed a parameter on your effect halving your memory requirements, you should use the lowest indices possible, and call this function with the highest index you are using plus 1, i.e. if you are using 128,000 items, you should call freembuf(128001); If you are no longer using any memory, you should call freembuf(0);
+Note that calling this does not guarantee that the memory is freed or cleared, it just provides a hint that it is OK to free it.
+
+METHOD:: memSet
+The memSet function provides the ability to quickly set a region of the local memory buffer to a particular value.
+argument:: length
+argument:: dest
+
+METHOD:: memMultiplySum
+Sums the products of length items of this buffer and the other buffer.
+If the other buffer is exactly -1, then sums the squares of items in this buffer.
+If other buffer is exactly -2 then sums the absolute values of this buffer.
+If other buffer is exactly -3 then sums the values of this buffer.
+If other buffer is another negative value, the result is undefined.
+argument:: length
+argument:: other
+
+METHOD:: memInsertShuffle
+Shuffles buf to the right by one element, inserting value as buf[0], and returning the previous buf[len-1].
+argument:: length
+argument:: value
+
+METHOD:: memTop
+Returns the maximum memory words available to the script (read/writes to memTop()[-1] will succeed, but memTop()[0] will not).
+
+SUBSUBSECTION:: Stack
+
+METHOD:: stackPush
+Pushes value onto the user stack, returns a reference to the value.
+
+METHOD:: stackPop
+Pops a value from the user stack into value, or into a temporary buffer if value is not specified, and returns a reference to where the stack was popped.
+Note that no checking is done to determine if the stack is empty, and as such stack_pop() will never fail.
+
+METHOD:: stackPeek
+Returns a reference to the item on the top of the stack (if index is 0), or to the Nth item on the stack if index is greater than 0.
+
+METHOD:: stackExchange
+Exchanges a value with the top of the stack, and returns a reference to the parameter (with the new value).
+
+SUBSECTION:: FFT
+
+METHOD:: fft
+Example
+CODE::
+~buffer = 0;
+~dummyA = fft(~buffer, 512);
+~dummyB = fftPermute(~buffer, 512);
+~buffer[32] = 0;
+~dummyC = fftiPermute(~buffer, 512);
+~dummyD = ifft(~buffer, 512);
+// need to scale output by 1/512.0, too.
+::
+
+Performs a FFT (or inverse in the case of ifft()) on the data in the local memory buffer at the offset specified by the first parameter. The size of the FFT is specified by the second parameter, which must be 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, or 32768. The outputs are permuted, so if you plan to use them in-order, call fft_permute(buffer, size) before and fft_ipermute(buffer,size) after your in-order use. Your inputs or outputs will need to be scaled down by 1/size, if used.
+
+Note that the FFT/IFFT require real/imaginary input pairs (so a 256 point FFT actually works with 512 items).
+
+Note that the FFT/IFFT must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.
+
+The CODE::fftReal()::/CODE::ifftReal():: variants operate on a set of size real inputs, and produce CODE::size/2:: complex outputs.
+The first output pair is DC, nyquist.
+Normally this is used with CODE::fft_permute(buffer,size/2)::.
+argument:: size
+
+METHOD:: ifft
+Inverse fft
+argument:: size
+
+METHOD:: fftReal
+The CODE::fftReal()::/CODE::ifftReal():: variants operate on a set of size real inputs, and produce CODE::size/2:: complex outputs.
+argument:: size
+
+METHOD:: ifftReal
+argument:: size
+
+METHOD:: fftPermute
+argument:: size
+
+METHOD:: fftiPermute
+argument:: size
+
+METHOD:: convolveC
+Example:
+Used to convolve two buffers, typically after FFTing them.
+CODE::convolveC:: works with complex numbers.
+The sizes specify number of items (the number of complex number pairs).
+
+Note that the convolution must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.
+argument:: size
+argument:: dest
+
+METHOD:: mdct
+Example:
+CODE::
+mdct(0, 512);
+::
+
+Performs a modified DCT (or inverse in the case of imdct()) on the data in the local memory buffer at the offset specified by the first parameter.
+The second parameter controls the size of the MDCT, and it MUST be one of the following: 64, 128, 256, 512, 1024, 2048, or 4096.
+The MDCT takes the number of inputs provided, and replaces the first half of them with the results.
+The IMDCT takes CODE::size/2:: inputs, and gives size results.
+
+Note that the MDCT must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.
+
+The MDCT/IMDCT provided also provide windowing, so your code is not required to window the overlapped results, but simply add them. See the example effects for more information.
+argument:: size
+
+METHOD:: imdct
+argument:: size
+
+
+SUBSECTION:: Buffer methods
+
+METHOD:: bufRead
+Reads the frame of a LINK::Classes/Buffer:: on the server.
+If the buffer does not exist or bufFrame/bufChan is out-of-bounds it will return 0.0.
+argument:: frame
+argument:: chan
+The bufChan parameter is optional and defaults to the 0-th channel.
+
+METHOD:: bufReadL
+Same as LINK::#-bufRead::, but uses linear interpolation.
+argument:: frame
+argument:: chan
+
+METHOD:: bufReadC
+Same as LINK::#-bufRead::, but uses cubic interpolation.
+argument:: frame
+argument:: chan
+
+METHOD:: bufWrite
+Writes a value at the given position into a LINK::Classes/Buffer:: on the server and returns the written sample.
+If the buffer does not exist or bufFrame/bufChan is out-of-bounds it will not write to the buffer.
+argument:: bufNum
+argument:: frame
+argument:: chan
+The chan parameter is optional and defaults to the 0-th channel.
+
+METHOD:: bufChannels
+Returns the number of buffer channels (or CODE::0.0:: if this is out-of-range)
+
+METHOD:: bufRate
+Returns the buffer sample rate (or CODE::0.0:: if this is out-of-range)
+
+METHOD:: bufFrames
+Returns the number of buffer frames (or 0.0 if bufNum is out-of-range) of the bufnum.
+
+SUBSECTION:: DynGen helper methods
+
+SUBSUBSECTION:: Debugging
+
+METHOD:: poll
+Print a number to the console at the given rate (in Hertz).
+The function returns its first argument so you can use it inside expressions, similar to LINK::Classes/UGen#-poll::
+argument:: rate
+The default value for the rate argument is 10 Hz (= 10 times a second)
+
+METHOD:: print
+Print this value to the console.
+The function returns its first argument so you can use it inside expressions, similar to LINK::Classes/UGen#-poll::.
+
+METHOD:: printMem
+Print the contents of a memory block, using the value as the start index.
+argument:: size
+
+SUBSUBSECTION:: I/O
+
+METHOD:: in
+Reads the n-th input channel; out-of-range channels return 0.0
+
+METHOD:: out
+Writes to the n-th output channel.
+Out-of-range-channels are ignored
+argument:: chan
+Channel to assign to.
+
+SUBSUBSECTION:: Syntactic sugar
+
+METHOD:: delta
+Returns the delta of signal by using an intermediate DynGen variable state to store the previous value of signal.
+Equivalent to
+CODE::
+x = signal - state;
+state = signal;
+::
+where x is the return value of the function.
+argument:: state
+Variable where to store the necessary state of the function.
+If not provided, this will be set to a temp variable by the compiler.
+
+METHOD:: history
+Returns the previous value of signal by using an intermediate DynGen variable state.
+Equivalent to
+CODE::
+x = state;
+state = signal;
+::
+where x is the return value of the function.
+In order to set an initial value, set the state variable to the desired value in the CODE::@init:: section.
+argument:: state
+Variable where to store the necessary state of the function.
+If not provided, this will be set to a temp variable by the compiler.
+
+METHOD:: latch
+See LINK::Classes/Latch::.
+Holds the value of signal when CODE::trigger!=0.0::, which is different from LINK::Classes/Latch::, which triggers when the signal transitions from a non-positive to a positive value!
+The state variable is necessary to store the state of the latch.
+Equivalent to
+CODE::
+state = trigger ? signal : state;
+x = state;
+::
+where x is the return value of the function.
+In order to set an initial value, set the state variable to the desired value in the @init section.
+argument:: trigger
+argument:: state
+Variable where to store the necessary state of the function.
+If not provided, this will be set to a temp variable by the compiler.
+
+SUBSUBSECTION:: Signal limitation
+
+METHOD:: clip
+See LINK::Classes/Float#-clip::.
+argument:: lo
+argument:: hi
+
+METHOD:: wrap
+Wraps the signal, see LINK::Classes/Float#-wrap::.
+argument:: min
+argument:: max
+If this parameter is not provided, LINK::Classes/Float#-wrap2:: will be applied.
+
+METHOD:: fold
+See LINK::Classes/Float#-fold::.
+argument:: lo
+argument:: hi
+
+SUBSUBSECTION:: Interpolation
+
+METHOD:: lin
+Linear interpolation of a and b using this value as measurement between both values.
+argument:: a
+argument:: b
+
+METHOD:: cubic
+Cubic interpolation on the given position.
+argument:: a
+argument:: b
+argument:: c
+argument:: d

@@ -1,7 +1,7 @@
 TITLE:: DynGenDef
 summary:: Stores DynGen code on the server
 categories:: UGens>Dynamic
-related:: Classes/DynGen, Classes/SynthDef
+related:: Classes/DynGen, Classes/DynGenTranspiler, Classes/SynthDef
 
 DESCRIPTION::
 
@@ -68,6 +68,16 @@ The server on which the DynGenDef should be registered.
 If no server is provided, LINK::Classes/Server#*allBootedServers:: will be used.
 argument:: completionMsg
 An optional OSC message that will be executed by the server after the DynGenDef has been registered on the server.
+
+METHOD:: compile
+Uses LINK::Classes/DynGenTranspiler:: to transpile a SuperCollider function into DynGen code and sets it as the associated code of this DynGen object.
+
+argument:: sample
+Function to represent the CODE::@sample:: section
+argument:: init
+Function to represent the CODE::@init:: section.
+argument:: block
+Function to represent the CODE::@block:: section.
 
 METHOD:: load
 Loads the content of a file to the code variable.

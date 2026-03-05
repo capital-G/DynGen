@@ -1,0 +1,473 @@
+TITLE:: DynGenTranspiler
+summary:: Transpiles sclang functions to DynGen source code
+categories:: UGens>Dynamic
+related:: Classes/DynGenDef, Classes/DynGen, Classes/DynGenExpr
+
+DESCRIPTION::
+
+WARNING::
+The transpiler is highly experimental.
+Code will probably break across versions until a stable API has been reached.
+
+Please report any bugs or suggestions using the scsynth forum or via GitHub.
+::
+
+DynGenTranspiler converts a sclang LINK::Classes/Function:: into DynGen source code by using an LINK::Classes/Environment::.
+For example
+
+CODE::
+(
+DynGenTranspiler(#{
+	~x = (~x + (440.0/~srate)).wrap(0.0, 1.0);
+	~out0 = sin(~x * 2 * pi);
+}).compile;
+)
+::
+
+returns the following DynGen code as LINK::Classes/String::
+
+CODE::
+x = wrap((x + (440.0 / srate)), 0.0, 1.0);
+out0 = sin(((x * 2) * 3.1415926535898));
+::
+
+The transpiler can be easily accessed using LINK::Classes/DynGenDef#-compile::, e.g.
+
+CODE::
+(
+Ndef(\x, {
+	var sig = DynGen.ar(
+		numOutputs: 1,
+		script: DynGenDef(\x).compile(#{
+			~x = (~x + (440.0/~srate)).wrap(0.0, 1.0);
+			~out0 = sin(~x * 2 * pi);
+		}).send,
+	);
+	sig.dup * 0.2;
+}).play;
+)
+::
+
+Using the transpiler allows for syntax checks on sclang level, autocompletion hints and new kinds of abstractions using meta-programming, though maybe not all features of DynGen are available through the transpiler.
+
+The funcionality and features of DynGen are explained in LINK::Classes/DynGen::.
+
+NOTE::
+Throughout this document we will prepend functions with a CODE::#::.
+This makes a function a closed function, such that it does not capture any variables outside its own scope.
+
+Try out the following code with a prepended CODE::#:: and without a prepended CODE::#::.
+
+CODE::
+(
+var some = 42;
+var thing = #{some.postln;};
+thing.value();
+)
+::
+
+Since DynGen functions need to be self contained and there is some magic behind the curtain involved to track each operation on a variable, it is advised to not introduce any outside state into such a function, which CODE::#:: guarantees.
+::
+
+SUBSECTION:: Variables
+
+All DynGen variables need to be LINK::Classes/Environment:: variables which are prepended with a CODE::~::.
+The following function, which uses traditional variables, will therefore not yield in any code, because we rely on capturing environment access to track the operations on each variable.
+
+CODE::
+(
+DynGenTranspiler(#{
+	var x = 42;
+	var out0 = x;
+}).compile;
+)
+::
+
+Using environment variables as variables instead returns the appropiate source code
+
+CODE::
+(
+DynGenTranspiler(#{
+	~x = 42;
+	~out0 = ~x;
+}).compile;
+)
+::
+
+CODE::
+x = 42;
+out0 = x;
+::
+
+SUBSECTION:: Function calls
+
+NOTE::
+While EEL2 (and therefore DynGen) has an operator precedence, this is not the case for sclang.
+Any code converted by the transpiler will therefore follow the EMPHASIS::operator predence:: from sclang (so left to right), which is enforced in DynGen code by grouping each operation in brackets.
+E.g. CODE::2 + 4 * 2:: would evaluate to CODE::2+(4*2)=10:: in DynGen, while using the transpiler this would result in CODE::(2+4)*2=8::.
+::
+
+Every declared sclang DynGen variable allows the same operations as in DynGen source code, though the syntax may be adjusted to match more the Smalltalk based influence of sclang.
+
+Writing a simple LINK::Classes/SinOsc:: requires some basic math operations like addition (CODE::+::) and multiplication (CODE::*::), but also the functions CODE::sin:: and CODE::wrap::, which mimic the common sclang methods.
+
+CODE::
+(
+DynGenTranspiler(#{
+	~x = (~x + (440.0/~srate)).wrap(0.0, 1.0);
+	~out0 = sin(~x * 2 * pi);
+}).compile;
+)
+::
+
+This example shows that, like traditionally in sclang, a EMPHASIS::message:: on a value can either be pre-pended (like in the case of CODE::sin(~x * 2 * pi)::, where the message CODE::sin:: is called on the value of CODE::~x * 2 * pi:: - which mimics a function call), or written after the value, in which case the value it was called upon will be used as first parameter of the function.
+So CODE::~x.wrap(0.0, 1.0):: is actually the same as CODE::wrap(~x, 0.0, 1.0)::.
+
+Both kind of writings are canonical in sclang, but DynGen source code only allows the function based notation - so by using the transpiler, one may feel more at home since it can handle both kinds of syntax.
+
+NOTE::
+A function call on its own will not be captured by the transpiler - every operation needs to be assigned to a variable in order to be captured.
+Since there are not many functions in DynGen which have side-effects, this may not be relevant in every day usage, but it seems relevant enough to be mentioned.
+
+E.g. the following transpiler output misses the line without assignment.
+
+CODE::
+(
+DynGenTranspiler(#{
+	~x = (~x + (440.0/~srate)).wrap(0.0, 1.0);
+	sin(~x * 4 * pi);
+	~out0 = sin(~x * 2 * pi);
+}).compile;
+)
+::
+
+CODE::
+x = wrap((x + (440.0 / srate)), 0.0, 1.0);
+// sin(~x * 4 * pi); is missing!
+out0 = sin(((x * 2) * 3.1415926535898));
+::
+
+There are some exceptions on this behavior, especially around control flow functions such as CODE::ifTrue:: or CODE::loop::.
+::
+
+SUBSECTION:: Parameters
+
+The prior section showed how to write a LINK::Classes/SinOsc::, but how does one control its frequency using a DynGen parameter like CODE::_freq::?
+
+CODE::
+~_freq;
+::
+
+is actually a syntax error (at least in SuperCollider 3.14) - so parameters have to be written differently by relying on the special variable CODE::~p::, i.e. for our LINK::Classes/SinOsc:: we write CODE::~p.freq:: to declare the frequency parameter.
+While we are at it, we will make it a LINK::Classes/SinOscFB:: by also exposing its feedback parameter using CODE::~p.fb::.
+
+CODE::
+(
+Ndef(\x, {
+	var sig = DynGen.ar(
+		numOutputs: 1,
+		script: DynGenDef(\x).compile(#{
+			// used to be called ~x
+			~phase = (~phase + (~p.freq/~srate)).wrap(0.0, 1.0);
+			~sig = sin(~phase * 2 * pi + (~sig * ~p.fb));
+			~out0 = ~sig;
+		}).send,
+		params: [
+			freq: \freq.kr(200.0),
+			fb: \fb.kr(0.0, spec: [0.0, 1.5]),
+		]
+	);
+	sig.dup * 0.2;
+}).play.gui;
+)
+::
+
+
+SUBSECTION:: Control structures
+
+DynGen offers various kinds of control structures.
+
+NOTE::
+Contrary to all other function calls, it is not necessary to capture the output of these functions in order to appear on in the transpiled output.
+
+Some methods had to be renamed from their sclang counterpart because of some internal sclang optimizations.
+::
+
+SUBSUBSECTION:: ifTrue
+
+CODE::ifTrue:: offers conditional branching like CODE::if:: in sclang
+
+CODE::
+(
+Ndef(\x, {
+	var freq = DynGen.ar(
+		numOutputs: 1,
+		script: DynGenDef(\x).compile(#{
+			// values need to be assigned, otherwise they get ignored!
+			// ~x is a dummy variable the last assignment will also act
+			// as the return value of the branch
+			~out0 = (~in0>0.5).ifTrue(
+				// true branch
+				{~x = 400.0},
+				// false branch
+				{~x = 400.0 * 4/3}
+			);
+		}).send,
+		inputs: SinOsc.ar(1.0).unipolar,
+	);
+	SinOsc.ar(freq).dup * 0.2;
+}).play.gui;
+)
+::
+
+SUBSUBSECTION:: whileTrue
+
+CODE::whileTrue:: acts similar to CODE::while:: in sclang.
+
+CODE::
+(
+Ndef(\x, {
+	var mod = SinOsc.ar(0.1, 1.3).unipolar;
+	var freq = DynGen.ar(
+		numOutputs: 1,
+		script: DynGenDef(\x).compile(#{
+			~x = 0;
+			(~x < ~in0).whileTrue({
+				~x = ~x + 0.1;
+			});
+			~out0 = ~x;
+		}).send,
+		inputs: mod,
+	);
+	SinOsc.ar([freq.poll, mod].linexp(0, 1, 2000, 4000)) * 0.2;
+}).play.gui;
+)
+::
+
+SUBSUBSECTION:: loop
+
+CODE::loop:: is similar to CODE::do:: in sclang - but no internal counter is provided as argument, so we have to increment the loop ourselves, just like in DynGen.
+Loop is really useful for oversampling, e.g.
+
+CODE::
+(
+Ndef(\sync, {
+	var sig = DynGen.ar(
+		numOutputs: 2,
+		script: DynGenDef(\x).compile(#{
+			~overSample = 8;
+			~incA = (~p.freqA/~srate) / ~overSample;
+			~incB = (~p.freqB/~srate) / ~overSample;
+			~i = 0;
+			~overSample.loop({
+				~phaseA = (~phaseA + ~incA).wrap(0.0, 1.0);
+				~phaseB = (~phaseB + ~incB).wrap(0.0, 1.0);
+				// delta takes a parameter for state management,
+				// but if not set, the compiler will fill this
+				// with a temp variable
+				ifTrue(~phaseA.delta.abs > 0.5, {
+					// reset ~phaseB
+					~phaseB = 0.0;
+				});
+				// increment counter - not necessary in this example
+				~i = ~i + 1;
+			});
+			~out0 = sin(~phaseA * 2 * pi);
+			~out1 = sin(~phaseB * 2 * pi);
+		}).send,
+		params: [
+			\freqA: \freqA.ar(200.0, spec: \freq),
+			\freqB: \freqB.ar(851, spec: \freq),
+		]
+	);
+	LeakDC.ar(sig) * 0.2;
+}).play.gui;
+)
+::
+
+SUBSECTION:: Memory access
+
+Every DynGen script has a series of floats as memory available, which is called a EMPHASIS::page::.
+These values are accessed by using square brackets, which in sclang are often used for accessing values in a LINK::Classes/SequenceableCollection::.
+Since there are no arrays in DynGen, but only the memory page, the value which was indexed will be used as an offeset to the index into the memory page.
+For more details read the memory section of LINK::Classes/DynGen::.
+
+CODE::
+(
+DynGenTranspiler(#{
+	~base = 0;
+	~bufferSize = 25;
+	~phase = (~phase+1)%~bufferSize;
+	// write into buffer
+	~base[~phase] = ~in0;
+	// read one ahead from phase so we have a delay of
+	// ~bufferSize samples
+	~out0 = ~in0 + ~base[(~phase+1).wrap(0, ~bufferSize)];
+}).compile;
+)
+::
+
+SUBSECTION:: User defined functions
+
+Like sclang, DynGen also alllows to define functions - though these have to be always given a name and are therefore not anonymous functions like in sclang.
+Like in sclang, the last statement of the function will also be the return value of the function.
+As mentioned, only statements which are asigned to a variable are tracked by the transpiler - so it may be necessary to assign the return value to a dummy variable.
+
+Parameters of the function are written as normal sclang variables - though in the function it is necessary to use the environment variable with the same name - otherwise there is no way to track the operations that are performed on a variable.
+
+CODE::
+(
+DynGenTranspiler(#{
+	~taylorSin = {|x|
+		// remember - if a statement is not assigned to a variable,
+		// it will not be tracked - so assign it to a dummy variable
+		~dummy = ~x - (~x.pow(3))/(3*2) + (~x.pow(5))/(5*4*3*2) - (~x.pow(7))/(7*6*5*4*3*2) + (~x.pow(9))/(9*8*7*6*5*4*3*2);
+	};
+	~phase = (~phase + (~p.freq/~srate)).wrap(0.0, 1.0);
+	~out0 = ~taylorSin.(~phase * 2 * pi);
+}).compile;
+)
+::
+
+DynGen has one global namespace - so variables in a function are also affecting its global scope.
+This is not the case for parameters, which are scoped in the function.
+In order to obtain variables which are bound to the scope of the function, one can add them using the prefix CODE::l_::.
+Those variables will be persistent across function calls.
+
+CODE::
+(
+DynGenTranspiler(#{
+	// a taylor sin implementation which caches the last value
+	~taylorSin = {|x, l_lastX, l_lastVal|
+		ifTrue(~lastX!=~x, {
+			~lastVal = ~x - (~x.pow(3))/(3*2) + (~x.pow(5))/(5*4*3*2) - (~x.pow(7))/(7*6*5*4*3*2) + (~x.pow(9))/(9*8*7*6*5*4*3*2);
+		});
+		// assigning to dummy variable
+		~some = ~lastVal;
+	};
+	// in sclang we can "ignore" setting all parameters
+	// this is not allowed in DynGen.
+	// But since the parameters are "local variables",
+	// then can be omitted in our function call
+	~out0 = ~taylorSin.(0.5);
+}).compile;
+)
+::
+
+SUBSECTION:: Meta programming
+
+Although the transpiler is only able to track environment variables, we can use this circumstence to use traditional sclang variables for meta programming since they are not visible to the transpiler.
+
+The first parameter of the function to be transpiled is its own LINK::Classes/Environment::.
+This allows to define and access variables in a programmatic way and also introduces the concept of arrays into DynGen (but not in any kind like multi-channel expansion that is known from sclang!)
+
+CODE::
+(
+DynGenTranspiler(#{|e|
+	var signals = 8.collect({|i|
+		var key = "foo%".format(i).asSymbol;
+		e[key] = (e[key] + ((i+1)*400.0/~srate)).wrap(0.0, 1.0);
+		sin(e[key] * 2 * pi);
+	});
+	~out0 = signals.mean;
+}).compile;
+)
+::
+
+This also allows to create functions at compile time.
+
+0.factorial
+
+CODE::
+(
+DynGenTranspiler(#{|e|
+	// a taylor sin implementation which caches the last value
+	var taylorSinGen = {|num, phaseVar|
+		var val = 0;
+		var phase = e[phaseVar];
+		num.do({|i|
+			val = val + ((-1).pow(i) * (phase.pow(2*i+1)/(2*i+1).factorial))
+		});
+		val;
+	};
+	// in sclang we can "ignore" setting all parameters
+	// this is not allowed in DynGen.
+	// But since the parameters are "local variables",
+	// then can be omitted in our function call
+	~phase = (~phase + (400/~srate)).wrap(0.0, 2 * pi);
+	// we can't pass ~phase by value - we need to pass
+	// it by its string name
+	~out0 = taylorSinGen.(3, "phase");
+}).compile;
+)
+::
+
+SUBSECTION:: How does the transpiler work?
+
+This section explains the inner mechanics of CODE::DynGenTranspiler::, which is based on the ability to intercept any access to an LINK::Classes/Environment:: through LINK::Classes/EnvironmentRedirect::.
+
+On an assignment, sclang first evaluates the right hand side (which gets evaluated from left to right) and, after that, inokes the left side.
+
+Any access to an environment variable invokes an overwritten LINK::Classes/EnvironmentRedirect#-at::.
+So given
+
+CODE::
+~x = ~y + 42;
+::
+
+CODE::at(y):: will be first invoked on the LINK::Classes/EnvironmentRedirect:: by sclang.
+Any non assigned variable will default to CODE::nil:: - but this is not good in our case because CODE::nil + 42:: will invoke a CODE::Message '+' not understood:: error.
+
+Becuase we want to allow operations such as CODE::+:: on a DynGen variable and want to capture any message instead of applying it directly, we do not default to CODE::nil:: within a DynGen environment, but default to CODE::PrDynGenVar_::, which is based on LINK::Classes/DynGenExpr::.
+
+LINK::Classes/DynGenExpr:: implements the message CODE::+:: and when it is called, it will return a CODE::PrDynGenBinOp_::, which is also based on LINK::Classes/DynGenExpr::.
+
+CODE::
+~binOp = PrDynGenVar_("y") + 42;  // a PrDynGenBinOp_
+~binOp.left; // a PrDynGenVar_
+~binOp.right; // 42
+~binOp.op; // +
+::
+
+Since now all of the right hand side of our assignment has been evaluated, the sclang interpreter will now call CODE::put(key: \x, value: a PrDynGenBinOp_):: on our environment.
+
+This will wrap the key in a CODE::PrDynGenVar_:: and will put a CODE::PrDynGenAssignment_:: (also based on LINK::Classes/DynGenExpr::) into the sequence of observed statements, which is a CODE::PrDynGenSequence_::.
+
+Once LINK::#-compile:: gets called, the message CODE::asDynGen:: will be called on this sequence of statements.
+Each LINK::Classes/DynGenExpr:: implements this method, which knows how to translate its operation as a DynGen source code string.
+Since most statements are nested, most operators will call CODE::asDynGen:: recursively until they have reached CODE::asDynGen:: on LINK::Classes/String::, which simply returns itself and terminates the recursion.
+
+https://craftinginterpreters.com/representing-code.html offers further information and is a highly recommended resource.
+
+CLASSMETHODS::
+
+PRIVATE:: nextTempVariable
+PRIVATE:: tempCounter
+
+METHOD:: new
+argument:: func
+A function which gets evaluated within a DynGen LINK::Classes/Environment::.
+This environment will be passed into the function as its first parameter.
+
+METHOD:: paramCompile
+Returns the param section of a collection of transpilers.
+CODE::
+DynGenTranspiler({~out0 = ~p.foo * 0.5}).paramCompile;
+// returns the string
+// @param foo: init = 0.0, type = lin
+::
+argument:: transpilers
+Since a DynGen script consists of multiple sections (which are represented by multiple transpilers), but the option CODE::@param:: acts global, it is necessary to combine them from different transpilers.
+The first observation of a param will be considered.
+
+INSTANCEMETHODS::
+
+PRIVATE:: init
+PRIVATE:: environment
+
+METHOD:: compile
+Returns the transpiled DynGen script as a LINK::Classes/String::.
+
+METHOD:: paramCompile
+
+Passes itself to LINK::#*paramCompile::.

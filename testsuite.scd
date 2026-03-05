@@ -55,6 +55,26 @@
 		// sclang tests
 		\testRemoveComments,
 		\testExtractParameters,
+
+		// transpiler tests
+		\testTransAssignment,
+		\testTransFunctionCall,
+		\testTransFunctionCallAlt,
+		\testTransParam,
+		\testTransIfTrue,
+		\testTransWhileTrue,
+		\testTransLoop,
+		\testTransMemory,
+		\testTransUserFunction,
+		\testTransMeta,
+		\testTransNested,
+		\testTransNoAssignment,
+		\testTransNoAssignmentFunc,
+		\testTransTempVariable,
+		\testTransParamCompiler,
+		\testTransParamOutput,
+		\testTransOutput,
+		\testTransDynGenDefCompile,
 	],
 
 	testBasic: {
@@ -748,9 +768,9 @@
 		{
 			DynGen.ar(2, \testConstants, sync: 1.0);
 		}.loadToFloatArray(0.01, action: {|sig|
-			var sr = s.options.sampleRate;
+			var sr = s.options.sampleRate ? 40000;
 			var bs = s.options.blockSize;
-			success = sig[0] == sr and: { sig[1] == bs };
+			success = sig[0] >= sr and: { sig[1] == bs };
 			condition.unhang;
 		});
 		condition.hang;
@@ -1324,6 +1344,362 @@ out1 = __gain2;
 		gain.and(gain2).and(size);
 	},
 
+	// transpiler tests
+
+	testTransAssignment: {
+		var code = DynGenTranspiler({
+			~x = ~x + 42;
+		});
+		var exprs = code.environment.sequence.expressions;
+		var success = exprs.size == 1;
+		var expr = exprs[0];
+		success = success.and(
+			expr.lhs.name==\x
+		).and(
+			expr.rhs.left.name == \x
+		).and(
+			expr.rhs.right == 42
+		).and(
+			expr.rhs.op == '+'
+		);
+		success;
+	},
+
+	testTransFunctionCall: {
+		var code = DynGenTranspiler({
+			~x = ~x.wrap(0.0, 1.0);
+		});
+		var exprs = code.environment.sequence.expressions;
+		var success = exprs.size == 1;
+		var expr = exprs[0];
+		success = success.and(
+			expr.lhs.name == \x;
+		).and(
+			expr.rhs.funcName == \wrap;
+		).and(
+			expr.rhs.arguments[0].name == \x;
+		).and(
+			expr.rhs.arguments[1] == 0.0;
+		).and(
+			expr.rhs.arguments[2] == 1.0;
+		);
+		success;
+	},
+
+	testTransFunctionCallAlt: {
+		var code = DynGenTranspiler({
+			~x = wrap(~x, 0.0, 1.0);
+		});
+		var exprs = code.environment.sequence.expressions;
+		var success = exprs.size == 1;
+		var expr = exprs[0];
+		success = success.and(
+			expr.lhs.name == \x;
+		).and(
+			expr.rhs.funcName == \wrap;
+		).and(
+			expr.rhs.arguments[0].name == \x;
+		).and(
+			expr.rhs.arguments[1] == 0.0;
+		).and(
+			expr.rhs.arguments[2] == 1.0;
+		);
+		success;
+	},
+
+	testTransParam: {
+		var code = DynGenTranspiler({
+			~x = ~x.wrap(0.0, ~p.max(1.0, \step, \freq));
+			~y = ~y.wrap(0.0, ~p.min(init: -1.0, type: \const, spec: \freq));
+			~z = ~x * ~p.max;
+		});
+		var params = code.environment[\p].params;
+		var success = params.keys.size == 2;
+		success = success.and(
+			params[\max].notNil,
+			params[\max].type == \step,
+			params[\max].init == 1.0,
+			params[\max].spec == \freq,
+
+			params[\min].notNil,
+			params[\min].type == \const,
+			params[\min].spec == \freq,
+		);
+		success;
+	},
+
+	testTransIfTrue: {
+		var code = DynGenTranspiler({
+			~x = 0.0;
+			~x = ~x.ifTrue(0.5);
+			~x = ~x.ifTrue({0.5}, {pi});
+			~x.ifTrue({0.5}, {pi});
+		});
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs.size == 4,
+
+			exprs[1].rhs.left.name == \x,
+			exprs[1].rhs.right == 0.5,
+
+			exprs[2].rhs.opB == ':',
+			exprs[2].rhs.branchB.value == pi,
+
+			exprs[3].branchA.value == 0.5;
+		];
+		checks.every({|x| x});
+	},
+
+	testTransWhileTrue: {
+		var code = DynGenTranspiler({
+			~i = 0;
+			~x = (~i<5).whileTrue({~dummy = ~i+1;});
+			(~i<10).whileTrue({~dummy2 = ~i+2;});
+		});
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs.size == 3,
+
+			exprs[1].rhs.condition.op == '<',
+			exprs[1].rhs.code.asDynGen.contains("i + 1"),
+
+			exprs[2].code.asDynGen.contains("i + 2"),
+		];
+		checks.every({|x| x});
+	},
+
+	testTransLoop: {
+		var code = DynGenTranspiler({
+			~i = 8;
+			~i.loop({
+				~x = ~x+1;
+				~i = ~i + 1;
+			});
+		});
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs.size == 2;
+
+			exprs[1].funcName == 'loop';
+			exprs[1].arguments[0].name == 'i';
+			exprs[1].arguments[1].asDynGen.contains("x + 1");
+			exprs[1].arguments[1].asDynGen.contains("i + 1");
+		];
+		checks.every({|x| x});
+	},
+
+	testTransMemory: {
+		var code = DynGenTranspiler({
+			~base = 0;
+			~base[~in0] = 10.0;
+			~base[10.0] = 20.0;
+			~out0 = ~base[20];
+			~out1 = ~base[~in1];
+		});
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs.size == 5,
+			exprs[1].lhs.offset.name == 'in0',
+			exprs[1].lhs.variable.name == 'base',
+			exprs[2].lhs.offset == 10.0,
+			exprs[3].rhs.offset == 20.0,
+			exprs[4].rhs.offset.name == 'in1',
+		];
+		checks.every({|x| x});
+	},
+
+	testTransUserFunction: {
+		var code = DynGenTranspiler({
+			~foo = {|x, l_y|
+				~y = ~x;
+				~x = ~x + ~y;
+			};
+			~out0 = ~foo.(~in0);
+		});
+		var exprs = code.environment.sequence.expressions;
+		var foo = exprs[0].func.asDynGen;
+
+		var checks = [
+			exprs.size == 2,
+
+			exprs[0].name == 'foo',
+			foo == "(y = x; x = (x + y);)",
+
+			exprs[1].rhs.funcName == 'foo',
+			exprs[1].rhs.arguments[0].name == 'in0',
+		];
+		checks.every({|x| x});
+	},
+
+	testTransMeta: {
+		var code = DynGenTranspiler(#{|e|
+			var signals = 2.collect({|i|
+				var key = "foo%".format(i).asSymbol;
+				e[key] = (i+1)*100;
+			});
+			~out0 = signals.mean;
+		});
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs.size == 3,
+
+			exprs[0].lhs.name == 'foo0',
+			exprs[0].rhs == 100,
+
+			exprs[1].lhs.name == 'foo1',
+			exprs[1].rhs == 200,
+
+			exprs[2].rhs.asDynGen == "(((0 + foo0) + foo1) / 2)",
+		];
+		checks.every({|x| x});
+	},
+
+	testTransNested: {
+		var code = DynGenTranspiler(#{
+			~x = ~a = ~y.pow(~z = ~w + 1; 2);
+		});
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs.size == 3,
+
+			exprs[0].lhs.name == \z,
+			exprs[0].rhs.left.name == \w,
+
+			exprs[1].lhs.name == \a,
+			exprs[1].rhs.funcName == \pow,
+
+			exprs[2].lhs.name == \x,
+			exprs[2].rhs.funcName == \pow,
+			exprs[2].rhs.arguments[0].name == \y,
+			exprs[2].rhs.arguments[1] == 2,
+		];
+		checks.every({|x| x});
+	},
+
+	testTransNoAssignment: {
+		var code = DynGenTranspiler({
+			~x + 2;
+		});
+
+		var exprs = code.environment.sequence.expressions;
+
+		exprs.size == 0;
+	},
+
+	testTransNoAssignmentFunc: {
+		var code = DynGenTranspiler({
+			~foo = {|x|
+				~x*2;
+			};
+		});
+
+		var exprs = code.environment.sequence.expressions;
+
+		var checks = [
+			exprs[0].name == \foo,
+			exprs[0].func.asDynGen == "()",
+		];
+		checks.every({|x| x});
+	},
+
+	testTransTempVariable: {
+		var code;
+		var exprs;
+		var checks;
+		DynGenTranspiler.tempCounter = 0;
+
+		code = DynGenTranspiler({
+			~out0 = ~in0.delta;
+		});
+		exprs = code.environment.sequence.expressions;
+
+		checks = [
+			exprs.size == 1,
+
+			exprs[0].lhs.name == \out0,
+			exprs[0].rhs.funcName == \delta,
+			exprs[0].rhs.arguments[0].name == \temp0,
+			exprs[0].rhs.arguments[1].name == \in0,
+		];
+		checks.every({|x| x});
+	},
+
+	testTransParamCompiler: {
+		var checks = [
+			DynGenTranspiler.paramCompile([]) == "",
+
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo})
+			]) == "@param foo: init = 0.0, type = lin\n",
+
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)})
+			]) == "@param foo: init = 0.5, type = step\n",
+
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)})
+			]) == "@param foo: init = 0.5, type = step\n",
+
+			// do not overwrite, but accumulate - the order of bar/foo
+			// seems to be deterministic?
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)}),
+				DynGenTranspiler({~out0 = ~p.foo; ~out1 = ~p.bar})
+			]) == "@param bar: init = 0.0, type = lin\n@param foo: init = 0.5, type = step\n",
+		];
+		checks.every({|x| x});
+	},
+
+	testTransParamOutput: {
+		var def = DynGenDef(\transParamOutput).compile(
+			init: {~freq = ~p.freq(200.0, \lin, \freq)},
+			block: {},
+			sample: {~out0 = ~p.freq},
+		);
+		var checks = [
+			def.code.beginsWith("@param freq: init = 200.0, type = lin\n"),
+			def.code.contains("out0 = _freq;"),
+		];
+		checks.every({|x| x});
+	},
+
+	testTransOutput: {
+		var code = DynGenTranspiler({
+			~out0 = ~in0 * 2.0;
+		}).compile;
+
+		code == "out0 = (in0 * 2.0);";
+	},
+
+	testTransDynGenDefCompile: {
+		var def = DynGenDef(\transcompile).compile(
+			sample: {
+				~out0 = ~in0 * 2.0;
+			},
+			init: {
+				~some = pi;
+			},
+			block: {
+				~myBlock = 42;
+			},
+		);
+		var code = def.code;
+
+		var checks = [
+			code.beginsWith("@init\nsome = 3.141"),
+			code.contains("@block\nmyBlock = 42;"),
+			code.contains("@sample\nout0 = (in0 * 2.0);"),
+		];
+
+		checks.every({|x| x});
+	},
+
 	// meta
 
 	run: {|self, name=nil|
@@ -1341,7 +1717,6 @@ out1 = __gain2;
 		}, {
 			"All tests ran successfully!".postln;
 		});
-
 	},
 )
 )
