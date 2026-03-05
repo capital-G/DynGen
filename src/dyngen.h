@@ -42,9 +42,10 @@ private:
         CodeIDIndex = 0,
         UpdateIndex = 1,
         SyncIndex = 2,
-        NumInputsIndex = 3,
-        NumParametersIndex = 4,
-        InputOffset = 5
+        PauseIndex = 3,
+        NumInputsIndex = 4,
+        NumParametersIndex = 5,
+        InputOffset = 6
     };
     int mCodeID;
     int mNumDynGenInputs;

@@ -263,7 +263,7 @@ DynGenDef {
 }
 
 DynGen : MultiOutUGen {
-	*ar {|numOutputs, script, inputs, params, update=1.0, sync=0.0|
+	*ar {|numOutputs, script, inputs, params, update=1.0, sync=0.0, pause=0.0|
 		var signals;
 
 		script = case
@@ -287,13 +287,14 @@ DynGen : MultiOutUGen {
 			script,
 			update,
 			sync,
+			pause,
 			inputs.size,
 			params.size/2.0,  // parameters are tuples of [id, value]
 			*signals,
 		);
 	}
 
-	init { |numOutputs, script, update, sync, numInputs, numParams ... signals|
+	init { |numOutputs, script, update, sync, pause, numInputs, numParams ... signals|
 		var audioInputs = signals[..(numInputs-1)];
 		var params = signals[numInputs..];
 
@@ -324,6 +325,7 @@ DynGen : MultiOutUGen {
 			script.hash.asFloat,
 			update,
 			sync,
+			pause,
 			numInputs,
 			numParams,
 		] ++ audioInputs ++ params;

@@ -861,14 +861,14 @@ If a parameter is not found in the DynGen code, you get a warning in the console
 It is not discarded, though, you can still use it when you update the code.
 
 argument:: update
-If CODE::true:: or 1.0, the UGen will automatically adapt to DynGen code changes, see LINK::Classes/DynGenDef#-send::.
-If CODE::false:: or 0.0, it keeps the current code.
+If 1.0, the UGen will automatically adapt to DynGen code changes, see LINK::Classes/DynGenDef#-send::.
+If 0.0, it keeps the current code.
 The value can be changed at control rate.
 NOTE::Code updates are always asynchronous.::
 
 argument:: sync
-Normally DynGen instances are spawned outside the audio thread to avoid audio dropouts (CODE::false:: or 0.0), yet this introduces also a delay of at least one block size until the instance produces output.
-If sample-precise timing is required from the first sample on, one can activate the sync mode (CODE::true:: or 1.0) which compiles and creates the DynGen vm in the real-time thread, though this can introduce audio-dropouts.
+Normally DynGen instances are spawned outside the audio thread to avoid audio dropouts (0.0), yet this introduces also a delay of at least one block size until the instance produces output.
+If sample-precise timing is required from the first sample on, one can activate the sync mode (1.0) which compiles and creates the DynGen vm in the real-time thread, though this can introduce audio-dropouts.
 NOTE::
 Compare the following versions of the code
 
@@ -888,6 +888,55 @@ CODE::
 {DynGen.ar(1, \test, sync: 1.0)}.plot(0.1);
 ::
 ::
+
+argument:: pause
+If 1.0, the UGen is paused and outputs zeros.
+If 0.0, the UGen processes normally.
+The value can be set at control rate.
+
+For example, this allows to (dynamically) bypass a particularly heavy DynGen effect:
+CODE::
+SynthDef(\bypassExample, { |out, bypass=0|
+	var sig = DynGen.ar(2, \someGenerator);
+	// if 'bypass' is true, the 'heavyReverb' effect will not be processed and the original dry signal will be output
+	var wet = DynGen.ar(2, \heavyReverb, sig, pause: bypass);
+	sig = Select.ar(bypass, [ wet, sig ]);
+	Out.ar(out, sig);
+});
+::
+
+Similarly, you can dynamically switch between multiple DynGen sources while only processing the one that is currently selected:
+CODE::
+SynthDef(\selectExample, { |out, which=0|
+	var sig, inputs = [\osc, \grains, \fm].collect { |def, i|
+		// the DynGen is only processed if it is currently selected
+		DynGen.ar(2, def, pause: (which != i).asInteger);
+	};
+	sig = Select.ar(which, inputs);
+	Out.ar(out, sig);
+});
+::
+
+Finally, it can also be used to synchronize the DynGen with other UGens our Synths despite CODE::sync:: being disabled:
+
+CODE::
+DynGenDef(\test, "out0 = in0").send;
+
+(
+fork {
+	// create the DynGen asynchronously and in a paused state
+	var synth = { |pause=1.0|
+		DynGen.ar(1, \test, SinOsc.ar(69.midicps), sync: 0.0, pause: pause) * 0.1
+	}.play;
+	// wait for it to be ready
+	s.sync;
+	// now start processing together with another Synth
+	synth.set(\pause, 0.0);
+	Synth(\default, [ freq: 71.midicps ]);
+}
+)
+::
+
 
 EXAMPLES::
 
