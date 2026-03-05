@@ -792,7 +792,6 @@ PrDynGenFuncCall_ : DynGenExpr {
 }
 
 PrDynGenLiteral_ : DynGenExpr {
-	var <context;
 	var <value;
 
 	*new {|value, context|
