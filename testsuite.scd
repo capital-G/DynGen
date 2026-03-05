@@ -75,6 +75,8 @@
 		\testTransParamOutput,
 		\testTransOutput,
 		\testTransDynGenDefCompile,
+		\testTransDynGenParamExtract,
+		\testPlainDynGenParamExtract,
 	],
 
 	testBasic: {
@@ -1646,12 +1648,17 @@ out1 = __gain2;
 				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)})
 			]) == "@param foo: init = 0.5, type = step\n",
 
-			// do not overwrite, but accumulate - the order of bar/foo
-			// seems to be deterministic?
+			// do not overwrite, but accumulate - run two time b/c
+			// order is not deterministic
 			DynGenTranspiler.paramCompile([
 				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)}),
 				DynGenTranspiler({~out0 = ~p.foo; ~out1 = ~p.bar})
-			]) == "@param bar: init = 0.0, type = lin\n@param foo: init = 0.5, type = step\n",
+			]).contains("@param bar: init = 0.0, type = lin"),
+
+			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)}),
+				DynGenTranspiler({~out0 = ~p.foo; ~out1 = ~p.bar})
+			]).contains("@param foo: init = 0.5, type = step\n"),
 		];
 		checks.every({|x| x});
 	},
@@ -1698,6 +1705,62 @@ out1 = __gain2;
 		];
 
 		checks.every({|x| x});
+	},
+
+	testTransDynGenParamExtract: {
+		var success = false;
+		var condition = Condition();
+		var bus = Bus.control(s);
+		var synth;
+
+		var def = DynGenDef(\transCompileParam).compile({
+			~out0 = ~p.foo(0.1);
+		}).send;
+		s.sync;
+
+		synth = {
+			var sig = DynGen.ar(1, def, params: \all, sync: 1.0);
+			A2K.kr(sig);
+		}.play(target: s, outbus: bus, fadeTime: 0.0);
+		s.sync;
+
+		success = (bus.getSynchronous - 0.1) < 0.001;
+		synth.set(\foo, -0.1);
+		s.sync;
+
+		success = success.and((bus.getSynchronous + 0.1) < 0.001);
+		synth.free;
+		bus.free;
+		s.sync;
+
+		success;
+	},
+
+	testPlainDynGenParamExtract: {
+		var success = false;
+		var condition = Condition();
+		var bus = Bus.control(s);
+		var synth;
+
+		var def = DynGenDef(\plainParamExtract, "out0 = _foo;").send;
+		s.sync;
+
+		synth = {
+			var sig = DynGen.ar(1, def, params: \all, sync: 1.0);
+			A2K.kr(sig);
+		}.play(target: s, outbus: bus, fadeTime: 0.0);
+		s.sync;
+
+		success = (bus.getSynchronous - 0.1) < 0.001;
+		synth.set(\foo, -0.1);
+		s.sync;
+
+		success = success.and((bus.getSynchronous + 0.1) < 0.001);
+		synth.free;
+		bus.free;
+		s.sync;
+
+		success;
 	},
 
 	// meta

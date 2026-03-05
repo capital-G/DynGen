@@ -6,6 +6,8 @@ DynGenDef {
 
 	// private
 	var <prParams;
+	// dict of (paramName -> PrDynGenParam_)
+	var <prTransParams;
 
 	// private
 	classvar counter;
@@ -28,9 +30,14 @@ DynGenDef {
 			^res;
 		});
 		hash = DynGenDef.prHashSymbol(name);
-		res = super.newCopyArgs(name, hash, code ? "", []);
+		res = super.newCopyArgs(name, hash, code ? "").init;
 		all[name] = res;
 		^res;
+	}
+
+	init {
+		prParams = [];
+		prTransParams = ();
 	}
 
 	*load {|name, path|
@@ -69,6 +76,14 @@ DynGenDef {
 				transpilerSample,
 			].select(_.notNil)
 		) ++ output;
+
+		prTransParams = prTransParams ++ DynGenTranspiler.params(
+			transpilers: [
+				transpilerInit,
+				transpilerBlock,
+				transpilerSample
+			].select(_.notNil)
+		);
 
 		code = output;
 	}
@@ -142,6 +157,32 @@ DynGenDef {
 			\cmd,
 			\dyngenfreeall,
 		];
+	}
+
+	allParams {
+		var allParams = [];
+		DynGenDef.prExtractParameters(code).do({|param|
+			// remove "_" prefix
+			var name = param.asString[1..].asSymbol;
+			var transParam = prTransParams[name];
+			var control = if(transParam.notNil, {
+				NamedControl(
+					name: name,
+					values: transParam.init,
+					rate: \control,
+					spec: transParam.spec,
+				);
+			}, {
+				NamedControl(
+					name: name,
+					values: 0.0,
+					rate: \control,
+					spec: \unipolar.asSpec,
+				)
+			});
+			allParams = allParams.add(name).add(control);
+		});
+		^allParams;
 	}
 
 	// this function adds the parameters to the
@@ -274,6 +315,10 @@ DynGen : MultiOutUGen {
 
 		inputs = inputs.asArray;
 		params = params.asArray;
+
+		if((params.size==1).and(params[0]==\all), {
+			params = script.allParams;
+		});
 
 		if(params.size.odd, {
 			Error("Parameters need to be key-value pairs, but found an odd number of elements").throw;
