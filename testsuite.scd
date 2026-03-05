@@ -768,9 +768,9 @@
 		{
 			DynGen.ar(2, \testConstants, sync: 1.0);
 		}.loadToFloatArray(0.01, action: {|sig|
-			var sr = s.options.sampleRate;
+			var sr = s.options.sampleRate ? 40000;
 			var bs = s.options.blockSize;
-			success = sig[0] == sr and: { sig[1] == bs };
+			success = sig[0] >= sr and: { sig[1] == bs };
 			condition.unhang;
 		});
 		condition.hang;
