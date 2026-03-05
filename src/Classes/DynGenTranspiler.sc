@@ -62,7 +62,6 @@ PrDynGenEnvironment_ : EnvironmentRedirect {
 	// if the statement is not assigned, it will be put into
 	// the sequence such that it gets executed, else it will be discarded.
 	var <dueStatements;
-	var tempVariableCount = 0;
 
 	*new {|context|
 		^super.new.init(context);
@@ -850,9 +849,9 @@ PrDynGenUnaryOp_ : DynGenExpr {
 }
 
 PrDynGenBinOp_ : DynGenExpr {
-	var <>op;
-	var <>left;
-	var <>right;
+	var <op;
+	var <left;
+	var <right;
 
 	*new {|op, left, right, context|
 		^super.new(context).initBinOp(op, left, right);
