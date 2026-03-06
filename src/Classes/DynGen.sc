@@ -2,12 +2,14 @@ DynGenDef {
 	classvar <all;
 	var <name;
 	var <hash;
-	var <>code;
+	var <code;
 
 	// private
 	var <prParams;
 	// dict of (paramName -> PrDynGenParam_)
 	var <prTransParams;
+	// stores parameters that are present in the current code
+	var prCurrentParams;
 
 	// private
 	classvar counter;
@@ -30,14 +32,16 @@ DynGenDef {
 			^res;
 		});
 		hash = DynGenDef.prHashSymbol(name);
-		res = super.newCopyArgs(name, hash, code ? "").init;
+		res = super.newCopyArgs(name, hash).init(code ? "");
 		all[name] = res;
 		^res;
 	}
 
-	init {
+	init {|code|
 		prParams = [];
 		prTransParams = ();
+		prCurrentParams = [];
+		this.code_(code);
 	}
 
 	*load {|name, path|
@@ -85,20 +89,25 @@ DynGenDef {
 			].select(_.notNil)
 		);
 
-		code = output;
+		this.code_(output);
 	}
 
 	load {|path|
 		try {
-			code = File.readAllString(path);
+			this.code_(File.readAllString(path));
 		} {
 			^Error("DynGenDef: could not open file '%'".format(path)).throw;
 		}
 	}
 
+	code_ {|newCode|
+		code = newCode;
+		prCurrentParams = DynGenDef.prExtractParameters(code);
+		this.prRegisterParams;
+	}
+
 	send {|server, completionMsg|
 		var servers = (server ?? { Server.allBootedServers }).asArray;
-		this.prRegisterParams;
 		servers.do { |each|
 			if(each.hasBooted.not) {
 				"Server % not running, could not send DynGenDef.".format(server.name).warn
@@ -159,9 +168,9 @@ DynGenDef {
 		];
 	}
 
-	allParams {
-		var allParams = [];
-		DynGenDef.prExtractParameters(code).do({|param|
+	prMakeControls {
+		var allControls = [];
+		prCurrentParams.do({|param|
 			// remove "_" prefix
 			var name = param.asString[1..].asSymbol;
 			var transParam = prTransParams[name];
@@ -180,9 +189,9 @@ DynGenDef {
 					spec: \unipolar.asSpec,
 				)
 			});
-			allParams = allParams.add(name).add(control);
+			allControls = allControls.add(name).add(control);
 		});
-		^allParams;
+		^allControls;
 	}
 
 	// this function adds the parameters to the
@@ -316,8 +325,8 @@ DynGen : MultiOutUGen {
 		inputs = inputs.asArray;
 		params = params.asArray;
 
-		if((params.size==1).and(params[0]==\all), {
-			params = script.allParams;
+		if((params.size==1).and({params[0]==\all}), {
+			params = script.prMakeControls;
 		});
 
 		if(params.size.odd, {

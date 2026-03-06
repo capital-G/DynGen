@@ -489,6 +489,7 @@ INSTANCEMETHODS::
 
 PRIVATE:: init
 PRIVATE:: environment
+PRIVATE:: params
 
 METHOD:: compile
 Returns the transpiled DynGen script as a LINK::Classes/String::.

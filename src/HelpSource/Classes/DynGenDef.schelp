@@ -103,10 +103,6 @@ METHOD:: freeMsg
 Returns the OSC message to unregister a DynGen script.
 This can be used in NRT environments, see LINK::Guides/Non-Realtime-Synthesis::.
 
-METHOD:: allParams
-Returns all extracted parameters of the code as an LINK::Classes/Array:: which consists of a EMPHASIS::flat-pair::, consisting of a LINK::Classes/Symbol:: following its associated LINK::Classes/NamedControl:: in control rate.
-If the parameter was registered using LINK::Classes/DynGenTranspiler::, the LINK::Classes/NamedControl:: will use the associated LINK::Classes/ControlSpec:: and init value.
-
 PRIVATE:: name
 PRIVATE:: code
 PRIVATE:: prParams
@@ -114,3 +110,4 @@ PRIVATE:: prRegisterParams
 PRIVATE:: prSendScript
 PRIVATE:: prSendFile
 PRIVATE:: prTranslateParameters
+PRIVATE:: prMakeControls
