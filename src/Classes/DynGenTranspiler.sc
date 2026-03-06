@@ -691,8 +691,7 @@ PrDynGenParamAccessor_ {
 	}
 
 	at {|key|
-		// maybe we should cache this?
-		^createParam(key);
+		^this.createParam(key);
 	}
 
 	createParam {|name, init=0.0, type=\lin, spec|
