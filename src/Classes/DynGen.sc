@@ -2,10 +2,14 @@ DynGenDef {
 	classvar <all;
 	var <name;
 	var <hash;
-	var <>code;
+	var <code;
 
 	// private
 	var <prParams;
+	// dict of (paramName -> PrDynGenParam_)
+	var <prTransParams;
+	// stores parameters that are present in the current code
+	var prCurrentParams;
 
 	// private
 	classvar counter;
@@ -28,9 +32,16 @@ DynGenDef {
 			^res;
 		});
 		hash = DynGenDef.prHashSymbol(name);
-		res = super.newCopyArgs(name, hash, code ? "", []);
+		res = super.newCopyArgs(name, hash).init(code ? "");
 		all[name] = res;
 		^res;
+	}
+
+	init {|code|
+		prParams = [];
+		prTransParams = ();
+		prCurrentParams = [];
+		this.code_(code);
 	}
 
 	*load {|name, path|
@@ -70,20 +81,33 @@ DynGenDef {
 			].select(_.notNil)
 		) ++ output;
 
-		code = output;
+		prTransParams = prTransParams ++ DynGenTranspiler.params(
+			transpilers: [
+				transpilerInit,
+				transpilerBlock,
+				transpilerSample
+			].select(_.notNil)
+		);
+
+		this.code_(output);
 	}
 
 	load {|path|
 		try {
-			code = File.readAllString(path);
+			this.code_(File.readAllString(path));
 		} {
 			^Error("DynGenDef: could not open file '%'".format(path)).throw;
 		}
 	}
 
+	code_ {|newCode|
+		code = newCode;
+		prCurrentParams = DynGenDef.prExtractParameters(code);
+		this.prRegisterParams;
+	}
+
 	send {|server, completionMsg|
 		var servers = (server ?? { Server.allBootedServers }).asArray;
-		this.prRegisterParams;
 		servers.do { |each|
 			if(each.hasBooted.not) {
 				"Server % not running, could not send DynGenDef.".format(server.name).warn
@@ -142,6 +166,32 @@ DynGenDef {
 			\cmd,
 			\dyngenfreeall,
 		];
+	}
+
+	prMakeControls {
+		var allControls = [];
+		prCurrentParams.do({|param|
+			// remove "_" prefix
+			var name = param.asString[1..].asSymbol;
+			var transParam = prTransParams[name];
+			var control = if(transParam.notNil, {
+				NamedControl(
+					name: name,
+					values: transParam.init,
+					rate: \control,
+					spec: transParam.spec,
+				);
+			}, {
+				NamedControl(
+					name: name,
+					values: 0.0,
+					rate: \control,
+					spec: \unipolar.asSpec,
+				)
+			});
+			allControls = allControls.add(name).add(control);
+		});
+		^allControls;
 	}
 
 	// this function adds the parameters to the
@@ -274,6 +324,10 @@ DynGen : MultiOutUGen {
 
 		inputs = inputs.asArray;
 		params = params.asArray;
+
+		if((params.size==1).and({params[0]==\all}), {
+			params = script.prMakeControls;
+		});
 
 		if(params.size.odd, {
 			Error("Parameters need to be key-value pairs, but found an odd number of elements").throw;

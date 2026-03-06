@@ -26,24 +26,33 @@ DynGenTranspiler {
 
 	*paramCompile {|transpilers|
 		// combine params of all transpilers
-		var params = ();
 		var output = "";
-		transpilers.asArray.do({|transpiler|
-			transpiler.environment[\p].params.pairsDo({|key, value|
-				if(params[key.asSymbol].isNil, {
-					params[key] = value;
-				});
-			})
-		});
-		params.pairsDo({|key, value|
+		var params = DynGenTranspiler.params(transpilers);
+		params.pairsDo({|key, param|
 			output = "%@param %: init = %, type = %\n".format(
 				output,
 				key,
-				value.init ? 0.0,
-				value.type ? "lin",
+				param.init ? 0.0,
+				param.type ? "lin",
 			);
 		});
 		^output;
+	}
+
+	*params {|transpilers|
+		var params = ();
+		// reverse b/c (\a: 42) ++ (\a: 44) results in
+		// (\a: 44) - but we want to keep the first occurence
+		// of a param, so we simply reverse the order
+		// and overwrite it this way
+		transpilers.asArray.reverse.do({|transpiler|
+			params = params ++ transpiler.environment[\p].params;
+		});
+		^params;
+	}
+
+	params {
+		^DynGenTranspiler.params(this);
 	}
 
 	*nextTempVariable {|context|
@@ -686,7 +695,7 @@ PrDynGenParamAccessor_ {
 		^createParam(key);
 	}
 
-	createParam {|name, init=0.0, type=\lin, spec=\unipolar|
+	createParam {|name, init=0.0, type=\lin, spec|
 		var res = params[name.asSymbol];
 		if(res.isNil, {
 			res = PrDynGenParam_(

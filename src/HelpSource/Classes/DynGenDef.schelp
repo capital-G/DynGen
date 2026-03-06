@@ -51,6 +51,7 @@ PRIVATE:: prRemoveComments
 INSTANCEMETHODS::
 
 PRIVATE:: hash
+PRIVATE:: prTransParams
 
 METHOD:: send
 Registers the DynGenDef on a server via an async command.
@@ -109,3 +110,4 @@ PRIVATE:: prRegisterParams
 PRIVATE:: prSendScript
 PRIVATE:: prSendFile
 PRIVATE:: prTranslateParameters
+PRIVATE:: prMakeControls

@@ -860,6 +860,8 @@ See LINK::#Advanced parameters:: for more information.
 If a parameter is not found in the DynGen code, you get a warning in the console.
 It is not discarded, though, you can still use it when you update the code.
 
+If CODE::params:: is set to CODE::\all::, it will expose all parameters of the script as LINK::Classes/NamedControl:: with its associated LINK::Classes/ControlSpec::.
+
 argument:: update
 If 1.0, the UGen will automatically adapt to DynGen code changes, see LINK::Classes/DynGenDef#-send::.
 If 0.0, it keeps the current code.
