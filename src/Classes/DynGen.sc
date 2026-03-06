@@ -102,7 +102,6 @@ DynGenDef {
 
 	code_ {|newCode|
 		code = newCode;
-		prCurrentParams = DynGenDef.prExtractParameters(code);
 		this.prRegisterParams;
 	}
 
@@ -200,8 +199,8 @@ DynGenDef {
 	// update already running instances which expect
 	// a parameter under a given index.
 	prRegisterParams {
-		var params = DynGenDef.prExtractParameters(code);
-		params.do({|param|
+		prCurrentParams = DynGenDef.prExtractParameters(code);
+		prCurrentParams.do({|param|
 			if(prParams.indexOf(param).isNil, {
 				prParams = prParams.add(param);
 			});
