@@ -1662,6 +1662,10 @@ out1 = __gain2;
 			]) == "@param foo: init = 0.0, type = lin\n",
 
 			DynGenTranspiler.paramCompile([
+				DynGenTranspiler({~out0 = ~p[\foo]})
+			]) == "@param foo: init = 0.0, type = lin\n",
+
+			DynGenTranspiler.paramCompile([
 				DynGenTranspiler({~out0 = ~p.foo(0.5, \step, \freq)})
 			]) == "@param foo: init = 0.5, type = step\n",
 

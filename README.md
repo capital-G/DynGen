@@ -4,6 +4,8 @@
 
 ## Installation
 
+> DynGen currently requires SuperCollider 3.14 or newer!
+
 Builds are occasionally uploaded at <https://github.com/capital-G/DynGen/releases>.
 Download and extract the content of the archive into the `Platform.userExtensionDir` folder.
 
@@ -100,6 +102,42 @@ Ndef(\x, {
 }).play.gui;
 )
 ```
+
+#### Transpiler
+
+> This is still an experimental feature, so please report bugs and consider that existing code can break between releases!
+
+Although DynGen is coded using the programming language EEL2, it is possible to use the provided transpiler to automatically translate sclang code to EEL2 code by using a custom [environment](https://docs.supercollider.online/Classes/Environment.html).
+
+```supercollider
+(
+Ndef(\complexOsc, {
+	var sig = DynGen.ar(
+		numOutputs: 2,
+		script: DynGenDef(\complexOsc).compile(#{
+			// parameters can be declared via ~p
+			~phaseA = ~phaseA + ~p.freqA(200.0, spec: \freq)/~srate;
+			~phaseB = ~phaseB + ~p.freqB(333.3, spec: \freq)/~srate;
+			
+			// keep phase in range
+			~phaseA = ~phaseA.mod(1.0);
+			~phaseB = ~phaseB.mod(1.0);
+			
+			// cross modulation between both oscs
+			~phaseA = ~phaseA + (~p.modIndexA(-0.05, spec: [-0.1, 0.1]) * (~phaseB * 2 * pi).sin);
+			~phaseB = ~phaseB + (~p.modIndexB(0.01, spec: [-0.1, 0.1]) * (~phaseA * 2 * pi).sin);
+			
+			~out0 = (~phaseA * 2 * pi).sin;
+			~out1 = (~phaseB * 2 * pi).sin;
+		}).send,
+		params: \all,
+	);
+	sig * \amp.kr(0.2);
+}).play.gui;
+)
+```
+
+Check the documentation of `DynGenTranspiler` for further information and limitations.
 
 #### Delay line
 
