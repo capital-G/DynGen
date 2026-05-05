@@ -4,6 +4,8 @@
 
 ## Installation
 
+> DynGen currently requires SuperCollider 3.14 or newer!
+
 Builds are occasionally uploaded at <https://github.com/capital-G/DynGen/releases>.
 Download and extract the content of the archive into the `Platform.userExtensionDir` folder.
 
