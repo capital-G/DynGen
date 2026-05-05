@@ -210,6 +210,18 @@ Ndef(\z, {
 )
 ::
 
+WARNING::
+Be aware that not every name can be used as a parameter since the capturing of the call needs to get routed through CODE::doesNotUnderstand::.
+Any method of LINK::Classes/Object:: can therefore not be used as name using the message syntax!
+
+E.g. since there is a LINK::Classes/Object#-reset:: method, it is not possible to use CODE::~p.reset:: since this call will not be routed through LINK::Classes/Object#-doesNotUnderstand:: which takes care of turning the message into a parameter.
+It is still possible to use CODE::p[\reset]:: and set spec and init via
+
+CODE::
+p[\reset].spec_(ControlSpec(0.0, 1.0, step: 1.0)).init_(0.0)
+::
+::
+
 
 SUBSECTION:: Control structures
 

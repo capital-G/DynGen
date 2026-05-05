@@ -716,9 +716,9 @@ PrDynGenParamAccessor_ {
 
 PrDynGenParam_ : DynGenExpr {
 	var <name;
-	var <init;
+	var <>init;
 	var <type;
-	var <spec;
+	var <>spec;
 
 	*new {|name, init, type, spec, context|
 		^super.new(context).initParam(name, init, type, spec);
