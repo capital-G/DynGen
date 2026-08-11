@@ -21,6 +21,7 @@
 		\testTrigParam,
 		\testConstParam,
 		\testInitRateParams,
+		\testExcessiveParameters,
 		\testBufRead,
 		\testBufWrite,
 		\testBufInfo,
@@ -640,6 +641,29 @@
 			DynGen.ar(1, \testBufRead, params: [bufnum: buffer]);
 		}.loadToFloatArray(0.2, action: {|sig|
 			success = sig.any({|x| (x-pi).abs < 0.01;});
+			condition.unhang;
+		});
+		condition.hang;
+		success;
+	},
+
+	// this once caused a memory bug when sending a dyngen w/ more than
+	// 32 parameters, so we simply test for it so it doesn't reappear...
+	testExcessiveParameters: {
+		var success = false;
+		var condition = Condition();
+
+		DynGenDef(\testExcessiveParameters).compile(#{|e|
+			var sig = 64.collect({|i|
+				e["param%".format(i)] = ~p["param%".format(i)] + 1.0;
+			});
+			~out0 = sig.sum;
+		}).send;
+		s.sync;
+		{
+			DynGen.ar(1, \testExcessiveParameters)
+		}.loadToFloatArray(0.1, action: {|x|
+			success = (x[0]-64.0) < 0.1;
 			condition.unhang;
 		});
 		condition.hang;
