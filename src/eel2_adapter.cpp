@@ -14,7 +14,7 @@
 #include <array>
 #include <atomic>
 #include <cassert>
-#include <charconv>
+#include <cstdio>
 
 // The following is copied from SC_SndBuf.h
 #if defined(_MSC_VER) // Visual Studio Intel/ARM64
@@ -457,9 +457,9 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPrint(void*, const INT_PTR numParams, EEL_
             *it = ' ';
             ++it;
         }
-        auto [ptr, ec] = std::to_chars(it, end, *params[i]);
-        if (ec == std::errc()) {
-            it = ptr;
+        int n = std::snprintf(it, static_cast<size_t>(end - it), "%g", *params[i]);
+        if (n > 0 && n < end - it) {
+            it += n;
         } else {
             break;
         }
@@ -502,9 +502,9 @@ EEL_F_PTR NSEEL_CGEN_CALL EEL2Adapter::eelPrintMem(EEL_F** blocks, EEL_F* start,
             *it = ' ';
             ++it;
         }
-        auto [ptr, ec] = std::to_chars(it, end, data[i]);
-        if (ec == std::errc()) {
-            it = ptr;
+        int n = std::snprintf(it, static_cast<size_t>(end - it), "%g", data[i]);
+        if (n > 0 && n < end - it) {
+            it += n;
         } else {
             break;
         }
@@ -528,9 +528,9 @@ EEL_F NSEEL_CGEN_CALL EEL2Adapter::eelPoll(void* opaque, const INT_PTR numParams
 
         auto it = buffer.data();
         auto end = buffer.data() + buffer.size() - 1; // leave space for null terminator
-        auto [ptr, ec] = std::to_chars(it, end, *params[0]);
-        if (ec == std::errc()) {
-            it = ptr;
+        int n = std::snprintf(it, static_cast<size_t>(end - it), "%g", *params[0]);
+        if (n > 0 && n < end - it) {
+            it += n;
         }
         // add null terminator!
         *it = '\0';

@@ -40,7 +40,8 @@ jobs:
             -S . \
             -B build \
             -DSC_PATH=./supercollider \
-            -DSC_INSTALL_DIR=./install
+            -DSC_INSTALL_DIR=./install \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
         cmake --build build --config Release
         cmake --install build --config Release
     - name: upload artifacts
