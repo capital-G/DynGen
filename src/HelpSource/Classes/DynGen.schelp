@@ -1006,7 +1006,8 @@ out0 = sin(x);
 
 y1 = out0;
 ").send;
-)::
+)
+::
 
 CODE::
 (
